@@ -1,0 +1,19 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 21074503,
+    "separation": 11,
+    "spacing": 24,
+    "spread_type": "triangular"
+  },
+  "structures": [
+    {
+      "structure": "dimensionstructurevariants:end_city_overworld",
+      "weight": 1
+    },
+    {
+      "structure": "dimensionstructurevariants:end_city_nether",
+      "weight": 1
+    }
+  ]
+}

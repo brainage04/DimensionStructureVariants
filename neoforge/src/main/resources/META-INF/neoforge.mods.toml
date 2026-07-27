@@ -1,0 +1,24 @@
+modLoader="javafml"
+loaderVersion="[11,)"
+license="MIT"
+
+[[mods]]
+modId="dimensionstructurevariants"
+version="${version}"
+displayName="DimensionStructureVariants"
+authors="brainage04"
+description='''Adds natural cross-dimension variants of vanilla structures.'''
+
+[[dependencies.dimensionstructurevariants]]
+modId="neoforge"
+type="required"
+versionRange="[${neoforge_version},26.3)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.dimensionstructurevariants]]
+modId="minecraft"
+type="required"
+versionRange="[${minecraft_version},26.3)"
+ordering="NONE"
+side="BOTH"

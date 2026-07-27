@@ -1,0 +1,26 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 21074502,
+    "separation": 6,
+    "spacing": 30
+  },
+  "structures": [
+    {
+      "structure": "dimensionstructurevariants:fortress_overworld",
+      "weight": 2
+    },
+    {
+      "structure": "dimensionstructurevariants:bastion_overworld",
+      "weight": 3
+    },
+    {
+      "structure": "dimensionstructurevariants:fortress_end",
+      "weight": 2
+    },
+    {
+      "structure": "dimensionstructurevariants:bastion_end",
+      "weight": 3
+    }
+  ]
+}
