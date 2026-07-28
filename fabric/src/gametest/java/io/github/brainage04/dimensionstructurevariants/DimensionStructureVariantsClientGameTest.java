@@ -4,7 +4,7 @@ import io.github.brainage04.fabricmoddingconventions.ClientGameTestRecorder;
 import io.github.brainage04.fabricmoddingconventions.ClientGameTestServers;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
-import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
+
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
@@ -40,9 +40,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
 	public void runTest(ClientGameTestContext context) {
 		Properties serverProperties = ClientGameTestServers.flatServerProperties();
 		serverProperties.setProperty("view-distance", "12");
-		try (TestDedicatedServerContext server = context.worldBuilder().createServer(serverProperties)) {
-			ClientGameTestServers.connectToDedicatedServer(context, server, "DimensionStructureVariants visual GameTest");
-			try {
+		ClientGameTestServers.withDedicatedServer(context, serverProperties, "DimensionStructureVariants visual GameTest", server -> { try {
 				ClientGameTestServers.assertClientWorldAndPlayerAvailable(context);
 				server.runOnServer(minecraftServer ->
 						stageBase = minecraftServer.getPlayerList().getPlayers().getFirst().blockPosition());
@@ -61,9 +59,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
 					context.waitTicks(60);
 				}
 			} finally {
-				ClientGameTestServers.disconnectFromDedicatedServer(context);
-			}
-		}
+				;
+			} });
 	}
 
 	private static void moveToStage(MinecraftServer server, Stage stage) {
