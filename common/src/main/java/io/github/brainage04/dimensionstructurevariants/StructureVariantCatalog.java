@@ -16,9 +16,9 @@ public final class StructureVariantCatalog {
 			variant("village_end", Biomes.END_HIGHLANDS, Biomes.PLAINS),
 			variant("fortress_overworld", Biomes.PLAINS, Biomes.NETHER_WASTES),
 			variant("fortress_end", Biomes.END_HIGHLANDS, Biomes.NETHER_WASTES),
-			variant("bastion_overworld", Biomes.PLAINS, Biomes.NETHER_WASTES),
+			variant("bastion_overworld", Biomes.OCEAN, Biomes.NETHER_WASTES),
 			variant("bastion_end", Biomes.END_HIGHLANDS, Biomes.NETHER_WASTES),
-			variant("end_city_overworld", Biomes.PLAINS, Biomes.END_HIGHLANDS),
+			variant("end_city_overworld", Biomes.FROZEN_OCEAN, Biomes.END_HIGHLANDS),
 			variant("end_city_nether", Biomes.NETHER_WASTES, Biomes.END_HIGHLANDS)
 	);
 

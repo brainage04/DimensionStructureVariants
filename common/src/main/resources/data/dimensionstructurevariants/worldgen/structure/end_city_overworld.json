@@ -1,6 +1,11 @@
 {
   "type": "minecraft:end_city",
-  "biomes": "#minecraft:is_overworld",
+  "biomes": [
+    "minecraft:frozen_ocean",
+    "minecraft:deep_frozen_ocean",
+    "minecraft:cold_ocean",
+    "minecraft:deep_cold_ocean"
+  ],
   "spawn_overrides": {},
   "step": "surface_structures"
 }
