@@ -1,0 +1,70 @@
+[
+  {
+    "chunk": [
+      -70,
+      -20
+    ],
+    "priorStatus": "minecraft:structure_starts",
+    "finalStatus": "minecraft:full",
+    "pieceCount": 103,
+    "box": [
+      -1156,
+      62,
+      -325,
+      -1080,
+      164,
+      -207
+    ]
+  },
+  {
+    "chunk": [
+      -38,
+      -20
+    ],
+    "priorStatus": "minecraft:structure_starts",
+    "finalStatus": "minecraft:full",
+    "pieceCount": 19,
+    "box": [
+      -604,
+      62,
+      -355,
+      -589,
+      99,
+      -310
+    ]
+  },
+  {
+    "chunk": [
+      -92,
+      -66
+    ],
+    "priorStatus": "absent from original saved regions",
+    "finalStatus": "minecraft:full",
+    "pieceCount": 82,
+    "box": [
+      -1556,
+      62,
+      -1107,
+      -1461,
+      152,
+      -1046
+    ]
+  },
+  {
+    "chunk": [
+      -40,
+      -63
+    ],
+    "priorStatus": "absent from original saved regions",
+    "finalStatus": "minecraft:full",
+    "pieceCount": 106,
+    "box": [
+      -724,
+      62,
+      -1038,
+      -598,
+      174,
+      -958
+    ]
+  }
+]

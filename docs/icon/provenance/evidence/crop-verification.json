@@ -1,0 +1,66 @@
+[
+  {
+    "file": "01-cold-ocean-city-and-ship.png",
+    "sourceSha256": "f902cf45f06dca0edca140b8d7beb1e78d1187324be3fed448efc54d57b24ae0",
+    "resultSha256": "af4cc7d6b4e76354eaee77a72dfefc0d04f4593d3457a8e7ae721374826e613d",
+    "exactPixelEqualityToRawCrop": true,
+    "centreOffsetXY": [
+      0.0,
+      0.0
+    ],
+    "margins": {
+      "left": 128,
+      "right": 128,
+      "top": 117,
+      "bottom": 117
+    }
+  },
+  {
+    "file": "02-iceberg-tower-and-bridge.png",
+    "sourceSha256": "d9c0688fef00b18b98b2bd38ddc970a92ce5c8f022741b472f2233fb399c0548",
+    "resultSha256": "2b9ac7a94b12212437f81849a717127ef867c31f75e1ea4308e9f93390733db2",
+    "exactPixelEqualityToRawCrop": true,
+    "centreOffsetXY": [
+      -0.5,
+      0.0
+    ],
+    "margins": {
+      "left": 149,
+      "right": 150,
+      "top": 171,
+      "bottom": 171
+    }
+  },
+  {
+    "file": "03-three-spire-ocean-city.png",
+    "sourceSha256": "c3b3aea108d0fbc08c40c8eb8aaca8b2edb3a36b7dd3a954036972ed243956cc",
+    "resultSha256": "c86e408f7020d554e8c94a8c2ec3a6772ae262299ad2b24b60db9e6db7d6e8b4",
+    "exactPixelEqualityToRawCrop": true,
+    "centreOffsetXY": [
+      0.0,
+      0.0
+    ],
+    "margins": {
+      "left": 122,
+      "right": 122,
+      "top": 103,
+      "bottom": 103
+    }
+  },
+  {
+    "file": "04-mushroom-shore-city.png",
+    "sourceSha256": "ddfbbfa5b54c9940bc484a0107dde362bb51deadb1ca9bfe3105a061e81e7a3c",
+    "resultSha256": "25b355067f9e0866d26b44fcc322e6b57235976488be0b73deb13f6583d259a7",
+    "exactPixelEqualityToRawCrop": true,
+    "centreOffsetXY": [
+      0.0,
+      0.5
+    ],
+    "margins": {
+      "left": 104,
+      "right": 104,
+      "top": 122,
+      "bottom": 121
+    }
+  }
+]

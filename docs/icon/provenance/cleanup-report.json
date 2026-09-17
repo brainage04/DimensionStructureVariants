@@ -1,0 +1,17 @@
+{
+  "checks": {
+    "clientPidGone": true,
+    "xvfbPidGone": true,
+    "displaySocketGone": true,
+    "ownedSinkGone": true,
+    "osuWeight1000": true
+  },
+  "runtime": "Minecraft pid 2831735 exited normally with code 0 after native Save and Quit to Title, then Quit Game. Xvfb :205 pid 2831404 stopped with hub stop dimension5-xvfb, exit 0.",
+  "audio": "Owned null sink round3_dimension5 (module 536870917) unloaded after client exit; absence checked with pactl list short sinks. Before every GUI action, tools/control.py verified the client stream targeted the owned sink with pactl list short sink-inputs. soundDevice and PULSE_SINK both round3_dimension5. Primary desktop/audio never targeted.",
+  "cpu": "JVM ActiveProcessorCount=2, LP_NUM_THREADS=2, OMP_NUM_THREADS=2, MESA_GLTHREAD=false, software OpenGL. Watchdog moved the one client into shared render-chunky.service; measured cpu.max=400000 100000 and cpu.weight=20. osu-boost.service CPUWeight=1000 verified, unchanged. Shared services untouched.",
+  "writes": "Only captures-dimension5 modified/created; original captures-dimension4 read-only. No portfolio tracked-file edits, commits or pushes; no mod repository edits or builds.",
+  "retained": "Four final crops, raw native F2 screenshots, isolated natural save, byte-identical approved mod JAR, reproduction scripts and measured evidence. Unselected preview captures retained only under evidence/runtime screenshots; renders contains exactly four final PNGs.",
+  "afterSinks": "59\talsa_output.usb-Generic_USB_Audio-00.HiFi__SPDIF__sink\tPipeWire\ts16le 2ch 48000Hz\tSUSPENDED\n60\talsa_output.usb-Generic_USB_Audio-00.HiFi__Speaker__sink\tPipeWire\ts32le 2ch 48000Hz\tSUSPENDED\n61\talsa_output.usb-Generic_USB_Audio-00.HiFi__Headphones__sink\tPipeWire\ts32le 2ch 48000Hz\tSUSPENDED\n5876\talsa_output.usb-HP__Inc_HyperX_Cloud_III_000000000000-00.analog-stereo\tPipeWire\ts24le 2ch 48000Hz\tSUSPENDED\n10374\talsa_output.pci-0000_01_00.1.hdmi-stereo\tPipeWire\ts16le 2ch 48000Hz\tSUSPENDED\n",
+  "afterSinkInputs": "",
+  "osuPolicy": "ControlGroup=/user.slice/user-1000.slice/user@1000.service/app.slice/osu-boost.service\nCPUWeight=1000\n"
+}

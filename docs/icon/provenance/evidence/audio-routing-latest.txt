@@ -1,0 +1,9 @@
+59	alsa_output.usb-Generic_USB_Audio-00.HiFi__SPDIF__sink	PipeWire	s16le 2ch 48000Hz	SUSPENDED
+60	alsa_output.usb-Generic_USB_Audio-00.HiFi__Speaker__sink	PipeWire	s32le 2ch 48000Hz	SUSPENDED
+61	alsa_output.usb-Generic_USB_Audio-00.HiFi__Headphones__sink	PipeWire	s32le 2ch 48000Hz	SUSPENDED
+5876	alsa_output.usb-HP__Inc_HyperX_Cloud_III_000000000000-00.analog-stereo	PipeWire	s24le 2ch 48000Hz	SUSPENDED
+10374	alsa_output.pci-0000_01_00.1.hdmi-stereo	PipeWire	s16le 2ch 48000Hz	SUSPENDED
+15205	round3_dimension5	PipeWire	float32le 2ch 48000Hz	RUNNING
+
+SINK INPUTS
+15229	15205	15223	PipeWire	float32le 2ch 48000Hz

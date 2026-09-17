@@ -1,0 +1,4 @@
+0::/user.slice/user-1000.slice/user@1000.service/app.slice/render-chunky.service
+cpu.max 400000 100000
+cpu.weight 20
+JVM ActiveProcessorCount=2; LP_NUM_THREADS=2; OMP_NUM_THREADS=2; MESA_GLTHREAD=false

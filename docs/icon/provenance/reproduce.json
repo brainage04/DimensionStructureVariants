@@ -1,0 +1,16 @@
+{
+  "world": "runtime/saves/Dimension Natural 4",
+  "worldSeed": "4680596595205837332",
+  "worldOrigin": "Byte-copy of approved captures-dimension4 natural save. Additional starts discovered with read-only region scan and normal /locate; normal chunk loading completed their natural generation.",
+  "modBuildProof": "evidence/source-build.json",
+  "displayCommand": "Xvfb :205 -screen 0 1600x1200x24 -nolisten tcp -ac +extension GLX",
+  "audioCommand": "pactl load-module module-null-sink sink_name=round3_dimension5 sink_properties=device.description=round3_dimension5",
+  "clientCommand": "systemd-run --user --scope --unit=dimension5-capture -p CPUQuota=200% -p CPUWeight=20 sh launch.sh",
+  "controlCommand": "PYTHONPATH=/nix/store/4v9j9wbzyhrlx9980ygbr812313mazy0-python3.13-pillow-12.3.0/lib/python3.13/site-packages python3 tools/control.py chat \"<command>\"",
+  "actualCameraAndLightingCommands": "evidence/commands.txt",
+  "scanCommand": "/nix/store/0f04v937z8680bkdd011l02gjfhxagq8-python3-3.13.15-env/bin/python3 tools/scan-world.py",
+  "cropAndPixelProofCommand": "PYTHONPATH=/nix/store/4v9j9wbzyhrlx9980ygbr812313mazy0-python3.13-pillow-12.3.0/lib/python3.13/site-packages python3 tools/finalize.py",
+  "centringDiagnosis": "A camera facing a 3D target does not centre the projected 2D outline. The approved composition complaint is resolved by measuring the complete visible city bounding rectangle in each new native screenshot, then calculating the crop around that rectangle rather than choosing an arbitrary crop. Bounding boxes include the city ship, but not shadows or terrain. Annotation uncertainty \u00b13 px; exact crop-centre offsets at most 0.5 px.",
+  "lighting": "All four final images native daytime, time reset to noon before final F2. No night vision was applied at any point in this session.",
+  "verification": "Four distinct full-status naturally generated starts; all final crops pixel-identical to raw screenshot rectangles. Final screenshots and annotated bounds visually reviewed. All requested resources stopped; cleanup-report.json."
+}

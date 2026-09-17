@@ -1,0 +1,386 @@
+[
+  {
+    "project": "DimensionStructureVariants",
+    "label": "End city in the Overworld \u2014 cold ocean fleet",
+    "path": "captures-dimension5/renders/01-cold-ocean-city-and-ship.png",
+    "method": "Real Minecraft 26.2 + Fabric 0.19.3 + byte-identical approved DimensionStructureVariants build. Real natural world generation; native F2 screenshot with F1 HUD hidden; exact rectangular crop only. No shaders, resource packs, recolouring, compositing, /place or hand-building.",
+    "source": "captures-dimension5/runtime/screenshots/2026-09-16_17.16.30.png; captures-dimension5/runtime/saves/Dimension Natural 4; captures-dimension5/evidence/natural-structure-starts.json",
+    "notes": "103-piece naturally generated branching city with a broadside End ship, over a cold ocean.",
+    "structureId": "dimensionstructurevariants:end_city_overworld",
+    "structureType": "end_city",
+    "dimension": "minecraft:overworld",
+    "worldSeed": "4680596595205837332",
+    "worldName": "Dimension Natural 4",
+    "coordinates": {
+      "structureStartXZ": [
+        -1120,
+        -320
+      ],
+      "structureCentreXYZ": [
+        -1118.0,
+        113.0,
+        -266.0
+      ],
+      "pieceBoundingBox": [
+        -1156,
+        62,
+        -325,
+        -1080,
+        164,
+        -207
+      ],
+      "cameraXYZ": [
+        -1189.5,
+        153,
+        -149.5
+      ]
+    },
+    "cameraCommandExecuted": "/tp @s -1190 153 -150 facing -1118 111 -266",
+    "generation": "Read-only scan and one /locate query in an isolated byte-copy of the approved existing natural world. Visiting these additional starts completed normal chunk generation. Four distinct structures, none the approved original at chunk [-40,5]. No structure-placement or block-editing commands.",
+    "nightVision": false,
+    "lighting": "Native daylight; /time set noon before this final F2 capture, clear weather, no night vision.",
+    "structurePieceCount": 103,
+    "naturalChunkStatus": "minecraft:full",
+    "cropRectangleXYXY": [
+      392,
+      160,
+      1212,
+      860
+    ],
+    "dimensions": [
+      820,
+      700
+    ],
+    "centring": {
+      "method": "Visually annotated complete visible End-city bounding rectangle, including its ship when present; excludes terrain, shadows and other structures. Pixel edge coordinates are half-open XYXY. Annotation uncertainty approximately \u00b13 pixels; reported offsets are exact relative to the annotated rectangle, not an opaque-pixel centroid.",
+      "sourceBoundingBoxXYXY": [
+        520,
+        277,
+        1084,
+        743
+      ],
+      "sourceImageCentreXY": [
+        800.0,
+        600.0
+      ],
+      "sourceBoundingBoxCentreOffsetXY": [
+        2.0,
+        -90.0
+      ],
+      "outputBoundingBoxXYXY": [
+        128,
+        117,
+        692,
+        583
+      ],
+      "outputBoundingBoxCentreXY": [
+        410.0,
+        350.0
+      ],
+      "outputImageCentreXY": [
+        410.0,
+        350.0
+      ],
+      "offsetPixelsXY": [
+        0.0,
+        0.0
+      ],
+      "marginsPixels": {
+        "left": 128,
+        "right": 128,
+        "top": 117,
+        "bottom": 117
+      },
+      "annotationUncertaintyPixels": 3
+    },
+    "sha256": "af4cc7d6b4e76354eaee77a72dfefc0d04f4593d3457a8e7ae721374826e613d"
+  },
+  {
+    "project": "DimensionStructureVariants",
+    "label": "End city in the Overworld \u2014 iceberg tower",
+    "path": "captures-dimension5/renders/02-iceberg-tower-and-bridge.png",
+    "method": "Real Minecraft 26.2 + Fabric 0.19.3 + byte-identical approved DimensionStructureVariants build. Real natural world generation; native F2 screenshot with F1 HUD hidden; exact rectangular crop only. No shaders, resource packs, recolouring, compositing, /place or hand-building.",
+    "source": "captures-dimension5/runtime/screenshots/2026-09-16_17.10.10.png; captures-dimension5/runtime/saves/Dimension Natural 4; captures-dimension5/evidence/natural-structure-starts.json",
+    "notes": "19-piece naturally generated compact city: one main tower with a branching bridge and room, with icebergs behind. Smaller natural structure, not a crop of a larger city.",
+    "structureId": "dimensionstructurevariants:end_city_overworld",
+    "structureType": "end_city",
+    "dimension": "minecraft:overworld",
+    "worldSeed": "4680596595205837332",
+    "worldName": "Dimension Natural 4",
+    "coordinates": {
+      "structureStartXZ": [
+        -608,
+        -320
+      ],
+      "structureCentreXYZ": [
+        -596.5,
+        80.5,
+        -332.5
+      ],
+      "pieceBoundingBox": [
+        -604,
+        62,
+        -355,
+        -589,
+        99,
+        -310
+      ],
+      "cameraXYZ": [
+        -544.5,
+        112,
+        -369.5
+      ]
+    },
+    "cameraCommandExecuted": "/tp @s -545 112 -370 facing -596 81 -333",
+    "generation": "Read-only scan and one /locate query in an isolated byte-copy of the approved existing natural world. Visiting these additional starts completed normal chunk generation. Four distinct structures, none the approved original at chunk [-40,5]. No structure-placement or block-editing commands.",
+    "nightVision": false,
+    "lighting": "Native daylight; /time set noon before this final F2 capture, clear weather, no night vision.",
+    "structurePieceCount": 19,
+    "naturalChunkStatus": "minecraft:full",
+    "cropRectangleXYXY": [
+      432,
+      218,
+      1252,
+      918
+    ],
+    "dimensions": [
+      820,
+      700
+    ],
+    "centring": {
+      "method": "Visually annotated complete visible End-city bounding rectangle, including its ship when present; excludes terrain, shadows and other structures. Pixel edge coordinates are half-open XYXY. Annotation uncertainty approximately \u00b13 pixels; reported offsets are exact relative to the annotated rectangle, not an opaque-pixel centroid.",
+      "sourceBoundingBoxXYXY": [
+        581,
+        389,
+        1102,
+        747
+      ],
+      "sourceImageCentreXY": [
+        800.0,
+        600.0
+      ],
+      "sourceBoundingBoxCentreOffsetXY": [
+        41.5,
+        -32.0
+      ],
+      "outputBoundingBoxXYXY": [
+        149,
+        171,
+        670,
+        529
+      ],
+      "outputBoundingBoxCentreXY": [
+        409.5,
+        350.0
+      ],
+      "outputImageCentreXY": [
+        410.0,
+        350.0
+      ],
+      "offsetPixelsXY": [
+        -0.5,
+        0.0
+      ],
+      "marginsPixels": {
+        "left": 149,
+        "right": 150,
+        "top": 171,
+        "bottom": 171
+      },
+      "annotationUncertaintyPixels": 3
+    },
+    "sha256": "2b9ac7a94b12212437f81849a717127ef867c31f75e1ea4308e9f93390733db2"
+  },
+  {
+    "project": "DimensionStructureVariants",
+    "label": "End city in the Overworld \u2014 three ocean spires",
+    "path": "captures-dimension5/renders/03-three-spire-ocean-city.png",
+    "method": "Real Minecraft 26.2 + Fabric 0.19.3 + byte-identical approved DimensionStructureVariants build. Real natural world generation; native F2 screenshot with F1 HUD hidden; exact rectangular crop only. No shaders, resource packs, recolouring, compositing, /place or hand-building.",
+    "source": "captures-dimension5/runtime/screenshots/2026-09-16_17.13.25.png; captures-dimension5/runtime/saves/Dimension Natural 4; captures-dimension5/evidence/natural-structure-starts.json",
+    "notes": "82-piece natural city with three tall upper spires and a distant end-on ship. Native /locate found the start at [-1472, ~, -1056]. Nearby fortress is outside the final crop. SQUARE 1024x1024 cropped from the native F2 frame 2026-09-16_17.13.25.png: 700px square window at (410,279) centred on the structure bounding box [542, 382, 978, 876] (structure pixel margins L132/R132/T103/B103), Lanczos-resampled to 1024.",
+    "structureId": "dimensionstructurevariants:end_city_overworld",
+    "structureType": "end_city",
+    "dimension": "minecraft:overworld",
+    "worldSeed": "4680596595205837332",
+    "worldName": "Dimension Natural 4",
+    "coordinates": {
+      "structureStartXZ": [
+        -1472,
+        -1056
+      ],
+      "structureCentreXYZ": [
+        -1508.5,
+        107.0,
+        -1076.5
+      ],
+      "pieceBoundingBox": [
+        -1556,
+        62,
+        -1107,
+        -1461,
+        152,
+        -1046
+      ],
+      "cameraXYZ": [
+        -1359.5,
+        152,
+        -1129.5
+      ]
+    },
+    "cameraCommandExecuted": "/tp @s -1360 152 -1130 facing -1505 107 -1076",
+    "generation": "Read-only scan and one /locate query in an isolated byte-copy of the approved existing natural world. Visiting these additional starts completed normal chunk generation. Four distinct structures, none the approved original at chunk [-40,5]. No structure-placement or block-editing commands.",
+    "nightVision": false,
+    "lighting": "Native daylight; /time set noon before this final F2 capture, clear weather, no night vision.",
+    "structurePieceCount": 82,
+    "naturalChunkStatus": "minecraft:full",
+    "cropRectangleXYXY": [
+      420,
+      279,
+      1100,
+      979
+    ],
+    "dimensions": [
+      680,
+      700
+    ],
+    "centring": {
+      "method": "Visually annotated complete visible End-city bounding rectangle, including its ship when present; excludes terrain, shadows and other structures. Pixel edge coordinates are half-open XYXY. Annotation uncertainty approximately \u00b13 pixels; reported offsets are exact relative to the annotated rectangle, not an opaque-pixel centroid.",
+      "sourceBoundingBoxXYXY": [
+        542,
+        382,
+        978,
+        876
+      ],
+      "sourceImageCentreXY": [
+        800.0,
+        600.0
+      ],
+      "sourceBoundingBoxCentreOffsetXY": [
+        -40.0,
+        29.0
+      ],
+      "outputBoundingBoxXYXY": [
+        122,
+        103,
+        558,
+        597
+      ],
+      "outputBoundingBoxCentreXY": [
+        340.0,
+        350.0
+      ],
+      "outputImageCentreXY": [
+        340.0,
+        350.0
+      ],
+      "offsetPixelsXY": [
+        0.0,
+        0.0
+      ],
+      "marginsPixels": {
+        "left": 122,
+        "right": 122,
+        "top": 103,
+        "bottom": 103
+      },
+      "annotationUncertaintyPixels": 3
+    },
+    "sha256": "c86e408f7020d554e8c94a8c2ec3a6772ae262299ad2b24b60db9e6db7d6e8b4"
+  },
+  {
+    "project": "DimensionStructureVariants",
+    "label": "End city in the Overworld \u2014 mushroom shore",
+    "path": "captures-dimension5/renders/04-mushroom-shore-city.png",
+    "method": "Real Minecraft 26.2 + Fabric 0.19.3 + byte-identical approved DimensionStructureVariants build. Real natural world generation; native F2 screenshot with F1 HUD hidden; exact rectangular crop only. No shaders, resource packs, recolouring, compositing, /place or hand-building.",
+    "source": "captures-dimension5/runtime/screenshots/2026-09-16_17.15.39.png; captures-dimension5/runtime/saves/Dimension Natural 4; captures-dimension5/evidence/natural-structure-starts.json",
+    "notes": "106-piece naturally generated city and ship over cold ocean adjoining a natural mushroom island. The shore and mushrooms are unchanged terrain, not hand-built scenery.",
+    "structureId": "dimensionstructurevariants:end_city_overworld",
+    "structureType": "end_city",
+    "dimension": "minecraft:overworld",
+    "worldSeed": "4680596595205837332",
+    "worldName": "Dimension Natural 4",
+    "coordinates": {
+      "structureStartXZ": [
+        -640,
+        -1008
+      ],
+      "structureCentreXYZ": [
+        -661.0,
+        118.0,
+        -998.0
+      ],
+      "pieceBoundingBox": [
+        -724,
+        62,
+        -1038,
+        -598,
+        174,
+        -958
+      ],
+      "cameraXYZ": [
+        -761.5,
+        161,
+        -892.5
+      ]
+    },
+    "cameraCommandExecuted": "/tp @s -762 161 -893 facing -661 118 -998",
+    "generation": "Read-only scan and one /locate query in an isolated byte-copy of the approved existing natural world. Visiting these additional starts completed normal chunk generation. Four distinct structures, none the approved original at chunk [-40,5]. No structure-placement or block-editing commands.",
+    "nightVision": false,
+    "lighting": "Native daylight; /time set noon before this final F2 capture, clear weather, no night vision.",
+    "structurePieceCount": 106,
+    "naturalChunkStatus": "minecraft:full",
+    "cropRectangleXYXY": [
+      301,
+      188,
+      1261,
+      928
+    ],
+    "dimensions": [
+      960,
+      740
+    ],
+    "centring": {
+      "method": "Visually annotated complete visible End-city bounding rectangle, including its ship when present; excludes terrain, shadows and other structures. Pixel edge coordinates are half-open XYXY. Annotation uncertainty approximately \u00b13 pixels; reported offsets are exact relative to the annotated rectangle, not an opaque-pixel centroid.",
+      "sourceBoundingBoxXYXY": [
+        405,
+        310,
+        1157,
+        807
+      ],
+      "sourceImageCentreXY": [
+        800.0,
+        600.0
+      ],
+      "sourceBoundingBoxCentreOffsetXY": [
+        -19.0,
+        -41.5
+      ],
+      "outputBoundingBoxXYXY": [
+        104,
+        122,
+        856,
+        619
+      ],
+      "outputBoundingBoxCentreXY": [
+        480.0,
+        370.5
+      ],
+      "outputImageCentreXY": [
+        480.0,
+        370.0
+      ],
+      "offsetPixelsXY": [
+        0.0,
+        0.5
+      ],
+      "marginsPixels": {
+        "left": 104,
+        "right": 104,
+        "top": 122,
+        "bottom": 121
+      },
+      "annotationUncertaintyPixels": 3
+    },
+    "sha256": "25b355067f9e0866d26b44fcc322e6b57235976488be0b73deb13f6583d259a7"
+  }
+]

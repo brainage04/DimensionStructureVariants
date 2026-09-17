@@ -1,0 +1,24 @@
+2026-09-16T17:04:22 /execute in minecraft:overworld run tp @s -370 172 -170 facing -248 113 -316
+2026-09-16T17:04:24 /time set noon
+2026-09-16T17:04:27 /weather clear
+2026-09-16T17:04:29 /effect clear @s
+2026-09-16T17:05:18 /tp @s -345 168 -490 facing -248 113 -316
+2026-09-16T17:06:18 /tp @s -1220 178 -95 facing -1118 111 -266
+2026-09-16T17:07:24 /tp @s -1190 153 -150 facing -1118 111 -266
+2026-09-16T17:08:41 /tp @s -485 125 -410 facing -596 81 -333
+2026-09-16T17:09:22 /tp @s -545 112 -370 facing -596 81 -333
+2026-09-16T17:10:07 /time set noon
+2026-09-16T17:10:14 /execute positioned -1700 100 -1500 run locate structure dimensionstructurevariants:end_city_overworld
+2026-09-16T17:10:32 /tp @s -1550 165 -900 facing -1472 108 -1056
+2026-09-16T17:11:14 /save-all flush
+2026-09-16T17:11:56 /tp @s -1570 155 -960 facing -1495 112 -1060
+2026-09-16T17:11:59 /time set noon
+2026-09-16T17:12:39 /tp @s -1360 152 -1130 facing -1505 107 -1076
+2026-09-16T17:13:22 /time set noon
+2026-09-16T17:13:29 /tp @s -865 175 -525 facing -751 111 -666
+2026-09-16T17:14:30 /tp @s -790 174 -860 facing -661 114 -998
+2026-09-16T17:15:21 /tp @s -762 161 -893 facing -661 118 -998
+2026-09-16T17:15:23 /time set noon
+2026-09-16T17:16:12 /tp @s -1190 153 -150 facing -1118 111 -266
+2026-09-16T17:16:14 /time set noon
+2026-09-16T17:16:33 /save-all flush
