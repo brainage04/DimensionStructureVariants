@@ -6,6 +6,7 @@ license="MIT"
 modId="dimensionstructurevariants"
 version="${version}"
 displayName="DimensionStructureVariants"
+logoFile="assets/dimensionstructurevariants/icon.png"
 authors="brainage04"
 description='''Adds natural cross-dimension variants of vanilla structures.'''
 
