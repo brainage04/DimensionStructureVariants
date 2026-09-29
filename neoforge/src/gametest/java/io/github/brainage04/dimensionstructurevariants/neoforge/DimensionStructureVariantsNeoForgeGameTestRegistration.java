@@ -2,6 +2,7 @@ package io.github.brainage04.dimensionstructurevariants.neoforge;
 
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariants;
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariantsNeoForgeGameTests;
+import io.github.brainage04.dimensionstructurevariants.SolidGroundGameTests;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -24,6 +25,11 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
 				BuiltInRegistries.TEST_FUNCTION.key(),
 				DimensionStructureVariants.of("all_variants_belong_to_natural_structure_sets"),
 				() -> tests::allVariantsBelongToNaturalStructureSets
+		);
+		event.register(
+				BuiltInRegistries.TEST_FUNCTION.key(),
+				DimensionStructureVariants.of("end_island_variants_only_start_on_solid_ground"),
+				() -> SolidGroundGameTests::endIslandVariantsOnlyStartOnSolidGround
 		);
 	}
 }

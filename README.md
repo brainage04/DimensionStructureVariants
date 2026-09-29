@@ -21,12 +21,14 @@ The eight variants use three independent random-spread structure sets, so they g
 | --- | --- |
 | End city in the Overworld | Cold/frozen oceans only; packed ice, blue ice, snow, prismarine trims and cyan glazing |
 | Bastion in the Overworld | Ocean biomes only; prismarine, prismarine bricks, dark prismarine and sea lanterns; lava becomes water |
-| Village in the End | End-stone foundations and paths, purpur roofs/pillars, magenta glazing and end rods |
-| Bastion in the End | End stone, end stone bricks and purpur; lava becomes solid purpur |
+| Village in the End | Outer End islands only; end-stone foundations and paths, purpur roofs/pillars, magenta glazing and end rods |
+| Bastion in the End | Outer End islands only; end stone, end stone bricks and purpur; lava becomes solid purpur |
 | Fortress in the End | End stone bricks, including downward supports, stairs and walls |
 | Village in the Nether | Generic Nether palette: nether bricks, red nether bricks, basalt, blackstone, crimson fittings and gravel paths |
 
 The ocean bastion is intentionally a maritime fortress on its natural terrain-adapted island, not a blackstone/lava land structure stranded at sea. The Overworld fortress and Nether End city retain their original palettes.
+
+End villages and bastions generate only in the outer islands' `end_highlands`/`end_midlands` biomes (never on the main island or in the void ring around it), and only where terrain lies under the core of their footprint, so they never start over the void. The Nether End city, like vanilla End cities, rises from the surface heightmap, which in the Nether is the bedrock roof: it intentionally stands on the roof, as Nether villages can.
 
 The exact block-to-block tables live in [`StructurePalettes.java`](common/src/main/java/io/github/brainage04/dimensionstructurevariants/StructurePalettes.java). A shared server-side placement context selects the palette by structure registry ID. Both template/jigsaw writes and procedural fortress foundations pass through it. Compatible block-state properties are preserved, including horizontal wall attachments; unrelated structures and later terrain/player block writes are untouched.
 
@@ -50,7 +52,7 @@ Build both loader artifacts:
 
 The release JARs are collected under `build/libs`.
 
-Run the registry, biome-targeting, and natural-structure-set GameTests on both loaders:
+Run the registry, biome-targeting, natural-structure-set, and End solid-ground GameTests on both loaders:
 
 ```shell
 ./gradlew runAllProductionGameTests

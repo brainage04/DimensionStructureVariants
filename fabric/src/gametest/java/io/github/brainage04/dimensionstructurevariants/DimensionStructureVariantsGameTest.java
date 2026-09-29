@@ -44,4 +44,9 @@ public final class DimensionStructureVariantsGameTest {
 		}
 		helper.succeed();
 	}
+
+	@GameTest(maxTicks = 200)
+	public void endIslandVariantsOnlyStartOnSolidGround(GameTestHelper helper) {
+		SolidGroundGameTests.endIslandVariantsOnlyStartOnSolidGround(helper);
+	}
 }
