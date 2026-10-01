@@ -1,12 +1,14 @@
 modLoader="javafml"
 loaderVersion="[11,)"
 license="MIT"
+issueTrackerURL="https://github.com/brainage04/DimensionStructureVariants/issues"
 
 [[mods]]
 modId="dimensionstructurevariants"
 version="${version}"
 displayName="DimensionStructureVariants"
 iconFile="assets/dimensionstructurevariants/icon.png"
+displayURL="https://github.com/brainage04/DimensionStructureVariants"
 authors="brainage04"
 description='''Adds natural cross-dimension variants of vanilla structures.'''
 

@@ -5,7 +5,7 @@ This template includes optional Modrinth publishing as part of `.github/workflow
 After the GitHub release is created, a second job in the same workflow does two things:
 
 1. Creates the Modrinth project if a project with slug `mod_id` does not already exist.
-2. Uploads the built release jar as a Modrinth version if that `mod_version` has not already been uploaded.
+2. Uploads the built Fabric and NeoForge release jars as Modrinth versions if that `mod_version` has not already been uploaded.
 
 The Modrinth job is skipped unless the repository has a `MODRINTH_TOKEN` secret configured.
 
@@ -103,8 +103,8 @@ If a dependency uses a different Modrinth slug, add an override in `.modrinth/pr
 ```json
 {
   "dependency_overrides": {
-    "fzzy_config": {
-      "project_slug": "fzzy-config"
+    "some-mod-id": {
+      "project_slug": "some-modrinth-slug"
     }
   }
 }
@@ -147,7 +147,7 @@ The release workflow fetches the remote tag object before reading notes so annot
 
 ## Notes
 
-- The workflow uploads the main release jar from `build/libs` and ignores `*-dev.jar` and `*-sources.jar`.
+- The workflow uploads the Fabric release jar and the NeoForge jar (`<archives_base_name>-neoforge-*.jar`) from `build/libs` and ignores `*-dev.jar` and `*-sources.jar`.
 - If the Modrinth project already exists, it is reused instead of recreated. When a project is newly created, the separate icon sync step is skipped for that release because the create request already uploads the icon.
 - If an existing Modrinth project icon must change and Modrinth rejects the icon replacement, the workflow still publishes the Modrinth version, then fails the job at the end so the stale icon remains visible.
 - If the Modrinth version already exists for the current `mod_version`, publishing is skipped.
