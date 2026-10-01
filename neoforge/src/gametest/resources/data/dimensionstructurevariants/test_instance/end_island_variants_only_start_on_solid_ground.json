@@ -1,6 +1,6 @@
 {
   "environment": "minecraft:default",
-  "structure": "minecraft:empty",
+  "structure": "fabricmoddingconventions:empty",
   "max_ticks": 200,
   "type": "minecraft:function",
   "function": "dimensionstructurevariants:end_island_variants_only_start_on_solid_ground"
