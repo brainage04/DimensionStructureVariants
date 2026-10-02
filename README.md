@@ -55,7 +55,7 @@ The release JARs are collected under `build/libs`.
 Run the registry, biome-targeting, natural-structure-set, and End solid-ground GameTests on both loaders:
 
 ```shell
-./gradlew runAllProductionGameTests
+./gradlew runAllGameTests
 ```
 
 The project was initialized from [ModernMinecraftModTemplate](https://github.com/brainage04/ModernMinecraftModTemplate) and uses [FabricModdingConventions](https://github.com/brainage04/FabricModdingConventions) for shared build, GameTest, recording, and publishing conventions.
