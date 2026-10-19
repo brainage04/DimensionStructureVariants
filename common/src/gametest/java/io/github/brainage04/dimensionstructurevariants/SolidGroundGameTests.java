@@ -49,6 +49,15 @@ public final class SolidGroundGameTests {
 				int startY = stub.get().position().getY();
 				helper.assertTrue(startY > floor,
 						key.identifier() + " started over the void at chunk " + chunk + " (y=" + startY + ")");
+				for (int dx = -32; dx <= 32; dx += 16) {
+					for (int dz = -32; dz <= 32; dz += 16) {
+						int surface = generator.getFirstOccupiedHeight(chunk.getMinBlockX() + dx, chunk.getMinBlockZ() + dz,
+								net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE_WG,
+								end, end.getChunkSource().randomState());
+						helper.assertTrue(surface > floor,
+								key.identifier() + " accepted an unsupported footprint at chunk " + chunk);
+					}
+				}
 				acceptedOnIslands++;
 			}
 			helper.assertTrue(acceptedOnIslands > 0, key.identifier() + " no longer starts on any sampled End island");

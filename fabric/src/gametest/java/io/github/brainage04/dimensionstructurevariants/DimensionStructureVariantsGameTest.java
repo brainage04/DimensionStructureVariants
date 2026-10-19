@@ -49,4 +49,24 @@ public final class DimensionStructureVariantsGameTest {
 	public void endIslandVariantsOnlyStartOnSolidGround(GameTestHelper helper) {
 		SolidGroundGameTests.endIslandVariantsOnlyStartOnSolidGround(helper);
 	}
+
+	@GameTest
+	public void dimensionMaterialsAndProperties(GameTestHelper helper) {
+		PaletteGameTests.dimensionMaterialsAndProperties(helper);
+	}
+
+	@GameTest
+	public void placementRestoresContextAfterSuccessAndFailure(GameTestHelper helper) {
+		PaletteGameTests.placementRestoresContextAfterSuccessAndFailure(helper);
+	}
+
+	@GameTest
+	public void nestedAndWorkerContextsStayIsolated(GameTestHelper helper) {
+		PaletteGameTests.nestedAndWorkerContextsStayIsolated(helper);
+	}
+
+	@GameTest
+	public void oceanAndIslandVariantsStayInTheirBiomes(GameTestHelper helper) {
+		BiomeRestrictionGameTests.oceanAndIslandVariantsStayInTheirBiomes(helper);
+	}
 }
