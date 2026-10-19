@@ -14,6 +14,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
+import net.minecraft.world.level.block.state.properties.WallSide;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
@@ -30,6 +31,30 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Runs the production palette tables and placement mixins on both loaders. */
 public final class PaletteGameTests {
 	private PaletteGameTests() {
+	}
+
+	public static void fenceConnectionsSurviveWallConversion(GameTestHelper helper) {
+		for (int mask = 0; mask < 16; mask++) {
+			boolean north = (mask & 1) != 0;
+			boolean east = (mask & 2) != 0;
+			boolean south = (mask & 4) != 0;
+			boolean west = (mask & 8) != 0;
+			BlockState expected = Blocks.END_STONE_BRICK_WALL.defaultBlockState()
+					.setValue(BlockStateProperties.NORTH_WALL, north ? WallSide.LOW : WallSide.NONE)
+					.setValue(BlockStateProperties.EAST_WALL, east ? WallSide.LOW : WallSide.NONE)
+					.setValue(BlockStateProperties.SOUTH_WALL, south ? WallSide.LOW : WallSide.NONE)
+					.setValue(BlockStateProperties.WEST_WALL, west ? WallSide.LOW : WallSide.NONE);
+			BlockState fence = Blocks.OAK_FENCE.defaultBlockState()
+					.setValue(BlockStateProperties.NORTH, north).setValue(BlockStateProperties.EAST, east)
+					.setValue(BlockStateProperties.SOUTH, south).setValue(BlockStateProperties.WEST, west)
+					.setValue(BlockStateProperties.WATERLOGGED, true);
+			assertRemap(helper, "village_end", fence, expected.setValue(BlockStateProperties.WATERLOGGED, true));
+			BlockState netherFence = Blocks.NETHER_BRICK_FENCE.defaultBlockState()
+					.setValue(BlockStateProperties.NORTH, north).setValue(BlockStateProperties.EAST, east)
+					.setValue(BlockStateProperties.SOUTH, south).setValue(BlockStateProperties.WEST, west);
+			assertRemap(helper, "fortress_end", netherFence, expected);
+		}
+		helper.succeed();
 	}
 
 	public static void dimensionMaterialsAndProperties(GameTestHelper helper) {

@@ -69,4 +69,9 @@ public final class DimensionStructureVariantsGameTest {
 	public void oceanAndIslandVariantsStayInTheirBiomes(GameTestHelper helper) {
 		BiomeRestrictionGameTests.oceanAndIslandVariantsStayInTheirBiomes(helper);
 	}
+
+	@GameTest
+	public void fenceConnectionsSurviveWallConversion(GameTestHelper helper) {
+		PaletteGameTests.fenceConnectionsSurviveWallConversion(helper);
+	}
 }

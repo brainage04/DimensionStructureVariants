@@ -53,5 +53,10 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
 				DimensionStructureVariants.of("ocean_and_island_variants_stay_in_their_biomes"),
 				() -> BiomeRestrictionGameTests::oceanAndIslandVariantsStayInTheirBiomes
 		);
+		event.register(
+				BuiltInRegistries.TEST_FUNCTION.key(),
+				DimensionStructureVariants.of("fence_connections_survive_wall_conversion"),
+				() -> PaletteGameTests::fenceConnectionsSurviveWallConversion
+		);
 	}
 }

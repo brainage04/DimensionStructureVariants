@@ -8,6 +8,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.WallSide;
 import net.minecraft.world.level.levelgen.structure.Structure;
 
 import java.util.IdentityHashMap;
@@ -203,10 +205,13 @@ public final class StructurePalettes {
 		return states;
 	}
 
-	/** Horizontal and six-way facing use different Property objects but share valid values. */
+	/** Retains facing values and converts fence connections into low wall sides. */
 	private static <T extends Comparable<T>, U extends Comparable<U>> BlockState copyCompatibleValue(
 			BlockState source, BlockState target, Property<T> sourceProperty, Property<U> targetProperty) {
 		String value = sourceProperty.getName(source.getValue(sourceProperty));
+		if (sourceProperty instanceof BooleanProperty && WallSide.class.equals(targetProperty.getValueClass())) {
+			value = source.getValue(sourceProperty).equals(Boolean.TRUE) ? "low" : "none";
+		}
 		return targetProperty.getValue(value).map(parsed -> target.setValue(targetProperty, parsed)).orElse(target);
 	}
 }
