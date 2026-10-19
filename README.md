@@ -1,63 +1,54 @@
 # DimensionStructureVariants
 
-DimensionStructureVariants adds natural cross-dimension variants of vanilla structures.
-
-## Variants
-
-The mod keeps vanilla piece layouts, loot tables, mobs, and generation algorithms while targeting biomes in another dimension. Selected variants substitute vanilla blocks during placement:
-
-| Source structure | Added dimensions |
-| --- | --- |
-| Plains village | Nether and End |
-| Nether fortress | Overworld and End |
-| Bastion remnant | Overworld and End |
-| End city | Overworld and Nether |
+DimensionStructureVariants is a server-side only Fabric and NeoForge mod for Minecraft 26.2 that adds natural cross-dimension variants of vanilla structures.
 
 The eight variants use three independent random-spread structure sets, so they generate alongside rather than replace vanilla structures. Existing chunks are unchanged; explore new chunks after installing the mod.
 
-## Dimension palettes
+## Features
 
-| Variant | Palette and placement |
-| --- | --- |
-| End city in the Overworld | Cold/frozen oceans only; packed ice, blue ice, snow, prismarine trims and cyan glazing |
-| Bastion in the Overworld | Ocean biomes only; prismarine, prismarine bricks, dark prismarine and sea lanterns; lava becomes water |
-| Village in the End | Outer End islands only; end-stone foundations and paths, purpur roofs/pillars, magenta glazing and end rods |
-| Bastion in the End | Outer End islands only; end stone, end stone bricks and purpur; lava becomes solid purpur |
-| Fortress in the End | End stone bricks, including downward supports, stairs and walls |
-| Village in the Nether | Generic Nether palette: nether bricks, red nether bricks, basalt, blackstone, crimson fittings and gravel paths |
+### Variants
+
+- Plains village: Nether and End.
+- Nether fortress: Overworld and End.
+- Bastion remnant: Overworld and End.
+- End city: Overworld and Nether.
+
+The mod keeps vanilla piece layouts, loot tables, mobs, and generation algorithms while targeting biomes in another dimension. Selected variants substitute vanilla blocks during placement:
+
+- End city in the Overworld: cold/frozen oceans only; packed ice, blue ice, snow, prismarine trims and cyan glazing.
+- Bastion in the Overworld: ocean biomes only; prismarine, prismarine bricks, dark prismarine and sea lanterns; lava becomes water.
+- Village in the End: outer End islands only; end-stone foundations and paths, purpur roofs/pillars, magenta glazing and end rods.
+- Bastion in the End: outer End islands only; end stone, end stone bricks and purpur; lava becomes solid purpur.
+- Fortress in the End: end stone bricks, including downward supports, stairs and walls.
+- Village in the Nether: generic Nether palette: nether bricks, red nether bricks, basalt, blackstone, crimson fittings and gravel paths.
 
 The ocean bastion is intentionally a maritime fortress on its natural terrain-adapted island, not a blackstone/lava land structure stranded at sea. The Overworld fortress and Nether End city retain their original palettes.
 
-End villages and bastions generate only in the outer islands' `end_highlands`/`end_midlands` biomes (never on the main island or in the void ring around it), and only where terrain lies under the core of their footprint, so they never start over the void. The Nether End city, like vanilla End cities, rises from the surface heightmap, which in the Nether is the bedrock roof: it intentionally stands on the roof, as Nether villages can.
+End villages and bastions generate only in the outer islands' `end_highlands`/`end_midlands` biomes (never on the main island or in the void ring around it), and only where terrain lies under the core of their footprint, so they never start over the void. The Nether End city, like vanilla End cities, rises from the surface heightmap, which in the Nether is the bedrock roof.
 
-The exact block-to-block tables live in [`StructurePalettes.java`](common/src/main/java/io/github/brainage04/dimensionstructurevariants/StructurePalettes.java). A shared server-side placement context selects the palette by structure registry ID. Both template/jigsaw writes and procedural fortress foundations pass through it. Compatible block-state properties are preserved, including horizontal wall attachments; unrelated structures and later terrain/player block writes are untouched.
+Unmapped functional blocks (loot containers, workstations, beds, bells and ladders) and entity data stay vanilla. End villages retain wooden doors/trapdoors because vanilla has no End equivalent.
 
-Unmapped functional blocks (loot containers, workstations, beds, bells and ladders) and entity data stay vanilla. End villages retain wooden doors/trapdoors because vanilla has no End equivalent. Nether villages still use the existing terrain projection, which can put houses on the bedrock roof; this palette change does not alter that placement behavior.
+## Getting started
 
-Custom Nether/End villager types are not added: in Minecraft 26.2, villager types are a built-in static registry rather than a datapack-loaded dynamic registry. New types and their client textures would break the no-client-requirement contract. Existing vanilla villagers and professions remain unchanged.
+- Fabric Loader >=0.19.3 with Fabric API, or NeoForge >=26.2.0.88.
+- Install exactly one matching JAR on the server: the Fabric JAR with Fabric API, or the NeoForge JAR with NeoForge.
 
-## Loaders and installation
+Generation uses vanilla blocks and entities only, so vanilla clients can join without installing the mod or a resource pack.
 
-Fabric and NeoForge builds are provided for Minecraft 26.2.
+## Commands
 
-Install exactly one matching JAR on the server: the Fabric JAR with Fabric API, or the NeoForge JAR with NeoForge. Generation uses vanilla blocks and entities only, so vanilla clients can join without installing the mod or a resource pack.
+No commands yet.
 
-## Development
+## Configuration
 
-Build both loader artifacts:
+No configuration yet.
 
-```shell
-./gradlew build
-```
+## Compatibility
 
-The release JARs are collected under `build/libs`.
+No known incompatibilities.
 
-Run the registry, biome-targeting, natural-structure-set, and End solid-ground GameTests on both loaders:
+## Documentation
 
-```shell
-./gradlew runAllGameTests
-```
-
-The project was initialized from [ModernMinecraftModTemplate](https://github.com/brainage04/ModernMinecraftModTemplate) and uses [FabricModdingConventions](https://github.com/brainage04/FabricModdingConventions) for shared build, GameTest, recording, and publishing conventions.
-
-Release automation is documented in [docs/RELEASE.md](docs/RELEASE.md). Optional Modrinth publishing is documented in [docs/MODRINTH.md](docs/MODRINTH.md).
+- [Development](docs/DEVELOPMENT.md) - build, GameTests and placement implementation.
+- [Release automation](docs/RELEASE.md) - GitHub release workflow.
+- [Modrinth publishing](docs/MODRINTH.md) - optional publishing setup.
