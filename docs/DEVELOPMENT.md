@@ -11,10 +11,10 @@ The release JARs are collected under `build/libs`.
 Run the registry, biome-targeting, natural-structure-set, End solid-ground, palette and placement-context GameTests on both loaders:
 
 ```shell
-heavy -- ./gradlew --no-daemon -Pfabricmoddingconventions.devClientOptions=/nonexistent runAllGameTests
+heavy -- ./gradlew --no-daemon runAllGameTests
 ```
 
-The project was initialized from [ModernMinecraftModTemplate](https://github.com/brainage04/ModernMinecraftModTemplate) and uses [FabricModdingConventions](https://github.com/brainage04/FabricModdingConventions) for shared build, GameTest, recording, and publishing conventions.
+The project was initialized from [ModernMinecraftModTemplate](https://github.com/brainage04/ModernMinecraftModTemplate) and uses [MinecraftModConventions](https://github.com/brainage04/MinecraftModConventions) for shared build, GameTest, recording, and publishing conventions.
 
 ## Placement implementation
 
