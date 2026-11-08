@@ -1,6 +1,6 @@
 # DimensionStructureVariants
 
-DimensionStructureVariants is a server-side only Fabric and NeoForge mod for Minecraft 26.2 that adds natural cross-dimension variants of vanilla structures.
+DimensionStructureVariants is a server-side only Fabric and NeoForge mod for Minecraft 26.3 that adds natural cross-dimension variants of vanilla structures.
 
 The eight variants use three independent random-spread structure sets, so they generate alongside rather than replace vanilla structures. Existing chunks are unchanged; explore new chunks after installing the mod.
 
@@ -30,7 +30,7 @@ Unmapped functional blocks (loot containers, workstations, beds, bells and ladde
 
 ## Getting started
 
-- Fabric Loader >=0.19.3 with Fabric API, or NeoForge >=26.2.0.88.
+- Fabric Loader >=0.19.5 with Fabric API, or NeoForge >=26.3.0.99.
 - Install exactly one matching JAR on the server: the Fabric JAR with Fabric API, or the NeoForge JAR with NeoForge.
 
 Generation uses vanilla blocks and entities only, so vanilla clients can join without installing the mod or a resource pack.

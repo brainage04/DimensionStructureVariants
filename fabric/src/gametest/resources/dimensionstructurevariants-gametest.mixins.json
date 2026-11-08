@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "io.github.brainage04.dimensionstructurevariants.gametest.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "CameraMixin",
+    "ConnectionMixin",
+    "ServerCommonPacketListenerImplMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

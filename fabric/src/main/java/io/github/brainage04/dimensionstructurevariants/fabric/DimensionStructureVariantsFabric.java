@@ -4,8 +4,8 @@ import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariant
 import net.fabricmc.api.ModInitializer;
 
 public final class DimensionStructureVariantsFabric implements ModInitializer {
-	@Override
-	public void onInitialize() {
-		DimensionStructureVariants.initialize();
-	}
+    @Override
+    public void onInitialize() {
+        DimensionStructureVariants.initialize();
+    }
 }

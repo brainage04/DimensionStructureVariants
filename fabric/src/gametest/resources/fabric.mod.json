@@ -12,5 +12,8 @@
 		"fabric-client-gametest": [
 			"io.github.brainage04.dimensionstructurevariants.DimensionStructureVariantsClientGameTest"
 		]
-	}
+	},
+	"mixins": [
+		"dimensionstructurevariants-gametest.mixins.json"
+	]
 }

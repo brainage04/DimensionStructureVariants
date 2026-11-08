@@ -5,7 +5,7 @@ import net.neoforged.fml.common.Mod;
 
 @Mod(DimensionStructureVariants.MOD_ID)
 public final class DimensionStructureVariantsNeoForge {
-	public DimensionStructureVariantsNeoForge() {
-		DimensionStructureVariants.initialize();
-	}
+    public DimensionStructureVariantsNeoForge() {
+        DimensionStructureVariants.initialize();
+    }
 }
