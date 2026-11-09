@@ -10,6 +10,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.WallSide;
 import net.minecraft.world.level.levelgen.structure.Structure;
@@ -151,7 +152,7 @@ public final class StructurePalettes {
                     Blocks.TALL_GRASS,
                     Blocks.AIR);
     private static final Map<BlockState, BlockState> NETHER_VILLAGE =
-            palette(
+            withoutWaterlogging(palette(
                     Blocks.COBBLESTONE,
                     Blocks.NETHER_BRICKS,
                     Blocks.MOSSY_COBBLESTONE,
@@ -219,7 +220,17 @@ public final class StructurePalettes {
                     Blocks.SHORT_GRASS,
                     Blocks.CRIMSON_ROOTS,
                     Blocks.TALL_GRASS,
-                    Blocks.AIR);
+                    Blocks.AIR,
+                    // Lava instead of water: farm channels, wells, fountains, ponds and troughs.
+                    Blocks.WATER,
+                    Blocks.LAVA,
+                    // Lava next to a flammable block starts fires. The farms' composters and the
+                    // fisher cottage's empty barrels stand beside the lava, so they become
+                    // blocks that cannot catch fire.
+                    Blocks.COMPOSTER,
+                    Blocks.NETHER_WART_BLOCK,
+                    Blocks.BARREL,
+                    Blocks.STRIPPED_CRIMSON_HYPHAE));
 
     private StructurePalettes() {}
 
@@ -293,5 +304,16 @@ public final class StructurePalettes {
                 .getValue(value)
                 .map(parsed -> target.setValue(targetProperty, parsed))
                 .orElse(target);
+    }
+
+    /** Lava cannot fill a block, so states that would hold water keep none. */
+    private static Map<BlockState, BlockState> withoutWaterlogging(
+            Map<BlockState, BlockState> palette) {
+        palette.replaceAll(
+                (source, target) ->
+                        target.hasProperty(BlockStateProperties.WATERLOGGED)
+                                ? target.setValue(BlockStateProperties.WATERLOGGED, false)
+                                : target);
+        return palette;
     }
 }
