@@ -4,8 +4,8 @@ import net.minecraft.client.Minecraft;
 
 /**
  * The recording's camera, driven on the client every frame instead of by a server teleport every
- * tick: at 18 degrees of orbit per tick a teleport per tick would show as steps at 30 frames per
- * second. {@code gametest.mixin.CameraMixin} asks {@link #framePose} for the pose of each frame.
+ * tick, so the orbit moves smoothly between ticks at 30 frames per second. {@code
+ * gametest.mixin.CameraMixin} asks {@link #framePose} for the pose of each frame.
  *
  * <p>The test thread either holds the camera at one point of an orbit (off camera, while the client
  * loads and rehearses the shot) or runs the orbit from the current tick; a running orbit is a
@@ -16,8 +16,8 @@ public final class ShowcaseCamera {
     /** Length of one shot in ticks: 4 seconds. */
     public static final int SHOT_TICKS = 80;
 
-    /** Full turns around the structure in one shot: one per second. */
-    public static final int REVOLUTIONS = 4;
+    /** Full turns around the structure in one shot: one, so a turn takes the shot's 4 seconds. */
+    public static final int REVOLUTIONS = 1;
 
     /** Degrees below the horizon the camera looks at the centre when a shot starts. */
     public static final double PITCH_START = 30.0D;
@@ -77,42 +77,28 @@ public final class ShowcaseCamera {
     public record Pose(double x, double y, double z, float yaw, float pitch) {}
 
     /**
-     * A spiral around {@code (centreX, centreY, centreZ)}: the radius shrinks evenly from {@code
-     * startRadius} to {@code endRadius} over {@link #REVOLUTIONS} turns while the camera descends
-     * from looking {@link #PITCH_START} degrees down at the centre to looking {@link #PITCH_END}
-     * degrees up at it. The height stays between the floor and {@code ceilingY}; {@code floor}
-     * holds the floor at evenly spaced points of the shot (it never rises), and where it stops the
-     * descent the camera keeps circling on it and the final angle is smaller.
+     * A circle around {@code (centreX, centreY, centreZ)} at a fixed {@code radius}, flown {@link
+     * #REVOLUTIONS} time per shot while the camera descends from looking {@link #PITCH_START}
+     * degrees down at the centre to looking {@link #PITCH_END} degrees up at it. The height stays
+     * between {@code floorY} and {@code ceilingY}; where the floor stops the descent the camera
+     * keeps circling on it and the final angle is smaller.
      */
     public record Orbit(
             double centreX,
             double centreY,
             double centreZ,
-            double startRadius,
-            double endRadius,
-            double[] floor,
+            double radius,
+            double floorY,
             double ceilingY,
             double startAngle) {
-        public double radius(double progress) {
-            return startRadius + (endRadius - startRadius) * progress;
-        }
-
-        public double floorAt(double progress) {
-            double position = Math.max(0.0D, Math.min(1.0D, progress)) * (floor.length - 1);
-            int index = Math.min(floor.length - 2, (int) Math.floor(position));
-            double local = position - index;
-            return floor[index] + (floor[index + 1] - floor[index]) * local;
-        }
-
         public double height(double progress) {
             double pitch = Math.toRadians(PITCH_START + (PITCH_END - PITCH_START) * progress);
-            double y = centreY + radius(progress) * Math.tan(pitch);
-            return Math.max(floorAt(progress), Math.min(ceilingY, y));
+            double y = centreY + radius * Math.tan(pitch);
+            return Math.max(floorY, Math.min(ceilingY, y));
         }
 
         public Pose at(double progress) {
             double angle = startAngle + 2.0D * Math.PI * REVOLUTIONS * progress;
-            double radius = radius(progress);
             double x = centreX + Math.cos(angle) * radius;
             double y = height(progress);
             double z = centreZ + Math.sin(angle) * radius;
@@ -126,7 +112,7 @@ public final class ShowcaseCamera {
 
         /** Degrees the camera looks up at the centre at the end (negative: still looking down). */
         public double finalUpAngle() {
-            return Math.toDegrees(Math.atan2(centreY - height(1.0D), endRadius));
+            return Math.toDegrees(Math.atan2(centreY - height(1.0D), radius));
         }
     }
 }
