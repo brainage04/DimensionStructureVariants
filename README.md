@@ -22,7 +22,8 @@ The mod keeps vanilla piece layouts, loot tables, mobs, and generation algorithm
 - Fortress in the End: end stone bricks, including downward supports, stairs and walls.
 - Village in the Nether: generic Nether palette: nether bricks, red nether bricks, basalt, blackstone, crimson fittings and gravel paths.
 
-The ocean bastion is intentionally a maritime fortress on its natural terrain-adapted island, not a blackstone/lava land structure stranded at sea. The Overworld fortress and Nether End city retain their original palettes.
+The ocean bastion is intentionally a maritime fortress on its terrain-adapted island, not a blackstone and lava
+structure standing at sea. The Overworld fortress and Nether End city retain their original palettes.
 
 End villages and bastions generate only in the outer islands' `end_highlands`/`end_midlands` biomes (never on the main island or in the void ring around it), and only where terrain lies under the core of their footprint, so they never start over the void. The Nether End city, like vanilla End cities, rises from the surface heightmap, which in the Nether is the bedrock roof.
 

@@ -1,15 +1,15 @@
 # DimensionStructureVariants icon
 
-## What this is
+## The icon
 
-The mod's icon: `icon.png` — 1024x1024 RGB PNG, 827 953 bytes,
+The mod's icon: `icon.png` – 1024x1024 RGB PNG, 827 953 bytes,
 sha256 `87f1cffb6b744481e4ada2cc38d44de44753eb0a3b93155236c784376dfc0082`.
 
-It shows this mod's `dimensionstructurevariants:end_city_overworld` structure — an End
-city generated naturally in the Overworld — sitting on a cold ocean, and is a real
+It shows this mod's `dimensionstructurevariants:end_city_overworld` structure – an End
+city generated naturally in the Overworld – sitting on a cold ocean, and is a real
 in-game screenshot with a single square crop and one resample.
 
-## How it was made
+## Making the icon
 
 **Method: real Minecraft capture** (not a Blender render, not generated pixel art). The
 default End-city geometry was left untouched; the structure comes from the mod's own
@@ -24,10 +24,10 @@ Capture session:
 | Display | Xvfb `:205`, 1600x1200x24, software OpenGL (Mesa llvmpipe); the primary desktop was never used |
 | Audio | own PulseAudio null sink `round3_dimension5` |
 | Shader pack | **none** |
-| Resource pack | **none** — no recolouring and no compositing either |
+| Resource pack | **none** – no recolouring and no compositing either |
 | World | `Dimension Natural 4`, seed `4680596595205837332`; a byte-copy of the approved `captures-dimension4` natural save, in which four additional structure starts were found by a read-only region scan and one `/locate structure` query, then given ordinary chunk generation by visiting them (no `/place`, no hand-building, no block edits) |
 | Camera | `/tp @s -1360 152 -1130 facing -1505 107 -1076` → camera at x=-1359.5, y=152, z=-1129.5 |
-| Lighting | `/time set noon` before the final F2, `/weather clear`, `/effect clear @s` — native daylight, **no night vision** |
+| Lighting | `/time set noon` before the final F2, `/weather clear`, `/effect clear @s` – native daylight, **no night vision** |
 | Screenshot | the game's own native F2 PNG, taken with **F1** (HUD hidden), no post-processing |
 
 The structure at that location: `end_city_overworld`, 82 pieces, start chunk `[-92, -66]`,
@@ -36,8 +36,8 @@ structure start `[-1472, ~, -1056]`, centre `(-1508.5, 107.0, -1076.5)`, piece b
 fortress falls outside the final crop.
 
 The delivered image is the 700x700 px window at `(410, 279)` of the raw F2 frame
-`2026-09-16_17.13.25.png` — centred on the visually annotated city bounding box
-`[542, 382, 978, 876]` (structure margins L132 / R132 / T103 / B103 px) — Lanczos-resampled
+`2026-09-16_17.13.25.png` – centred on the visually annotated city bounding box
+`[542, 382, 978, 876]` (structure margins L132 / R132 / T103 / B103 px) – Lanczos-resampled
 to 1024x1024. The annotated bounding box and the camera are recorded in
 `capture-selections.json`; the 700 px window and the Lanczos step are recorded in the
 `manifest.json` `notes` (no script was kept for that final re-output). Verified while
@@ -46,7 +46,7 @@ creating this provenance: re-applying the recorded window to the raw frame repro
 
 ## Provenance files
 
-| Path | What it is |
+| Path | Description |
 |---|---|
 | `manifest.json` | Round-3 delivery record: label, method, source, camera command, coordinates, lighting, crop rectangle, centring maths, notes |
 | `capture-selections.json` | Per-image selection: raw screenshot, chunk, camera command/XYZ, annotated source bounding box, output size |
@@ -64,11 +64,11 @@ creating this provenance: re-applying the recorded window to the raw frame repro
 | `launch.sh`, `client.args` | The exact launcher and Java argfile of the session |
 | `cleanup-report.json`, `blockers.json` | Resource teardown record and the (empty) blocker list |
 
-Excluded on purpose: the game directory `runtime/` (22 MB — only the one source frame is
+Excluded on purpose: the game directory `runtime/` (22 MB – only the one source frame is
 kept), session logs, and all the other candidate previews/overlays/contact sheets in
 `evidence/` (~16 MB of PNGs that document *unchosen* framings rather than this icon).
 
-## How to regenerate
+## Regenerating the icon
 
 The session ran with working directory `<round3>/captures-dimension5`. Restore
 `provenance/` to that name and copy the source frame back where the session had it:
@@ -93,7 +93,7 @@ PY
 
 `tools/finalize.py` writes `renders/03-three-spire-ocean-city.png` as the 680x700 output
 recorded in the manifest; the second command is the later 1024x1024 re-output that is the
-delivered icon — it is one line of Pillow and is reproduced here exactly as recorded, since
+delivered icon – it is one line of Pillow and is reproduced here exactly as recorded, since
 the original session did not keep a script for that step.
 
 Prerequisites not shipped: the Minecraft 26.2 client, Fabric Loader, the world save and the
@@ -105,7 +105,7 @@ directory).
 * **The manifest's `sha256`/`dimensions`/`cropRectangleXYXY` fields for this image are one
   step out of date.** `evidence/crop-verification.json` and the manifest's structured fields
   describe the intermediate **680x700** crop (crop box `[420, 279, 1100, 979]`, sha256
-  `c86e408f…`). The file that was actually delivered — and that is copied here — is the
+  `c86e408f…`). The file that was actually delivered – and that is copied here – is the
   **1024x1024** re-output described only in the manifest's free-text `notes`, sha256
   `87f1cffb…`. Both describe the same composition; only the canvas differs.
 * Re-applying the recorded window `(410, 279, 1110, 979)` plus Lanczos to 1024 to the raw
@@ -113,7 +113,7 @@ directory).
 * The annotation of the city bounding box has an uncertainty of about ±3 px; the crop
   centres the annotated rectangle with an exact centre offset of 0.0 px on both axes.
 * The crop is lossless (integer rectangle) but the 1024 re-output is a Lanczos resample of a
-  700 px window, so `icon.png` is *not* a native-resolution pixel copy — this is the only
+  700 px window, so `icon.png` is *not* a native-resolution pixel copy – this is the only
   resampled step.
 * Three of the four captures of this session were not chosen and are not reproduced here;
   `capture-selections.json` still documents them.
