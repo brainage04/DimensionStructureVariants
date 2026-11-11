@@ -1673,9 +1673,19 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         double centreZ = (box.minZ() + box.maxZ() + 1) / 2.0D;
         double centreY = (box.minY() + box.maxY() + 1) / 2.0D;
         double ceiling = level.getMaxY() - 2.0D;
-        Solids solids = new Solids(level, stage.hasGround() ? groundY : Integer.MIN_VALUE);
         double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
         double base = startRadius(framed[0], framed[1]);
+        Solids solids =
+                new Solids(
+                        level,
+                        stage.hasGround() ? groundY : Integer.MIN_VALUE,
+                        new BoundingBox(
+                                (int) Math.floor(centreX - framed[0]),
+                                (int) Math.floor(centreY - framed[1]),
+                                (int) Math.floor(centreZ - framed[0]),
+                                (int) Math.ceil(centreX + framed[0]),
+                                (int) Math.ceil(centreY + framed[1]),
+                                (int) Math.ceil(centreZ + framed[0])));
         int[] terrain =
                 stage.hasGround()
                         ? null
@@ -1864,13 +1874,18 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
 
     /** Which blocks the camera has to keep away from, read lazily in 4 by 4 by 4 cells. */
     private static final class Solids {
+        /** How close the camera may come to a block outside the framed mass: not through it. */
+        private static final double SPARSE_CLEARANCE = 2.5D;
+
         private final ServerLevel level;
         private final int groundTop;
+        private final BoundingBox dense;
         private final Map<Long, Long> cells = new HashMap<>();
 
-        Solids(ServerLevel level, int groundTop) {
+        Solids(ServerLevel level, int groundTop, BoundingBox dense) {
             this.level = level;
             this.groundTop = groundTop;
+            this.dense = dense;
         }
 
         private long cell(int cellX, int cellY, int cellZ) {
@@ -1901,6 +1916,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             int fromZ = Math.floorDiv((int) Math.floor(z - radius), 4);
             int toZ = Math.floorDiv((int) Math.floor(z + radius), 4);
             double limit = radius * radius;
+            double sparse = SPARSE_CLEARANCE * SPARSE_CLEARANCE;
             for (int cellX = fromX; cellX <= toX; cellX++) {
                 for (int cellY = fromY; cellY <= toY; cellY++) {
                     for (int cellZ = fromZ; cellZ <= toZ; cellZ++) {
@@ -1914,7 +1930,15 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                             double dx = Math.max(0.0D, Math.max(bx - x, x - bx - 1.0D));
                             double dy = Math.max(0.0D, Math.max(by - y, y - by - 1.0D));
                             double dz = Math.max(0.0D, Math.max(bz - z, z - bz - 1.0D));
-                            if (dx * dx + dy * dy + dz * dz < limit) return true;
+                            double distance = dx * dx + dy * dy + dz * dz;
+                            boolean inside =
+                                    bx >= dense.minX()
+                                            && bx <= dense.maxX() + 1
+                                            && by >= dense.minY()
+                                            && by <= dense.maxY() + 1
+                                            && bz >= dense.minZ()
+                                            && bz <= dense.maxZ() + 1;
+                            if (distance < (inside ? limit : sparse)) return true;
                         }
                     }
                 }
