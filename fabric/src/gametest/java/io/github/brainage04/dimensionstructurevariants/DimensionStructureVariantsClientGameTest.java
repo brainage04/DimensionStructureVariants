@@ -739,7 +739,14 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         // The start box is the most the structure can fill; it and a margin of chunks are loaded
         // before it is placed.
         loadChunks(server, build, chunks(chunkRange(build.startBox, 3)));
-        server.runOnServer(minecraftServer -> place(build, stage));
+        // The palette follows the biome at the structure start, so the stage's biome goes in before
+        // the structure is placed and not only for the camera afterwards.
+        server.runOnServer(
+                minecraftServer -> {
+                    fillBiome(
+                            build.level, chunkRange(build.startBox, 1), stage.biome(), stage.id());
+                    place(build, stage);
+                });
         if (!stage.hasGround()) {
             // The camera's floor follows the End's real terrain out to the widest circle tried.
             BoundingBox occupied = build.occupied;
@@ -793,32 +800,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         loadChunks(server, build, held);
         prepared = withForced(prepared, build.forced);
         server.runOnServer(
-                minecraftServer -> {
-                    Holder<Biome> biome =
-                            build.level
-                                    .registryAccess()
-                                    .lookupOrThrow(Registries.BIOME)
-                                    .getOrThrow(stage.biome());
-                    var result =
-                            FillBiomeCommand.fill(
-                                    build.level,
-                                    new BlockPos(
-                                            SectionPos.sectionToBlockCoord(filled.minX()),
-                                            build.level.getMinY(),
-                                            SectionPos.sectionToBlockCoord(filled.minZ())),
-                                    new BlockPos(
-                                            SectionPos.sectionToBlockCoord(filled.maxX() + 1) - 1,
-                                            build.level.getMaxY(),
-                                            SectionPos.sectionToBlockCoord(filled.maxZ() + 1) - 1),
-                                    biome);
-                    // The flat Overworld is plains already; nothing to change is fine.
-                    result.ifRight(
-                            error -> {
-                                if (error.getType() == FillBiomeCommand.ERROR_NO_BIOMES_SET) return;
-                                throw new AssertionError(
-                                        "Could not fill the biome of " + stage.id(), error);
-                            });
-                });
+                minecraftServer ->
+                        fillBiome(build.level, filled, stage.biome(), stage.id()));
         if (stage.ground() != Ground.NATURAL) {
             List<ChunkPos> ground = chunks(filled);
             for (int from = 0; from < ground.size(); from += CHUNK_BATCH) {
@@ -2162,6 +2145,31 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     }
 
     /** The Nether fog the camera sees must be the test mod's, not vanilla's 96 blocks. */
+    /** Sets the biome of every chunk column in {@code range} to {@code biome}. */
+    private static void fillBiome(
+            ServerLevel level, ChunkRange range, ResourceKey<Biome> biome, String stage) {
+        Holder<Biome> holder =
+                level.registryAccess().lookupOrThrow(Registries.BIOME).getOrThrow(biome);
+        var result =
+                FillBiomeCommand.fill(
+                        level,
+                        new BlockPos(
+                                SectionPos.sectionToBlockCoord(range.minX()),
+                                level.getMinY(),
+                                SectionPos.sectionToBlockCoord(range.minZ())),
+                        new BlockPos(
+                                SectionPos.sectionToBlockCoord(range.maxX() + 1) - 1,
+                                level.getMaxY(),
+                                SectionPos.sectionToBlockCoord(range.maxZ() + 1) - 1),
+                        holder);
+        // The flat Overworld is plains already; nothing to change is fine.
+        result.ifRight(
+                error -> {
+                    if (error.getType() == FillBiomeCommand.ERROR_NO_BIOMES_SET) return;
+                    throw new AssertionError("Could not fill the biome of " + stage, error);
+                });
+    }
+
     private static void assertNetherFog(ClientGameTestContext context) {
         float[] fog =
                 context.computeOnClient(
