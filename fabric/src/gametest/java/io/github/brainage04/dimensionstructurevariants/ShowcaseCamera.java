@@ -29,6 +29,7 @@ public final class ShowcaseCamera {
     private static double heldProgress;
     private static boolean running;
     private static long ticks;
+    private static long frames;
     private static long startTick;
     private static float startPartial;
 
@@ -69,8 +70,19 @@ public final class ShowcaseCamera {
 
     /** The pose this frame shows, or null when the camera follows the player. */
     public static Pose framePose(float partialTicks) {
+        frames++;
         Orbit current = orbit;
         return current == null ? null : current.at(progress(partialTicks));
+    }
+
+    /**
+     * The frames posed since the client started: one per frame, so the difference across a span of
+     * time is what the client presented then. A card presents several frames per tick, software
+     * less than one, and the test reads this to film each shot at a rate its client can keep up
+     * with.
+     */
+    public static long frames() {
+        return frames;
     }
 
     /** A camera position and the rotation that looks at the orbit's centre. */

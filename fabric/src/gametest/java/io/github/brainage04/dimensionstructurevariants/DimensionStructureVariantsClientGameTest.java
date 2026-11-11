@@ -135,12 +135,14 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     /**
      * Game ticks per second while a shot is filmed: the frame rate the rehearsal measured divided
      * by {@link #FRAMES_PER_TICK}, between these bounds. Software rendering manages 3 to 18 frames
-     * a second and the game ticks at most once per frame in a client GameTest, so at 20 ticks a
-     * second every frame would be a new tick, 4.5 degrees of orbit apart. At a lower rate each tick
-     * gets several frames, the camera moves between them, and the cut plays the shot back at 20
-     * ticks a second.
+     * a second and the game ticks at most once per frame in a client GameTest, so at the game's own
+     * 20 ticks a second every frame would be a new tick, 4.5 degrees of orbit apart. At a lower rate
+     * each tick gets several frames, the camera moves between them, and the cut plays the shot back
+     * at 20 ticks a second. A graphics card presents 60 frames or more, several per tick: the shot
+     * then runs at the game's own rate, its 80 ticks take their 4 seconds, and the cut keeps that
+     * speed instead of speeding the shot up.
      */
-    private static final double MAX_SHOT_TICK_RATE = 4.0D;
+    private static final double MAX_SHOT_TICK_RATE = 20.0D;
 
     private static final double MIN_SHOT_TICK_RATE = 1.0D;
 
@@ -1856,15 +1858,19 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         BitSet baseline = settle(context, stage, prepared);
         double framesPerSecond = 0.0D;
         for (int pass = 1; pass <= MAX_REHEARSALS; pass++) {
+            long beganFrames = context.computeOnClient(client -> ShowcaseCamera.frames());
             long began = System.nanoTime();
             for (int step = 0; step <= steps; step++) {
                 double progress = step / (double) steps;
                 context.runOnClient(client -> ShowcaseCamera.hold(orbit, progress));
                 context.waitTick();
             }
-            // Each step is one client tick, and a client GameTest renders a frame per tick at
-            // most, so this is the frame rate along the shot (at most 20).
-            framesPerSecond = (steps + 1) / ((System.nanoTime() - began) / 1.0E9D);
+            // The frames the client presented along the shot, not the ticks the steps waited for:
+            // a card presents several frames per tick and a software rasterizer fewer than one,
+            // which is the difference the tick rate below has to make up for.
+            double seconds = (System.nanoTime() - began) / 1.0E9D;
+            long rendered = context.computeOnClient(client -> ShowcaseCamera.frames()) - beganFrames;
+            framesPerSecond = rendered / seconds;
             context.runOnClient(client -> ShowcaseCamera.hold(orbit, 0.0D));
             waitForRegionLoaded(context, stage, prepared);
             BitSet after = settle(context, stage, prepared);
@@ -1884,13 +1890,22 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             if (converged) break;
         }
         // Two frames a tick at least, so the 80 ticks get the 120 frames 4 seconds at 30 frames a
-        // second need once the cut plays them back at 20 ticks a second.
+        // second need once the cut plays them back at 20 ticks a second. A card that manages this
+        // at the game's own rate films the shot at 20 ticks a second and the cut plays it as it was
+        // filmed, one turn per 4 seconds.
         float tickRate =
                 (float)
                         Math.max(
                                 MIN_SHOT_TICK_RATE,
                                 Math.min(MAX_SHOT_TICK_RATE, framesPerSecond / FRAMES_PER_TICK));
-        System.out.println("[DSV] " + stage.id() + " films at " + tickRate + " ticks a second");
+        System.out.println(
+                "[DSV] "
+                        + stage.id()
+                        + " films at "
+                        + tickRate
+                        + " ticks a second (the client presented "
+                        + String.format(Locale.ROOT, "%.1f", framesPerSecond)
+                        + " frames a second)");
         if (baseline.isEmpty())
             throw new AssertionError("Expected sections to be built for " + stage.id());
 
