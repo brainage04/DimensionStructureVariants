@@ -13,17 +13,16 @@ The eight variants use three independent random-spread structure sets, so they g
 - Bastion remnant: Overworld and End.
 - End city: Overworld and Nether.
 
-The mod keeps vanilla piece layouts, loot tables, mobs, and generation algorithms while targeting biomes in another dimension. Selected variants substitute vanilla blocks during placement:
+The mod keeps vanilla piece layouts, loot tables, mobs, and generation algorithms while targeting biomes in another dimension. Every variant substitutes vanilla blocks during placement, in the materials of the biome it stands in. The table lives in [`palettes.json`](common/src/main/resources/data/dimensionstructurevariants/palette/palettes.json): one palette per structure and biome.
 
-- End city in the Overworld: cold/frozen oceans only; packed ice, blue ice, snow, prismarine trims and cyan glazing.
-- Bastion in the Overworld: ocean biomes only; prismarine, prismarine bricks, dark prismarine and sea lanterns; lava becomes water.
+- Nether fortress in the Overworld: stone bricks in the green biomes, sandstone in the desert, red sandstone in the badlands, mossy stone bricks in the jungles, mud bricks in the swamps, snow and ice in the snowy biomes, mycelium and mushrooms in the mushroom fields, and a family of its own in each ocean temperature.
+- Bastion in the Overworld: oceans only; prismarine in the temperate and cold oceans, sandstone and coral in the warm oceans, stone and ice in the frozen oceans; lava becomes water.
+- End city in the Overworld: cold and frozen oceans only; packed ice, blue ice, snow, prismarine trims and cyan glazing in the frozen oceans, prismarine and light blue glazing in the cold oceans.
+- Village in the Nether: one family per Nether biome: nether bricks and red nether bricks in the wastes, crimson materials in the crimson forest, warped materials in the warped forest, soul soil and basalt in the soul sand valley, blackstone and smooth basalt in the basalt deltas. Every village piece is placed rigidly one block above the bedrock roof, and the village lays its biome's ground (crimson nylium, warped nylium, soul soil, netherrack or blackstone) under its own footprint, so it never replaces the bedrock; gravel and netherrack stay for the paths. Water becomes lava (farm channels, wells, fountains, ponds), and the farms' composters and the fisher cottage's barrels, which stand beside it, become nether wart blocks and stripped crimson hyphae so the lava cannot set them alight.
+- End city in the Nether: one family per Nether biome, so the Nether's own blocks form the city.
 - Village in the End: outer End islands only; end-stone foundations and paths, purpur roofs/pillars, magenta glazing and end rods.
 - Bastion in the End: outer End islands only; end stone, end stone bricks and purpur; lava becomes solid purpur.
 - Fortress in the End: end stone bricks, including downward supports, stairs and walls.
-- Village in the Nether: generic Nether palette: nether bricks, red nether bricks, basalt, blackstone, crimson fittings and gravel paths; water becomes lava (farm channels, wells, fountains, ponds), and the farms' composters and the fisher cottage's barrels, which stand beside it, become nether wart blocks and stripped crimson hyphae so the lava cannot set them alight.
-
-The ocean bastion is intentionally a maritime fortress on its terrain-adapted island, not a blackstone and lava
-structure standing at sea. The Overworld fortress and Nether End city retain their original palettes.
 
 End villages and bastions generate only in the outer islands' `end_highlands`/`end_midlands` biomes (never on the main island or in the void ring around it), and only where terrain lies under the core of their footprint, so they never start over the void. The Nether End city, like vanilla End cities, rises from the surface heightmap, which in the Nether is the bedrock roof.
 

@@ -37,6 +37,14 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 () -> PaletteGameTests::dimensionMaterialsAndProperties);
         event.register(
                 BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("biome_groups_get_their_own_palette"),
+                () -> PaletteGameTests::biomeGroupsGetTheirOwnPalette);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("every_targeted_biome_resolves_a_palette"),
+                () -> PaletteGameTests::everyTargetedBiomeResolvesAPalette);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of(
                         "placement_restores_context_after_success_and_failure"),
                 () -> PaletteGameTests::placementRestoresContextAfterSuccessAndFailure);

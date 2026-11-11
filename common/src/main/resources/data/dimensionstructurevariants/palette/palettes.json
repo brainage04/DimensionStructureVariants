@@ -1,0 +1,876 @@
+{
+  "role_sets": {
+    "fortress": {
+      "minecraft:nether_bricks": "brick",
+      "minecraft:nether_brick_stairs": "brick_stairs",
+      "minecraft:nether_brick_slab": "brick_slab",
+      "minecraft:nether_brick_fence": "brick_wall",
+      "minecraft:netherrack": "fill",
+      "minecraft:soul_sand": "floor",
+      "minecraft:nether_wart": "plant",
+      "minecraft:lava": "liquid",
+      "minecraft:magma_block": "accent"
+    },
+    "bastion": {
+      "minecraft:blackstone": "brick",
+      "minecraft:polished_blackstone": "polished",
+      "minecraft:polished_blackstone_bricks": "bricks",
+      "minecraft:cracked_polished_blackstone_bricks": "bricks_cracked",
+      "minecraft:chiseled_polished_blackstone": "chiseled",
+      "minecraft:gilded_blackstone": "gilded",
+      "minecraft:gold_block": "gold",
+      "minecraft:blackstone_stairs": "brick_stairs",
+      "minecraft:polished_blackstone_stairs": "polished_stairs",
+      "minecraft:polished_blackstone_brick_stairs": "bricks_stairs",
+      "minecraft:blackstone_slab": "brick_slab",
+      "minecraft:polished_blackstone_slab": "polished_slab",
+      "minecraft:polished_blackstone_brick_slab": "bricks_slab",
+      "minecraft:blackstone_wall": "brick_wall",
+      "minecraft:polished_blackstone_wall": "polished_wall",
+      "minecraft:polished_blackstone_brick_wall": "bricks_wall",
+      "minecraft:basalt": "basalt",
+      "minecraft:polished_basalt": "polished_basalt",
+      "minecraft:smooth_basalt": "smooth_basalt",
+      "minecraft:netherrack": "fill",
+      "minecraft:soul_sand": "floor",
+      "minecraft:magma_block": "lamp",
+      "minecraft:lava": "liquid",
+      "minecraft:crying_obsidian": "glass"
+    },
+    "end_city": {
+      "minecraft:end_stone_bricks": "bricks",
+      "minecraft:end_stone": "end_stone",
+      "minecraft:purpur_block": "body",
+      "minecraft:purpur_pillar": "pillar",
+      "minecraft:purpur_stairs": "stairs",
+      "minecraft:purpur_slab": "slab",
+      "minecraft:magenta_stained_glass": "glass",
+      "minecraft:magenta_stained_glass_pane": "pane"
+    },
+    "village": {
+      "minecraft:cobblestone": "brick",
+      "minecraft:mossy_cobblestone": "brick_mossy",
+      "minecraft:cobblestone_stairs": "brick_stairs",
+      "minecraft:mossy_cobblestone_stairs": "brick_mossy_stairs",
+      "minecraft:cobblestone_slab": "brick_slab",
+      "minecraft:mossy_cobblestone_slab": "brick_mossy_slab",
+      "minecraft:cobblestone_wall": "brick_wall",
+      "minecraft:mossy_cobblestone_wall": "brick_mossy_wall",
+      "minecraft:oak_log": "log",
+      "minecraft:stripped_oak_log": "stripped_log",
+      "minecraft:oak_wood": "wood",
+      "minecraft:oak_planks": "planks",
+      "minecraft:oak_stairs": "planks_stairs",
+      "minecraft:oak_slab": "planks_slab",
+      "minecraft:oak_fence": "fence",
+      "minecraft:oak_fence_gate": "fence_gate",
+      "minecraft:oak_door": "door",
+      "minecraft:oak_trapdoor": "trapdoor",
+      "minecraft:oak_pressure_plate": "plate",
+      "minecraft:oak_button": "button",
+      "minecraft:oak_leaves": "leaves",
+      "minecraft:grass_block": "ground",
+      "minecraft:dirt": "fill",
+      "minecraft:dirt_path": "path",
+      "minecraft:hay_block": "hay",
+      "minecraft:white_terracotta": "deco",
+      "minecraft:terracotta": "deco2",
+      "minecraft:glass_pane": "glass",
+      "minecraft:torch": "light",
+      "minecraft:wall_torch": "wall_light",
+      "minecraft:dandelion": "plant_a",
+      "minecraft:poppy": "plant_b",
+      "minecraft:short_grass": "grass",
+      "minecraft:tall_grass": "tall_grass",
+      "minecraft:water": "liquid",
+      "minecraft:composter": "workstation",
+      "minecraft:barrel": "storage"
+    }
+  },
+  "palettes": {
+    "fortress_grass": {
+      "blocks": {
+        "brick": "minecraft:stone_bricks",
+        "brick_stairs": "minecraft:stone_brick_stairs",
+        "brick_slab": "minecraft:stone_brick_slab",
+        "brick_wall": "minecraft:stone_brick_wall",
+        "fill": "minecraft:stone",
+        "floor": "minecraft:coarse_dirt",
+        "plant": "minecraft:short_grass",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:moss_block"
+      }
+    },
+    "fortress_desert": {
+      "blocks": {
+        "brick": "minecraft:sandstone",
+        "brick_stairs": "minecraft:sandstone_stairs",
+        "brick_slab": "minecraft:sandstone_slab",
+        "brick_wall": "minecraft:sandstone_wall",
+        "fill": "minecraft:sand",
+        "floor": "minecraft:sand",
+        "plant": "minecraft:dead_bush",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:chiseled_sandstone"
+      }
+    },
+    "fortress_badlands": {
+      "blocks": {
+        "brick": "minecraft:red_sandstone",
+        "brick_stairs": "minecraft:red_sandstone_stairs",
+        "brick_slab": "minecraft:red_sandstone_slab",
+        "brick_wall": "minecraft:red_sandstone_wall",
+        "fill": "minecraft:terracotta",
+        "floor": "minecraft:red_sand",
+        "plant": "minecraft:dead_bush",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:orange_terracotta"
+      }
+    },
+    "fortress_jungle": {
+      "blocks": {
+        "brick": "minecraft:mossy_stone_bricks",
+        "brick_stairs": "minecraft:mossy_stone_brick_stairs",
+        "brick_slab": "minecraft:mossy_stone_brick_slab",
+        "brick_wall": "minecraft:mossy_stone_brick_wall",
+        "fill": "minecraft:mossy_cobblestone",
+        "floor": "minecraft:coarse_dirt",
+        "plant": "minecraft:fern",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:moss_block"
+      }
+    },
+    "fortress_swamp": {
+      "blocks": {
+        "brick": "minecraft:mud_bricks",
+        "brick_stairs": "minecraft:mud_brick_stairs",
+        "brick_slab": "minecraft:mud_brick_slab",
+        "brick_wall": "minecraft:mud_brick_wall",
+        "fill": "minecraft:mud",
+        "floor": "minecraft:packed_mud",
+        "plant": "minecraft:moss_carpet",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:mangrove_roots"
+      }
+    },
+    "fortress_snowy": {
+      "blocks": {
+        "brick": "minecraft:packed_ice",
+        "brick_stairs": "minecraft:stone_brick_stairs",
+        "brick_slab": "minecraft:stone_brick_slab",
+        "brick_wall": "minecraft:stone_brick_wall",
+        "fill": "minecraft:snow_block",
+        "floor": "minecraft:ice",
+        "plant": "minecraft:snow",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:blue_ice"
+      }
+    },
+    "fortress_mushroom": {
+      "blocks": {
+        "brick": "minecraft:mushroom_stem",
+        "brick_stairs": "minecraft:stone_brick_stairs",
+        "brick_slab": "minecraft:stone_brick_slab",
+        "brick_wall": "minecraft:stone_brick_wall",
+        "fill": "minecraft:mycelium",
+        "floor": "minecraft:brown_mushroom_block",
+        "plant": "minecraft:red_mushroom",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:mushroom_stem"
+      }
+    },
+    "fortress_warm_ocean": {
+      "blocks": {
+        "brick": "minecraft:sandstone",
+        "brick_stairs": "minecraft:sandstone_stairs",
+        "brick_slab": "minecraft:sandstone_slab",
+        "brick_wall": "minecraft:sandstone_wall",
+        "fill": "minecraft:sand",
+        "floor": "minecraft:sand",
+        "plant": "minecraft:tube_coral_block",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:brain_coral_block"
+      }
+    },
+    "fortress_ocean": {
+      "blocks": {
+        "brick": "minecraft:prismarine_bricks",
+        "brick_stairs": "minecraft:prismarine_brick_stairs",
+        "brick_slab": "minecraft:prismarine_brick_slab",
+        "brick_wall": "minecraft:prismarine_wall",
+        "fill": "minecraft:prismarine",
+        "floor": "minecraft:gravel",
+        "plant": "minecraft:dark_prismarine",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:sea_lantern"
+      }
+    },
+    "fortress_frozen_ocean": {
+      "blocks": {
+        "brick": "minecraft:prismarine_bricks",
+        "brick_stairs": "minecraft:prismarine_brick_stairs",
+        "brick_slab": "minecraft:prismarine_brick_slab",
+        "brick_wall": "minecraft:prismarine_wall",
+        "fill": "minecraft:packed_ice",
+        "floor": "minecraft:ice",
+        "plant": "minecraft:blue_ice",
+        "liquid": "minecraft:water",
+        "accent": "minecraft:snow_block"
+      }
+    },
+    "fortress_end": {
+      "blocks": {
+        "brick": "minecraft:end_stone_bricks",
+        "brick_stairs": "minecraft:end_stone_brick_stairs",
+        "brick_slab": "minecraft:end_stone_brick_slab",
+        "brick_wall": "minecraft:end_stone_brick_wall",
+        "fill": "minecraft:end_stone",
+        "floor": "minecraft:end_stone",
+        "plant": "minecraft:air",
+        "liquid": "minecraft:purpur_block",
+        "accent": "minecraft:purpur_pillar"
+      }
+    },
+    "bastion_ocean": {
+      "blocks": {
+        "brick": "minecraft:prismarine",
+        "polished": "minecraft:dark_prismarine",
+        "bricks": "minecraft:prismarine_bricks",
+        "bricks_cracked": "minecraft:prismarine",
+        "chiseled": "minecraft:dark_prismarine",
+        "gilded": "minecraft:sea_lantern",
+        "gold": "minecraft:sea_lantern",
+        "brick_stairs": "minecraft:prismarine_stairs",
+        "polished_stairs": "minecraft:dark_prismarine_stairs",
+        "bricks_stairs": "minecraft:prismarine_brick_stairs",
+        "brick_slab": "minecraft:prismarine_slab",
+        "polished_slab": "minecraft:dark_prismarine_slab",
+        "bricks_slab": "minecraft:prismarine_brick_slab",
+        "brick_wall": "minecraft:prismarine_wall",
+        "polished_wall": "minecraft:prismarine_wall",
+        "bricks_wall": "minecraft:prismarine_wall",
+        "basalt": "minecraft:dark_prismarine",
+        "polished_basalt": "minecraft:dark_prismarine",
+        "smooth_basalt": "minecraft:dark_prismarine",
+        "fill": "minecraft:prismarine",
+        "floor": "minecraft:sand",
+        "lamp": "minecraft:sea_lantern",
+        "liquid": "minecraft:water",
+        "glass": "minecraft:sea_lantern"
+      }
+    },
+    "bastion_warm_ocean": {
+      "blocks": {
+        "brick": "minecraft:sandstone",
+        "polished": "minecraft:smooth_sandstone",
+        "bricks": "minecraft:cut_sandstone",
+        "bricks_cracked": "minecraft:sandstone",
+        "chiseled": "minecraft:chiseled_sandstone",
+        "gilded": "minecraft:sea_lantern",
+        "gold": "minecraft:sea_lantern",
+        "brick_stairs": "minecraft:sandstone_stairs",
+        "polished_stairs": "minecraft:smooth_sandstone_stairs",
+        "bricks_stairs": "minecraft:sandstone_stairs",
+        "brick_slab": "minecraft:sandstone_slab",
+        "polished_slab": "minecraft:smooth_sandstone_slab",
+        "bricks_slab": "minecraft:cut_sandstone_slab",
+        "brick_wall": "minecraft:sandstone_wall",
+        "polished_wall": "minecraft:sandstone_wall",
+        "bricks_wall": "minecraft:sandstone_wall",
+        "basalt": "minecraft:smooth_sandstone",
+        "polished_basalt": "minecraft:cut_sandstone",
+        "smooth_basalt": "minecraft:sandstone",
+        "fill": "minecraft:sand",
+        "floor": "minecraft:sand",
+        "lamp": "minecraft:sea_lantern",
+        "liquid": "minecraft:water",
+        "glass": "minecraft:brain_coral_block"
+      }
+    },
+    "bastion_frozen_ocean": {
+      "blocks": {
+        "brick": "minecraft:stone_bricks",
+        "polished": "minecraft:packed_ice",
+        "bricks": "minecraft:blue_ice",
+        "bricks_cracked": "minecraft:ice",
+        "chiseled": "minecraft:packed_ice",
+        "gilded": "minecraft:sea_lantern",
+        "gold": "minecraft:sea_lantern",
+        "brick_stairs": "minecraft:stone_brick_stairs",
+        "polished_stairs": "minecraft:stone_brick_stairs",
+        "bricks_stairs": "minecraft:stone_brick_stairs",
+        "brick_slab": "minecraft:stone_brick_slab",
+        "polished_slab": "minecraft:stone_brick_slab",
+        "bricks_slab": "minecraft:stone_brick_slab",
+        "brick_wall": "minecraft:stone_brick_wall",
+        "polished_wall": "minecraft:stone_brick_wall",
+        "bricks_wall": "minecraft:stone_brick_wall",
+        "basalt": "minecraft:snow_block",
+        "polished_basalt": "minecraft:packed_ice",
+        "smooth_basalt": "minecraft:ice",
+        "fill": "minecraft:snow_block",
+        "floor": "minecraft:ice",
+        "lamp": "minecraft:sea_lantern",
+        "liquid": "minecraft:water",
+        "glass": "minecraft:blue_ice"
+      }
+    },
+    "bastion_end": {
+      "blocks": {
+        "brick": "minecraft:end_stone",
+        "polished": "minecraft:purpur_block",
+        "bricks": "minecraft:end_stone_bricks",
+        "bricks_cracked": "minecraft:end_stone",
+        "chiseled": "minecraft:purpur_pillar",
+        "gilded": "minecraft:purpur_block",
+        "gold": "minecraft:purpur_pillar",
+        "brick_stairs": "minecraft:end_stone_brick_stairs",
+        "polished_stairs": "minecraft:purpur_stairs",
+        "bricks_stairs": "minecraft:end_stone_brick_stairs",
+        "brick_slab": "minecraft:end_stone_brick_slab",
+        "polished_slab": "minecraft:purpur_slab",
+        "bricks_slab": "minecraft:end_stone_brick_slab",
+        "brick_wall": "minecraft:end_stone_brick_wall",
+        "polished_wall": "minecraft:end_stone_brick_wall",
+        "bricks_wall": "minecraft:end_stone_brick_wall",
+        "basalt": "minecraft:purpur_pillar",
+        "polished_basalt": "minecraft:purpur_pillar",
+        "smooth_basalt": "minecraft:purpur_block",
+        "fill": "minecraft:end_stone",
+        "floor": "minecraft:end_stone",
+        "lamp": "minecraft:purpur_block",
+        "liquid": "minecraft:purpur_block",
+        "glass": "minecraft:purpur_pillar"
+      }
+    },
+    "end_city_frozen_ocean": {
+      "blocks": {
+        "bricks": "minecraft:packed_ice",
+        "end_stone": "minecraft:packed_ice",
+        "body": "minecraft:blue_ice",
+        "pillar": "minecraft:snow_block",
+        "stairs": "minecraft:prismarine_stairs",
+        "slab": "minecraft:prismarine_brick_slab",
+        "glass": "minecraft:cyan_stained_glass",
+        "pane": "minecraft:cyan_stained_glass_pane"
+      }
+    },
+    "end_city_cold_ocean": {
+      "blocks": {
+        "bricks": "minecraft:prismarine",
+        "end_stone": "minecraft:prismarine",
+        "body": "minecraft:dark_prismarine",
+        "pillar": "minecraft:prismarine_bricks",
+        "stairs": "minecraft:prismarine_stairs",
+        "slab": "minecraft:prismarine_slab",
+        "glass": "minecraft:light_blue_stained_glass",
+        "pane": "minecraft:light_blue_stained_glass_pane"
+      }
+    },
+    "end_city_nether_wastes": {
+      "blocks": {
+        "bricks": "minecraft:nether_bricks",
+        "end_stone": "minecraft:netherrack",
+        "body": "minecraft:red_nether_bricks",
+        "pillar": "minecraft:polished_blackstone",
+        "stairs": "minecraft:nether_brick_stairs",
+        "slab": "minecraft:nether_brick_slab",
+        "glass": "minecraft:red_stained_glass",
+        "pane": "minecraft:red_stained_glass_pane"
+      }
+    },
+    "end_city_nether_crimson": {
+      "blocks": {
+        "bricks": "minecraft:polished_blackstone_bricks",
+        "end_stone": "minecraft:netherrack",
+        "body": "minecraft:crimson_planks",
+        "pillar": "minecraft:crimson_stem",
+        "stairs": "minecraft:crimson_stairs",
+        "slab": "minecraft:crimson_slab",
+        "glass": "minecraft:red_stained_glass",
+        "pane": "minecraft:red_stained_glass_pane"
+      }
+    },
+    "end_city_nether_warped": {
+      "blocks": {
+        "bricks": "minecraft:polished_blackstone_bricks",
+        "end_stone": "minecraft:netherrack",
+        "body": "minecraft:warped_planks",
+        "pillar": "minecraft:warped_stem",
+        "stairs": "minecraft:warped_stairs",
+        "slab": "minecraft:warped_slab",
+        "glass": "minecraft:cyan_stained_glass",
+        "pane": "minecraft:cyan_stained_glass_pane"
+      }
+    },
+    "end_city_nether_soul": {
+      "blocks": {
+        "bricks": "minecraft:polished_basalt",
+        "end_stone": "minecraft:soul_sand",
+        "body": "minecraft:soul_soil",
+        "pillar": "minecraft:basalt",
+        "stairs": "minecraft:polished_blackstone_stairs",
+        "slab": "minecraft:polished_blackstone_slab",
+        "glass": "minecraft:purple_stained_glass",
+        "pane": "minecraft:purple_stained_glass_pane"
+      }
+    },
+    "end_city_nether_basalt": {
+      "blocks": {
+        "bricks": "minecraft:polished_blackstone",
+        "end_stone": "minecraft:basalt",
+        "body": "minecraft:smooth_basalt",
+        "pillar": "minecraft:basalt",
+        "stairs": "minecraft:polished_blackstone_stairs",
+        "slab": "minecraft:polished_blackstone_slab",
+        "glass": "minecraft:gray_stained_glass",
+        "pane": "minecraft:gray_stained_glass_pane"
+      }
+    },
+    "village_end": {
+      "blocks": {
+        "brick": "minecraft:end_stone_bricks",
+        "brick_mossy": "minecraft:end_stone",
+        "brick_stairs": "minecraft:end_stone_brick_stairs",
+        "brick_mossy_stairs": "minecraft:end_stone_brick_stairs",
+        "brick_slab": "minecraft:end_stone_brick_slab",
+        "brick_mossy_slab": "minecraft:end_stone_brick_slab",
+        "brick_wall": "minecraft:end_stone_brick_wall",
+        "brick_mossy_wall": "minecraft:end_stone_brick_wall",
+        "log": "minecraft:purpur_pillar",
+        "stripped_log": "minecraft:purpur_pillar",
+        "wood": "minecraft:purpur_pillar",
+        "planks": "minecraft:purpur_block",
+        "planks_stairs": "minecraft:purpur_stairs",
+        "planks_slab": "minecraft:purpur_slab",
+        "fence": "minecraft:end_stone_brick_wall",
+        "fence_gate": null,
+        "door": null,
+        "trapdoor": null,
+        "plate": null,
+        "button": null,
+        "leaves": "minecraft:purpur_block",
+        "ground": "minecraft:end_stone",
+        "fill": "minecraft:end_stone",
+        "path": "minecraft:end_stone_bricks",
+        "hay": "minecraft:purpur_pillar",
+        "deco": "minecraft:end_stone_bricks",
+        "deco2": "minecraft:purpur_block",
+        "glass": "minecraft:magenta_stained_glass_pane",
+        "light": "minecraft:end_rod",
+        "wall_light": "minecraft:end_rod",
+        "plant_a": "minecraft:chorus_flower",
+        "plant_b": "minecraft:chorus_flower",
+        "grass": "minecraft:air",
+        "tall_grass": "minecraft:air",
+        "liquid": "minecraft:water",
+        "workstation": "minecraft:purpur_block",
+        "storage": "minecraft:purpur_pillar"
+      }
+    },
+    "village_nether": {
+      "blocks": {
+        "brick": "minecraft:nether_bricks",
+        "brick_mossy": "minecraft:blackstone",
+        "brick_stairs": "minecraft:nether_brick_stairs",
+        "brick_mossy_stairs": "minecraft:blackstone_stairs",
+        "brick_slab": "minecraft:nether_brick_slab",
+        "brick_mossy_slab": "minecraft:blackstone_slab",
+        "brick_wall": "minecraft:nether_brick_wall",
+        "brick_mossy_wall": "minecraft:blackstone_wall",
+        "log": "minecraft:basalt",
+        "stripped_log": "minecraft:polished_basalt",
+        "wood": "minecraft:basalt",
+        "planks": "minecraft:red_nether_bricks",
+        "planks_stairs": "minecraft:red_nether_brick_stairs",
+        "planks_slab": "minecraft:red_nether_brick_slab",
+        "fence": "minecraft:nether_brick_fence",
+        "fence_gate": "minecraft:crimson_fence_gate",
+        "door": "minecraft:crimson_door",
+        "trapdoor": "minecraft:crimson_trapdoor",
+        "plate": "minecraft:crimson_pressure_plate",
+        "button": "minecraft:crimson_button",
+        "leaves": "minecraft:nether_wart_block",
+        "ground": "minecraft:netherrack",
+        "fill": "minecraft:netherrack",
+        "path": "minecraft:gravel",
+        "hay": "minecraft:soul_sand",
+        "deco": "minecraft:nether_bricks",
+        "deco2": "minecraft:red_nether_bricks",
+        "glass": "minecraft:orange_stained_glass_pane",
+        "light": "minecraft:soul_torch",
+        "wall_light": "minecraft:soul_wall_torch",
+        "plant_a": "minecraft:crimson_fungus",
+        "plant_b": "minecraft:crimson_fungus",
+        "grass": "minecraft:crimson_roots",
+        "tall_grass": "minecraft:air",
+        "liquid": "minecraft:lava",
+        "workstation": "minecraft:nether_wart_block",
+        "storage": "minecraft:stripped_crimson_hyphae"
+      },
+      "ground": "minecraft:netherrack"
+    },
+    "village_nether_crimson": {
+      "extends": "village_nether",
+      "blocks": {
+        "log": "minecraft:crimson_stem",
+        "stripped_log": "minecraft:stripped_crimson_stem",
+        "wood": "minecraft:crimson_hyphae",
+        "planks": "minecraft:crimson_planks",
+        "planks_stairs": "minecraft:crimson_stairs",
+        "planks_slab": "minecraft:crimson_slab",
+        "leaves": "minecraft:nether_wart_block",
+        "ground": "minecraft:crimson_nylium",
+        "fill": "minecraft:crimson_nylium",
+        "plant_a": "minecraft:crimson_fungus",
+        "plant_b": "minecraft:crimson_roots",
+        "grass": "minecraft:crimson_roots",
+        "glass": "minecraft:red_stained_glass_pane",
+        "deco": "minecraft:crimson_planks",
+        "deco2": "minecraft:nether_wart_block"
+      },
+      "ground": "minecraft:crimson_nylium"
+    },
+    "village_nether_warped": {
+      "extends": "village_nether",
+      "blocks": {
+        "log": "minecraft:warped_stem",
+        "stripped_log": "minecraft:stripped_warped_stem",
+        "wood": "minecraft:warped_hyphae",
+        "planks": "minecraft:warped_planks",
+        "planks_stairs": "minecraft:warped_stairs",
+        "planks_slab": "minecraft:warped_slab",
+        "leaves": "minecraft:warped_wart_block",
+        "ground": "minecraft:warped_nylium",
+        "fill": "minecraft:warped_nylium",
+        "plant_a": "minecraft:warped_fungus",
+        "plant_b": "minecraft:warped_roots",
+        "grass": "minecraft:warped_roots",
+        "glass": "minecraft:light_blue_stained_glass_pane",
+        "deco": "minecraft:warped_planks",
+        "deco2": "minecraft:warped_wart_block"
+      },
+      "ground": "minecraft:warped_nylium"
+    },
+    "village_nether_soul": {
+      "extends": "village_nether",
+      "blocks": {
+        "brick": "minecraft:blackstone",
+        "brick_mossy": "minecraft:polished_blackstone",
+        "brick_stairs": "minecraft:blackstone_stairs",
+        "brick_mossy_stairs": "minecraft:polished_blackstone_stairs",
+        "brick_slab": "minecraft:blackstone_slab",
+        "brick_mossy_slab": "minecraft:polished_blackstone_slab",
+        "brick_wall": "minecraft:blackstone_wall",
+        "brick_mossy_wall": "minecraft:polished_blackstone_wall",
+        "planks": "minecraft:smooth_basalt",
+        "planks_stairs": "minecraft:polished_blackstone_stairs",
+        "planks_slab": "minecraft:polished_blackstone_slab",
+        "leaves": "minecraft:soul_sand",
+        "ground": "minecraft:soul_soil",
+        "fill": "minecraft:soul_sand",
+        "hay": "minecraft:soul_sand",
+        "plant_a": "minecraft:soul_fire",
+        "plant_b": "minecraft:soul_fire",
+        "grass": "minecraft:soul_fire",
+        "deco": "minecraft:soul_soil",
+        "deco2": "minecraft:soul_sand",
+        "glass": "minecraft:purple_stained_glass_pane"
+      },
+      "ground": "minecraft:soul_soil"
+    },
+    "village_nether_basalt": {
+      "extends": "village_nether",
+      "blocks": {
+        "brick": "minecraft:polished_blackstone",
+        "brick_mossy": "minecraft:blackstone",
+        "brick_stairs": "minecraft:polished_blackstone_stairs",
+        "brick_mossy_stairs": "minecraft:blackstone_stairs",
+        "brick_slab": "minecraft:polished_blackstone_slab",
+        "brick_mossy_slab": "minecraft:blackstone_slab",
+        "brick_wall": "minecraft:polished_blackstone_wall",
+        "brick_mossy_wall": "minecraft:blackstone_wall",
+        "planks": "minecraft:smooth_basalt",
+        "planks_stairs": "minecraft:polished_blackstone_stairs",
+        "planks_slab": "minecraft:polished_blackstone_slab",
+        "leaves": "minecraft:blackstone",
+        "ground": "minecraft:blackstone",
+        "fill": "minecraft:basalt",
+        "hay": "minecraft:blackstone",
+        "plant_a": "minecraft:air",
+        "plant_b": "minecraft:air",
+        "grass": "minecraft:air",
+        "deco": "minecraft:blackstone",
+        "deco2": "minecraft:basalt",
+        "glass": "minecraft:gray_stained_glass_pane",
+        "light": "minecraft:torch",
+        "wall_light": "minecraft:wall_torch"
+      },
+      "ground": "minecraft:blackstone"
+    }
+  },
+  "structures": {
+    "fortress_overworld": {
+      "roles": "fortress",
+      "biomes": [
+        {
+          "match": [
+            "minecraft:plains",
+            "minecraft:sunflower_plains",
+            "minecraft:meadow",
+            "minecraft:forest",
+            "minecraft:flower_forest",
+            "minecraft:birch_forest",
+            "minecraft:old_growth_birch_forest",
+            "minecraft:dappled_forest",
+            "minecraft:dark_forest",
+            "minecraft:pale_garden",
+            "minecraft:cherry_grove",
+            "minecraft:taiga",
+            "minecraft:old_growth_pine_taiga",
+            "minecraft:old_growth_spruce_taiga",
+            "minecraft:savanna",
+            "minecraft:savanna_plateau",
+            "minecraft:windswept_savanna",
+            "minecraft:windswept_hills",
+            "minecraft:windswept_gravelly_hills",
+            "minecraft:windswept_forest",
+            "minecraft:stony_peaks",
+            "minecraft:river",
+            "minecraft:beach",
+            "minecraft:stony_shore",
+            "minecraft:dripstone_caves",
+            "minecraft:lush_caves",
+            "minecraft:deep_dark",
+            "minecraft:sulfur_caves"
+          ],
+          "palette": "fortress_grass"
+        },
+        {
+          "match": [
+            "minecraft:desert"
+          ],
+          "palette": "fortress_desert"
+        },
+        {
+          "match": [
+            "minecraft:badlands",
+            "minecraft:eroded_badlands",
+            "minecraft:wooded_badlands"
+          ],
+          "palette": "fortress_badlands"
+        },
+        {
+          "match": [
+            "minecraft:jungle",
+            "minecraft:sparse_jungle",
+            "minecraft:bamboo_jungle"
+          ],
+          "palette": "fortress_jungle"
+        },
+        {
+          "match": [
+            "minecraft:swamp",
+            "minecraft:mangrove_swamp"
+          ],
+          "palette": "fortress_swamp"
+        },
+        {
+          "match": [
+            "minecraft:snowy_plains",
+            "minecraft:ice_spikes",
+            "minecraft:snowy_taiga",
+            "minecraft:snowy_slopes",
+            "minecraft:grove",
+            "minecraft:frozen_peaks",
+            "minecraft:jagged_peaks",
+            "minecraft:frozen_river",
+            "minecraft:snowy_beach"
+          ],
+          "palette": "fortress_snowy"
+        },
+        {
+          "match": [
+            "minecraft:mushroom_fields"
+          ],
+          "palette": "fortress_mushroom"
+        },
+        {
+          "match": [
+            "minecraft:warm_ocean",
+            "minecraft:lukewarm_ocean",
+            "minecraft:deep_lukewarm_ocean"
+          ],
+          "palette": "fortress_warm_ocean"
+        },
+        {
+          "match": [
+            "minecraft:ocean",
+            "minecraft:deep_ocean",
+            "minecraft:cold_ocean",
+            "minecraft:deep_cold_ocean"
+          ],
+          "palette": "fortress_ocean"
+        },
+        {
+          "match": [
+            "minecraft:frozen_ocean",
+            "minecraft:deep_frozen_ocean"
+          ],
+          "palette": "fortress_frozen_ocean"
+        }
+      ]
+    },
+    "fortress_end": {
+      "roles": "fortress",
+      "biomes": [
+        {
+          "match": [
+            "#minecraft:is_end"
+          ],
+          "palette": "fortress_end"
+        }
+      ]
+    },
+    "bastion_overworld": {
+      "roles": "bastion",
+      "biomes": [
+        {
+          "match": [
+            "minecraft:warm_ocean",
+            "minecraft:lukewarm_ocean",
+            "minecraft:deep_lukewarm_ocean"
+          ],
+          "palette": "bastion_warm_ocean"
+        },
+        {
+          "match": [
+            "minecraft:ocean",
+            "minecraft:deep_ocean",
+            "minecraft:cold_ocean",
+            "minecraft:deep_cold_ocean"
+          ],
+          "palette": "bastion_ocean"
+        },
+        {
+          "match": [
+            "minecraft:frozen_ocean",
+            "minecraft:deep_frozen_ocean"
+          ],
+          "palette": "bastion_frozen_ocean"
+        }
+      ]
+    },
+    "bastion_end": {
+      "roles": "bastion",
+      "biomes": [
+        {
+          "match": [
+            "#minecraft:is_end"
+          ],
+          "palette": "bastion_end"
+        }
+      ]
+    },
+    "end_city_overworld": {
+      "roles": "end_city",
+      "biomes": [
+        {
+          "match": [
+            "minecraft:frozen_ocean",
+            "minecraft:deep_frozen_ocean"
+          ],
+          "palette": "end_city_frozen_ocean"
+        },
+        {
+          "match": [
+            "minecraft:cold_ocean",
+            "minecraft:deep_cold_ocean"
+          ],
+          "palette": "end_city_cold_ocean"
+        }
+      ]
+    },
+    "end_city_nether": {
+      "roles": "end_city",
+      "biomes": [
+        {
+          "match": [
+            "minecraft:nether_wastes"
+          ],
+          "palette": "end_city_nether_wastes"
+        },
+        {
+          "match": [
+            "minecraft:crimson_forest"
+          ],
+          "palette": "end_city_nether_crimson"
+        },
+        {
+          "match": [
+            "minecraft:warped_forest"
+          ],
+          "palette": "end_city_nether_warped"
+        },
+        {
+          "match": [
+            "minecraft:soul_sand_valley"
+          ],
+          "palette": "end_city_nether_soul"
+        },
+        {
+          "match": [
+            "minecraft:basalt_deltas"
+          ],
+          "palette": "end_city_nether_basalt"
+        }
+      ]
+    },
+    "village_nether": {
+      "roles": "village",
+      "biomes": [
+        {
+          "match": [
+            "minecraft:nether_wastes"
+          ],
+          "palette": "village_nether"
+        },
+        {
+          "match": [
+            "minecraft:crimson_forest"
+          ],
+          "palette": "village_nether_crimson"
+        },
+        {
+          "match": [
+            "minecraft:warped_forest"
+          ],
+          "palette": "village_nether_warped"
+        },
+        {
+          "match": [
+            "minecraft:soul_sand_valley"
+          ],
+          "palette": "village_nether_soul"
+        },
+        {
+          "match": [
+            "minecraft:basalt_deltas"
+          ],
+          "palette": "village_nether_basalt"
+        }
+      ]
+    },
+    "village_end": {
+      "roles": "village",
+      "biomes": [
+        {
+          "match": [
+            "#minecraft:is_end"
+          ],
+          "palette": "village_end"
+        }
+      ]
+    }
+  }
+}

@@ -127,7 +127,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     private static final int LOAD_TIMEOUT_TICKS = 6000;
 
     /** How far the camera stays from every block of the structure (and the End's islands). */
-    private static final double REQUIRED_CLEARANCE = 4.0D;
+    private static final double REQUIRED_CLEARANCE = 10.0D;
 
     /** How far above the ground's surface the camera's descent stops. */
     private static final double FLOOR_ABOVE_GROUND = 2.0D;
@@ -136,11 +136,11 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
      * Game ticks per second while a shot is filmed: the frame rate the rehearsal measured divided
      * by {@link #FRAMES_PER_TICK}, between these bounds. Software rendering manages 3 to 18 frames
      * a second and the game ticks at most once per frame in a client GameTest, so at the game's own
-     * 20 ticks a second every frame would be a new tick, 4.5 degrees of orbit apart. At a lower rate
-     * each tick gets several frames, the camera moves between them, and the cut plays the shot back
-     * at 20 ticks a second. A graphics card presents 60 frames or more, several per tick: the shot
-     * then runs at the game's own rate, its 80 ticks take their 4 seconds, and the cut keeps that
-     * speed instead of speeding the shot up.
+     * 20 ticks a second every frame would be a new tick, 4.5 degrees of orbit apart. At a lower
+     * rate each tick gets several frames, the camera moves between them, and the cut plays the shot
+     * back at 20 ticks a second. A graphics card presents 60 frames or more, several per tick: the
+     * shot then runs at the game's own rate, its 80 ticks take their 4 seconds, and the cut keeps
+     * that speed instead of speeding the shot up.
      */
     private static final double MAX_SHOT_TICK_RATE = 20.0D;
 
@@ -321,6 +321,18 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                             "frozen oceans",
                             Ground.ICE,
                             List.of("frozen_ocean", "deep_frozen_ocean")));
+
+    /**
+     * The one ocean each Overworld variant shows. The other ocean biomes would wear the same blocks
+     * and only repeat the shot, which is what he asked to stop ("I'd just use one type of ocean").
+     */
+    private static final Map<String, String> FILMED_OCEAN =
+            Map.of(
+                    "bastion_overworld", "ocean",
+                    "end_city_overworld", "frozen_ocean",
+                    "fortress_overworld", "warm_ocean");
+
+    private static final Set<String> OCEAN_GROUPS = Set.of("warm_ocean", "ocean", "frozen_ocean");
 
     /** Every Nether and End biome is its own group, in this order. */
     private static final List<String> NETHER_BIOMES =
@@ -565,6 +577,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         }
         List<Stage> stages = new ArrayList<>();
         Map<Dimension, Integer> ordinals = new HashMap<>();
+        // One End stage per variant stands for its biome groups: the End has no other materials.
+        Set<String> filmedEnd = new HashSet<>();
         for (Map.Entry<Key, List<ResourceKey<Biome>>> entry : byGroup.entrySet()) {
             Key key = entry.getKey();
             List<ResourceKey<Biome>> members = new ArrayList<>(entry.getValue());
@@ -579,7 +593,12 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 group = definition.id();
                 label = definition.label();
                 ground = definition.ground();
+                if (OCEAN_GROUPS.contains(group)
+                        && !group.equals(FILMED_OCEAN.get(key.variant()))) {
+                    continue;
+                }
             } else {
+                if (key.dimension() == Dimension.END && !filmedEnd.add(key.variant())) continue;
                 group = members.getFirst().identifier().getPath();
                 label = biomeName(members.getFirst());
                 ground = Ground.NATURAL;
@@ -1693,7 +1712,9 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         double tall =
                 (0.5D * up + Math.sin(Math.toRadians(60.0D)) * up / Math.tan(Math.toRadians(33.0D)))
                         * Math.cos(Math.toRadians(30.0D));
-        return Math.max(16.0D, Math.max(Math.max(half + 8.0D, tall), 1.25D * Math.hypot(half, up)));
+        return Math.max(
+                16.0D,
+                Math.max(Math.max(half + REQUIRED_CLEARANCE, tall), 1.25D * Math.hypot(half, up)));
     }
 
     /**
@@ -1869,7 +1890,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             // a card presents several frames per tick and a software rasterizer fewer than one,
             // which is the difference the tick rate below has to make up for.
             double seconds = (System.nanoTime() - began) / 1.0E9D;
-            long rendered = context.computeOnClient(client -> ShowcaseCamera.frames()) - beganFrames;
+            long rendered =
+                    context.computeOnClient(client -> ShowcaseCamera.frames()) - beganFrames;
             framesPerSecond = rendered / seconds;
             context.runOnClient(client -> ShowcaseCamera.hold(orbit, 0.0D));
             waitForRegionLoaded(context, stage, prepared);

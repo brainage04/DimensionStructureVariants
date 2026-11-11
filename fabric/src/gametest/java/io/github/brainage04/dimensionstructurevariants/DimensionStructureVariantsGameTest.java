@@ -70,6 +70,16 @@ public final class DimensionStructureVariantsGameTest {
     }
 
     @GameTest
+    public void biomeGroupsGetTheirOwnPalette(GameTestHelper helper) {
+        PaletteGameTests.biomeGroupsGetTheirOwnPalette(helper);
+    }
+
+    @GameTest
+    public void everyTargetedBiomeResolvesAPalette(GameTestHelper helper) {
+        PaletteGameTests.everyTargetedBiomeResolvesAPalette(helper);
+    }
+
+    @GameTest
     public void placementRestoresContextAfterSuccessAndFailure(GameTestHelper helper) {
         PaletteGameTests.placementRestoresContextAfterSuccessAndFailure(helper);
     }
