@@ -89,7 +89,7 @@ import net.minecraft.world.phys.AABB;
  * until a whole pass builds no new section; the filmed pass must then build and lose none.
  *
  * <p>Every shot runs the Overworld clock from noon to midnight with Night Vision on the camera
- * player, and circles the structure once per second on a spiral that descends from looking 30
+ * player, and circles the structure once per shot at a fixed distance, descending from looking 30
  * degrees down at the centre to looking 30 degrees up at it. {@code STAGE_START} and {@code
  * STAGE_END} with a wall-clock time mark each shot, and the delivered video is cut to them.
  */
@@ -133,15 +133,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     private static final double FLOOR_ABOVE_GROUND = 2.0D;
 
     /**
-     * Points of the shot at which the floor under the camera is known; it is interpolated between.
-     */
-    private static final int FLOOR_POINTS = 200;
-
-    /**
      * Game ticks per second while a shot is filmed: the frame rate the rehearsal measured divided
      * by {@link #FRAMES_PER_TICK}, between these bounds. Software rendering manages 3 to 18 frames
      * a second and the game ticks at most once per frame in a client GameTest, so at 20 ticks a
-     * second every frame would be a new tick, 18 degrees of orbit apart. At a lower rate each tick
+     * second every frame would be a new tick, 4.5 degrees of orbit apart. At a lower rate each tick
      * gets several frames, the camera moves between them, and the cut plays the shot back at 20
      * ticks a second.
      */
@@ -170,7 +165,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
      */
     private static final int SPAWNER_TICKS = 240;
 
-    /** Wider start radii the camera search tries, 6 blocks apart. */
+    /** Radii the camera search tries, 6 blocks apart, from the one that frames the structure. */
     private static final int ORBIT_ROUNDS = 16;
 
     /**
@@ -725,7 +720,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         loadChunks(server, build, chunks(chunkRange(build.startBox, 3)));
         server.runOnServer(minecraftServer -> place(build, stage));
         if (!stage.hasGround()) {
-            // The camera's floor follows the End's real terrain out to the widest spiral.
+            // The camera's floor follows the End's real terrain out to the widest circle tried.
             BoundingBox occupied = build.occupied;
             int reach = (int) Math.ceil(startRadius(occupied) + ORBIT_ROUNDS * 6.0D) + 16;
             int centreX = (occupied.minX() + occupied.maxX()) / 2;
@@ -752,9 +747,9 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         // follow the biome at the camera).
         double reach =
                 stage.dimension() == Dimension.OVERWORLD
-                        ? prepared.orbit().startRadius() + prepared.renderDistance() * 16.0D + 16.0D
+                        ? prepared.orbit().radius() + prepared.renderDistance() * 16.0D + 16.0D
                         : Math.max(
-                                        prepared.orbit().startRadius(),
+                                        prepared.orbit().radius(),
                                         Math.max(
                                                         prepared.occupied().getXSpan(),
                                                         prepared.occupied().getZSpan())
@@ -1095,7 +1090,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         // renderDistance chunks around itself: what the camera sees from its farthest point must
         // lie inside the sent circle, or the far ground ends in a straight edge. The render
         // distance is cut to fit; only the structure itself must stay in view.
-        int orbitChunks = (int) Math.ceil(Math.max(orbit.startRadius(), orbit.endRadius()) / 16.0D);
+        int orbitChunks = (int) Math.ceil(orbit.radius() / 16.0D);
         int fits = 32 - orbitChunks - 1;
         int renderDistance = Math.min(fits, Math.max(minimum, requiredDistance(padded, samples)));
         int structureDistance = requiredDistance(chunkRange(build.occupied, 0), samples) - 1;
@@ -1114,14 +1109,13 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         System.out.println(
                 String.format(
                         Locale.ROOT,
-                        "[DSV] %s camera: centre=(%.1f, %.1f, %.1f) radius %.1f -> %.1f, height"
+                        "[DSV] %s camera: centre=(%.1f, %.1f, %.1f) radius %.1f, height"
                                 + " %.1f -> %.1f, final up angle %.1f, render %d, view %d",
                         stage.id(),
                         orbit.centreX(),
                         orbit.centreY(),
                         orbit.centreZ(),
-                        orbit.startRadius(),
-                        orbit.endRadius(),
+                        orbit.radius(),
                         orbit.height(0.0D),
                         orbit.height(1.0D),
                         orbit.finalUpAngle(),
@@ -1646,14 +1640,14 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     // ------------------------------------------------------------------------------------------
 
     /**
-     * The spiral around the structure's centre. It starts outside the structure, looking 30 degrees
-     * down at the centre, and ends on the smallest radius from which the whole spiral keeps {@link
-     * #REQUIRED_CLEARANCE} from every block (the ground aside, which only bounds the descent). From
-     * that radius the camera looks 30 degrees up at the centre if the ground allows it; otherwise
-     * the descent stops {@link #FLOOR_ABOVE_GROUND} blocks above the ground. The End's islands are
-     * not flat: there the floor is the highest block (chorus plants included) on the circle the
-     * camera is on and within the clearance of it, and on every smaller circle still to come, with
-     * the clearance on top.
+     * The circle around the structure's centre: the smallest radius, from far enough out that the
+     * whole structure is in the frame, from which the camera keeps {@link #REQUIRED_CLEARANCE} from
+     * every block for the whole shot (the ground aside, which only bounds the descent). The camera
+     * stays on that radius, looking 30 degrees down at the centre at the start and 30 degrees up at
+     * the end if the ground allows it; otherwise the descent stops {@link #FLOOR_ABOVE_GROUND}
+     * blocks above the ground. The End's islands are not flat: there the floor is the highest block
+     * (chorus plants included) on the circle and within the clearance of it, with the clearance on
+     * top.
      */
     private static ShowcaseCamera.Orbit planOrbit(
             ServerLevel level, Stage stage, BoundingBox box, int groundY) {
@@ -1673,33 +1667,17 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                                 centreZ,
                                 (int) Math.ceil(base + ORBIT_ROUNDS * 6.0D) + 8);
         for (int round = 0; round < ORBIT_ROUNDS; round++) {
-            double startRadius = base + round * 6.0D;
-            for (double endRadius = 4.0D; endRadius <= startRadius; endRadius += 1.0D) {
-                double[] floor = new double[FLOOR_POINTS + 1];
-                double lowest = Double.NEGATIVE_INFINITY;
-                for (int i = FLOOR_POINTS; i >= 0; i--) {
-                    double radius = startRadius + (endRadius - startRadius) * i / FLOOR_POINTS;
-                    double here =
-                            terrain == null
-                                    ? groundY + 1 + FLOOR_ABOVE_GROUND
-                                    : Math.max(
-                                            level.getMinY() + FLOOR_ABOVE_GROUND,
-                                            ringTop(terrain, radius) + REQUIRED_CLEARANCE + 0.5D);
-                    lowest = Math.max(lowest, here);
-                    floor[i] = lowest;
-                }
-                ShowcaseCamera.Orbit orbit =
-                        new ShowcaseCamera.Orbit(
-                                centreX,
-                                centreY,
-                                centreZ,
-                                startRadius,
-                                endRadius,
-                                floor,
-                                ceiling,
-                                0.0D);
-                if (descends(orbit) && clear(orbit, solids)) return orbit;
-            }
+            double radius = base + round * 6.0D;
+            double floor =
+                    terrain == null
+                            ? groundY + 1 + FLOOR_ABOVE_GROUND
+                            : Math.max(
+                                    level.getMinY() + FLOOR_ABOVE_GROUND,
+                                    ringTop(terrain, radius) + REQUIRED_CLEARANCE + 0.5D);
+            ShowcaseCamera.Orbit orbit =
+                    new ShowcaseCamera.Orbit(
+                            centreX, centreY, centreZ, radius, floor, ceiling, 0.0D);
+            if (clear(orbit, solids)) return orbit;
         }
         throw new AssertionError("Could not keep the camera clear of " + stage.id() + " " + box);
     }
@@ -1759,26 +1737,11 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         return highest;
     }
 
-    /** Whether the camera's height never rises during the shot. */
-    private static boolean descends(ShowcaseCamera.Orbit orbit) {
-        double last = Double.MAX_VALUE;
-        for (int i = 0; i <= 400; i++) {
-            double y = orbit.height(i / 400.0D);
-            if (y > last + 1.0E-6D) return false;
-            last = y;
-        }
-        return true;
-    }
-
-    /** Whether every point of the spiral, half a block apart, keeps its distance from blocks. */
+    /** Whether every point of the circle, half a block apart, keeps its distance from blocks. */
     private static boolean clear(ShowcaseCamera.Orbit orbit, Solids solids) {
-        double length =
-                2.0D
-                        * Math.PI
-                        * ShowcaseCamera.REVOLUTIONS
-                        * Math.max(orbit.startRadius(), orbit.endRadius());
+        double length = 2.0D * Math.PI * ShowcaseCamera.REVOLUTIONS * orbit.radius();
         int samples = Math.max(800, (int) Math.ceil(length / 0.5D));
-        // From the end: the low, close part of the spiral is where it fails.
+        // From the end: the low part of the circle is where it fails.
         for (int i = samples; i >= 0; i--) {
             ShowcaseCamera.Pose pose = orbit.at(i / (double) samples);
             if (solids.near(pose.x(), pose.y(), pose.z(), REQUIRED_CLEARANCE)) return false;
@@ -2096,7 +2059,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 "[DSV] SUMMARY "
                         + String.format(
                                 Locale.ROOT,
-                                "%s | %s | %s | start %d end %d | radius %.1f -> %.1f | height %.1f"
+                                "%s | %s | %s | start %d end %d | radius %.1f | height %.1f"
                                         + " -> %.1f | final up angle %.1f | mobs at start %s | mobs"
                                         + " at end %s",
                                 stage.id(),
@@ -2104,8 +2067,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                                 stage.subtitle(),
                                 startMs,
                                 endMs,
-                                orbit.startRadius(),
-                                orbit.endRadius(),
+                                orbit.radius(),
                                 orbit.height(0.0D),
                                 orbit.height(1.0D),
                                 orbit.finalUpAngle(),
