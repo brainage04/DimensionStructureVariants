@@ -750,7 +750,17 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         if (!stage.hasGround()) {
             // The camera's floor follows the End's real terrain out to the widest circle tried.
             BoundingBox occupied = build.occupied;
-            int reach = (int) Math.ceil(startRadius(occupied) + ORBIT_ROUNDS * 6.0D) + 16;
+            int reach =
+                    (int)
+                                    Math.ceil(
+                                            startRadius(
+                                                            Math.max(
+                                                                            occupied.getXSpan(),
+                                                                            occupied.getZSpan())
+                                                                    / 2.0D,
+                                                            occupied.getYSpan() / 2.0D)
+                                                    + ORBIT_ROUNDS * 6.0D)
+                            + 16;
             int centreX = (occupied.minX() + occupied.maxX()) / 2;
             int centreZ = (occupied.minZ() + occupied.maxZ()) / 2;
             List<ChunkPos> terrain = new ArrayList<>();
@@ -1031,6 +1041,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 stage.hasGround()
                         ? groundHeight(level, chunkRange(build.startBox, 1))
                         : level.getMinY() - 1;
+        int features =
+                stage.hasGround() ? clearStrayFeatures(level, build.pieces, build.groundY) : 0;
         build.occupied = occupiedBounds(level, build.pieces, build.groundY);
         build.padded = chunkRange(build.occupied, 1);
         if (stage.hasGround()) assertGround(level, stage, build.padded, build.groundY);
@@ -1045,6 +1057,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                         + build.groundY
                         + " strays="
                         + strays
+                        + " stray features="
+                        + features
                         + " first piece "
                         + build.start.getPieces().getFirst().getBoundingBox()
                         + " villagers "
@@ -1660,7 +1674,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         double centreY = (box.minY() + box.maxY() + 1) / 2.0D;
         double ceiling = level.getMaxY() - 2.0D;
         Solids solids = new Solids(level, stage.hasGround() ? groundY : Integer.MIN_VALUE);
-        double base = startRadius(box);
+        double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
+        double base = startRadius(framed[0], framed[1]);
         int[] terrain =
                 stage.hasGround()
                         ? null
@@ -1687,17 +1702,109 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     }
 
     /** Far enough out that the whole structure is in the frame at the start. */
-    private static double startRadius(BoundingBox box) {
-        double half = Math.max(box.getXSpan(), box.getZSpan()) / 2.0D;
+    private static double startRadius(double half, double up) {
         // The top of a tall structure, seen from 30 degrees above its centre, has to stay inside
         // the vertical field of view (35 degrees either side at the default 70; 33 to spare).
-        double up = box.getYSpan() / 2.0D;
         double tall =
                 (0.5D * up + Math.sin(Math.toRadians(60.0D)) * up / Math.tan(Math.toRadians(33.0D)))
                         * Math.cos(Math.toRadians(30.0D));
         return Math.max(
                 16.0D,
                 Math.max(Math.max(half + REQUIRED_CLEARANCE, tall), 1.25D * Math.hypot(half, up)));
+    }
+
+    /**
+     * Half the horizontal span and half the height of what the structure actually built: the 98th
+     * percentile of each block's distance from the centre. A long empty corridor end, a fortress's
+     * last bridge or an End ship's tip is sparse, so it does not push the camera out; 98 % of the
+     * blocks stay inside the frame.
+     */
+    private static double[] framedHalf(
+            ServerLevel level,
+            BoundingBox box,
+            int groundY,
+            double centreX,
+            double centreY,
+            double centreZ) {
+        int minY = Math.max(box.minY(), groundY + 1);
+        int reach = (int) Math.ceil(Math.max(box.getXSpan(), box.getZSpan()) / 2.0D) + 2;
+        int[] horizontal = new int[reach + 2];
+        int[] vertical = new int[(int) Math.ceil(box.getYSpan() / 2.0D) + 2];
+        int blocks = 0;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int x = box.minX(); x <= box.maxX(); x++) {
+            for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                for (int y = minY; y <= box.maxY(); y++) {
+                    if (level.getBlockState(cursor.set(x, y, z)).isAir()) continue;
+                    int distance =
+                            (int)
+                                    Math.round(
+                                            Math.max(
+                                                    Math.abs(x + 0.5D - centreX),
+                                                    Math.abs(z + 0.5D - centreZ)));
+                    horizontal[Math.min(horizontal.length - 1, Math.max(0, distance))]++;
+                    int height = (int) Math.round(Math.abs(y + 0.5D - centreY));
+                    vertical[Math.min(vertical.length - 1, Math.max(0, height))]++;
+                    blocks++;
+                }
+            }
+        }
+        return new double[] {quantile(horizontal, blocks, 0.98), quantile(vertical, blocks, 0.98)};
+    }
+
+    /** The distance below which {@code fraction} of the {@code total} blocks lie. */
+    private static double quantile(int[] histogram, int total, double fraction) {
+        int target = (int) Math.ceil(total * fraction);
+        int seen = 0;
+        for (int i = 0; i < histogram.length; i++) {
+            seen += histogram[i];
+            if (seen >= target) return i;
+        }
+        return histogram.length - 1;
+    }
+
+    /**
+     * Removes the blocks that stand on the stage's ground outside the structure's own footprint: a
+     * mushroom on the bare bedrock, a stray plant, in the foreground of the shot. Only a stage
+     * with a ground of its own is swept; the End's real terrain is left alone.
+     */
+    private static int clearStrayFeatures(ServerLevel level, BoundingBox pieces, int groundY) {
+        double centreX = (pieces.minX() + pieces.maxX() + 1) / 2.0D;
+        double centreZ = (pieces.minZ() + pieces.maxZ() + 1) / 2.0D;
+        int reach =
+                (int)
+                                Math.ceil(
+                                        startRadius(
+                                                        Math.max(
+                                                                        pieces.getXSpan(),
+                                                                        pieces.getZSpan())
+                                                                / 2.0D,
+                                                        pieces.getYSpan() / 2.0D)
+                                                + ORBIT_ROUNDS * 6.0D)
+                        + 16;
+        int fromX = (int) Math.floor(centreX - reach);
+        int toX = (int) Math.ceil(centreX + reach);
+        int fromZ = (int) Math.floor(centreZ - reach);
+        int toZ = (int) Math.ceil(centreZ + reach);
+        int floor = groundY + 1;
+        int ceiling = groundY + 16;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        int flags = Block.UPDATE_CLIENTS | Block.UPDATE_SUPPRESS_DROPS;
+        int removed = 0;
+        for (int x = fromX; x <= toX; x++) {
+            for (int z = fromZ; z <= toZ; z++) {
+                if (x >= pieces.minX()
+                        && x <= pieces.maxX()
+                        && z >= pieces.minZ()
+                        && z <= pieces.maxZ()) continue;
+                for (int y = floor; y <= ceiling; y++) {
+                    if (level.getBlockState(cursor.set(x, y, z)).isAir()) continue;
+                    level.setBlock(cursor, Blocks.AIR.defaultBlockState(), flags);
+                    removed++;
+                }
+            }
+        }
+        return removed;
     }
 
     /**
