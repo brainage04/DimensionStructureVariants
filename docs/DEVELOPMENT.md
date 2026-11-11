@@ -45,6 +45,14 @@ jumps.
 
 Without `DSV_STAGES`, `CLIENT_GAMETEST_PROFILE=smoke` films one stage of each structure (bastion, end city, fortress, village), spread over the three dimensions; both CI jobs that start the client run that profile, because the full run takes about an hour. Items that mobs dropped as they died while a stage was populated are removed before its shot and logged; any other loose item, chest loot above all, fails the run.
 
+A biome's drone is a streamed sound, so the sound engine holds four one-second buffers of it and
+refills them once per frame (`ChannelAccess.scheduleTick`, reached from `SoundEngine.tick`); placing a
+stage's structure stalls the client for seconds, the buffers run dry, the engine drops the loop, and
+vanilla never replays it until the player's ambient setting changes (`BiomeAmbientSoundsHandler.tick`
+only reacts to a changed loop event). The recording client therefore runs `AmbientLoopKeeperMixin`,
+which forgets a loop instance the engine has dropped so the handler recreates it, and logs each
+restart. The mixin is in the gametest source set and is never loaded by the mod.
+
 ## Placement implementation
 
 The palette table lives in [`palettes.json`](../common/src/main/resources/data/dimensionstructurevariants/palette/palettes.json). A role set names a role for each block a vanilla structure places; a palette gives each role the block of one biome, and a structure names the palette each of its biomes uses. `StructurePalettes` reads the table once, checks that every palette answers every role its structure uses (an explicit null keeps the vanilla block), and compiles a block-state map per structure and palette.

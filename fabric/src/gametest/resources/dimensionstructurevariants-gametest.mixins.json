@@ -3,6 +3,7 @@
   "package": "io.github.brainage04.dimensionstructurevariants.gametest.mixin",
   "compatibilityLevel": "JAVA_25",
   "client": [
+    "AmbientLoopKeeperMixin",
     "CameraMixin",
     "ConnectionMixin",
     "ServerCommonPacketListenerImplMixin"
