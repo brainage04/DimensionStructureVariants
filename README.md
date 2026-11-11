@@ -20,7 +20,7 @@ The mod keeps vanilla piece layouts, loot tables, mobs, and generation algorithm
 - Village in the End: outer End islands only; end-stone foundations and paths, purpur roofs/pillars, magenta glazing and end rods.
 - Bastion in the End: outer End islands only; end stone, end stone bricks and purpur; lava becomes solid purpur.
 - Fortress in the End: end stone bricks, including downward supports, stairs and walls.
-- Village in the Nether: generic Nether palette: nether bricks, red nether bricks, basalt, blackstone, crimson fittings and gravel paths.
+- Village in the Nether: generic Nether palette: nether bricks, red nether bricks, basalt, blackstone, crimson fittings and gravel paths; water becomes lava (farm channels, wells, fountains, ponds), and the farms' composters and the fisher cottage's barrels, which stand beside it, become nether wart blocks and stripped crimson hyphae so the lava cannot set them alight.
 
 The ocean bastion is intentionally a maritime fortress on its terrain-adapted island, not a blackstone and lava
 structure standing at sea. The Overworld fortress and Nether End city retain their original palettes.

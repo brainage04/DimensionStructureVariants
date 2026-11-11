@@ -118,6 +118,32 @@ public final class PaletteGameTests {
                         .setValue(BlockStateProperties.AXIS, Direction.Axis.X));
         assertRemap(
                 helper,
+                "village_nether",
+                Blocks.WATER.defaultBlockState().setValue(BlockStateProperties.LEVEL, 8),
+                Blocks.LAVA.defaultBlockState().setValue(BlockStateProperties.LEVEL, 8));
+        assertRemap(
+                helper,
+                "village_nether",
+                Blocks.OAK_FENCE
+                        .defaultBlockState()
+                        .setValue(BlockStateProperties.EAST, true)
+                        .setValue(BlockStateProperties.WATERLOGGED, true),
+                Blocks.NETHER_BRICK_FENCE
+                        .defaultBlockState()
+                        .setValue(BlockStateProperties.EAST, true)
+                        .setValue(BlockStateProperties.WATERLOGGED, false));
+        assertRemap(
+                helper,
+                "village_nether",
+                Blocks.COMPOSTER.defaultBlockState(),
+                Blocks.NETHER_WART_BLOCK.defaultBlockState());
+        assertRemap(
+                helper,
+                "village_nether",
+                Blocks.BARREL.defaultBlockState(),
+                Blocks.STRIPPED_CRIMSON_HYPHAE.defaultBlockState());
+        assertRemap(
+                helper,
                 "village_end",
                 Blocks.OAK_STAIRS
                         .defaultBlockState()
