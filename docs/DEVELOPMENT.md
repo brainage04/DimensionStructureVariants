@@ -28,6 +28,19 @@ DSV_STAGES=fortress_overworld/desert,village_nether heavy --mem 10G -- ./gradlew
 
 `GTR_RECORDING_DISPLAY=:1` records an X display that already has the machine's graphics card behind its GLX (an `Xorg` on the card, or `:0` on a machine whose desktop runs on it) instead of the recorder's own `Xvfb`; the recording's metadata then names the graphics device, the presented frame rate and the reason when the software path was kept.
 
+The camera's radius follows the 98th percentile of the structure's own blocks around its centre
+(`framedHalf`), so a long empty corridor end or an End ship's tip does not push the camera out; the
+10-block clearance belongs to that framed mass, while a block outside it only has to be missed.
+Stages that stand on a ground of their own have the blocks that stand on that ground outside the
+structure's footprint swept before the shot, so a mushroom on the bare bedrock cannot appear in the
+foreground.
+
+The cut is taken from the caption panel, not the log's clock: every clip opens on the frame after its
+caption's last change and width animation, and a clip whose first frame matches another stage's caption
+fails the cut. Each clip opens and closes with a 0.15 s audio fade, and the finished film is normalised
+to about -20 LUFS with a -1.5 dBFS ceiling, so the Nether drone and mob sounds are audible and no cut
+jumps.
+
 `DSV_STAGES` (comma separated stage ids such as `fortress_overworld/desert`, or variant ids) films only those stages.
 
 Without `DSV_STAGES`, `CLIENT_GAMETEST_PROFILE=smoke` films one stage of each structure (bastion, end city, fortress, village), spread over the three dimensions; both CI jobs that start the client run that profile, because the full run takes about an hour. Items that mobs dropped as they died while a stage was populated are removed before its shot and logged; any other loose item, chest loot above all, fails the run.
