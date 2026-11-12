@@ -111,6 +111,9 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     /** The pop-in check runs every this many ticks of the shot. */
     private static final int CHECK_INTERVAL = 4;
 
+    /** Ticks past the shot's 80 a shot may run while its camera finishes the turn. */
+    private static final int LATE_TICKS = 20;
+
     /** Pieces of fewer blocks than this that touch nothing else are removed. */
     private static final int MIN_PIECE_BLOCKS = 40;
 
@@ -2441,7 +2444,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         int poppedTicks = 0;
         StringBuilder problems = new StringBuilder();
         int switchTick = ShowcaseCamera.SHOT_TICKS / 2;
-        for (int tick = 1; tick <= ShowcaseCamera.SHOT_TICKS; tick++) {
+        // The shot ends when the camera finishes its turn, on its own clock: a fixed 80 ticks would
+        // stop it short when the shot's first frame came after its first tick, and leave it
+        // standing at the end of its turn when slow ticks made the 80 ticks longer than 4 seconds.
+        for (int tick = 1; tick <= ShowcaseCamera.SHOT_TICKS + LATE_TICKS; tick++) {
             timing.beforeWait();
             context.waitTick();
             timing.afterWait(context, server, tick);
@@ -2449,8 +2455,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 baseline = switchPalette(context, server, stage, prepared, timing);
                 continue;
             }
+            double shown = context.computeOnClient(client -> ShowcaseCamera.progress());
+            if (shown >= 1.0D) break;
             if (tick % CHECK_INTERVAL != 0) continue;
-            ShowcaseCamera.Pose pose = orbit.at(tick / (double) ShowcaseCamera.SHOT_TICKS);
+            ShowcaseCamera.Pose pose = orbit.at(shown);
             Snapshot now =
                     context.computeOnClient(
                             client ->
@@ -2488,8 +2496,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         }
         long endMs = System.currentTimeMillis();
         // The shot ends on this frame: the clock stops here, so the held pose the next stage's
-        // setup
-        // needs is not counted as the picture standing still.
+        // setup needs is not counted as the picture standing still.
         context.runOnClient(client -> ShowcaseCamera.pause());
         System.out.println("STAGE_END " + endMs + " " + stage.id() + PALETTE_HALF);
         ShowcaseCamera.Still still = context.computeOnClient(client -> ShowcaseCamera.takeStill());

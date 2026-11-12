@@ -88,6 +88,11 @@ public final class ShowcaseCamera {
         return lastProgress;
     }
 
+    /** The progress (0 to 1) of the pose the last frame showed; client thread only. */
+    public static double progress() {
+        return lastProgress;
+    }
+
     /** Hands the camera back to the player; client thread only. */
     public static void release() {
         orbit = null;
