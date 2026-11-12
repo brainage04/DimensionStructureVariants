@@ -1030,7 +1030,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 }
             }
         }
-        Map<BlockPos, BlockState> foundations = clearFoundations(level, build, removal);
+        Map<BlockPos, BlockState> foundations = clearFoundations(level, build, stage, removal);
         Structure vanilla =
                 level.registryAccess()
                         .lookupOrThrow(Registries.STRUCTURE)
@@ -1092,27 +1092,34 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
      * Removes the palette's copies of the Nether brick columns fortress pieces fill down to the
      * ground, and returns what it removed. Placing the vanilla pieces again would keep them: {@code
      * StructurePiece.fillColumnDown} only fills air, liquid and a few plants ({@code
-     * StructurePiece.java:381-393}). Below each piece, a column is the palette's as long as each
-     * block is the one the palette puts there in place of Nether bricks.
+     * StructurePiece.java:381-393}). Below each piece, down to the stage's ground (into it where
+     * the ground is water, which the columns fill), a column is the palette's as long as each block
+     * is one the palette puts in place of Nether bricks. The block at one position cannot be
+     * compared with the palette's pick there, because an Overworld stage drops the structure to the
+     * ground after placing it.
      */
     private static Map<BlockPos, BlockState> clearFoundations(
-            ServerLevel level, Build build, int flags) {
+            ServerLevel level, Build build, Stage stage, int flags) {
         Map<BlockPos, BlockState> cleared = new HashMap<>();
         StructurePalettes.Palette palette =
                 StructurePalettes.palette(
                         level, build.structure.value(), build.start.getBoundingBox().getCenter());
-        BlockState bricks = Blocks.NETHER_BRICKS.defaultBlockState();
-        if (palette == null || palette.choiceFor(bricks) == null) return cleared;
+        StructurePalettes.Choice bricks =
+                palette == null
+                        ? null
+                        : palette.choiceFor(Blocks.NETHER_BRICKS.defaultBlockState());
+        if (bricks == null) return cleared;
+        Set<BlockState> columns = new HashSet<>(bricks.states());
+        int ground = stage.ground().top == Blocks.WATER ? build.groundY - 1 : build.groundY;
+        int bottom = Math.max(ground, level.getMinY() + 1);
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (StructurePiece piece : build.start.getPieces()) {
             BoundingBox box = piece.getBoundingBox();
             for (int z = box.minZ(); z <= box.maxZ(); z++) {
                 for (int x = box.minX(); x <= box.maxX(); x++) {
-                    for (int y = box.minY() - 1; y > level.getMinY() + 1; y--) {
+                    for (int y = box.minY() - 1; y > bottom; y--) {
                         BlockState state = level.getBlockState(cursor.set(x, y, z));
-                        if (state.is(bricks.getBlock()) || state != palette.remap(bricks, cursor)) {
-                            break;
-                        }
+                        if (!columns.contains(state)) break;
                         cleared.put(cursor.immutable(), state);
                         level.setBlock(cursor, Blocks.AIR.defaultBlockState(), flags);
                     }
