@@ -714,7 +714,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
      * What the shot switches to halfway: the blocks the mod built in {@code box}, x fastest, then
      * z, then y. The shot opens on the same pieces in their vanilla blocks.
      */
-    private record Swap(BoundingBox box, BlockState[] palette) {}
+    private record Swap(
+            BoundingBox box, BlockState[] palette, Map<BlockPos, BlockState> foundations) {}
 
     /** The parts of a stage that are found one server task after the other. */
     private static final class Build {
@@ -1029,6 +1030,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 }
             }
         }
+        Map<BlockPos, BlockState> foundations = clearFoundations(level, build, removal);
         Structure vanilla =
                 level.registryAccess()
                         .lookupOrThrow(Registries.STRUCTURE)
@@ -1083,7 +1085,41 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         if (differing == 0) {
             throw new AssertionError(stage.id() + " looks the same with and without its palette");
         }
-        return new Swap(box, palette);
+        return new Swap(box, palette, foundations);
+    }
+
+    /**
+     * Removes the palette's copies of the Nether brick columns fortress pieces fill down to the
+     * ground, and returns what it removed. Placing the vanilla pieces again would keep them: {@code
+     * StructurePiece.fillColumnDown} only fills air, liquid and a few plants ({@code
+     * StructurePiece.java:381-393}). Below each piece, a column is the palette's as long as each
+     * block is the one the palette puts there in place of Nether bricks.
+     */
+    private static Map<BlockPos, BlockState> clearFoundations(
+            ServerLevel level, Build build, int flags) {
+        Map<BlockPos, BlockState> cleared = new HashMap<>();
+        StructurePalettes.Palette palette =
+                StructurePalettes.palette(
+                        level, build.structure.value(), build.start.getBoundingBox().getCenter());
+        BlockState bricks = Blocks.NETHER_BRICKS.defaultBlockState();
+        if (palette == null || palette.choiceFor(bricks) == null) return cleared;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (StructurePiece piece : build.start.getPieces()) {
+            BoundingBox box = piece.getBoundingBox();
+            for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                for (int x = box.minX(); x <= box.maxX(); x++) {
+                    for (int y = box.minY() - 1; y > level.getMinY() + 1; y--) {
+                        BlockState state = level.getBlockState(cursor.set(x, y, z));
+                        if (state.is(bricks.getBlock()) || state != palette.remap(bricks, cursor)) {
+                            break;
+                        }
+                        cleared.put(cursor.immutable(), state);
+                        level.setBlock(cursor, Blocks.AIR.defaultBlockState(), flags);
+                    }
+                }
+            }
+        }
+        return cleared;
     }
 
     /** Switches the stage to the blocks the mod built for it; returns how many changed. */
@@ -1106,6 +1142,11 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                     changed++;
                 }
             }
+        }
+        for (Map.Entry<BlockPos, BlockState> entry : swap.foundations().entrySet()) {
+            if (level.getBlockState(entry.getKey()) == entry.getValue()) continue;
+            level.setBlock(entry.getKey(), entry.getValue(), flags);
+            changed++;
         }
         return changed;
     }
