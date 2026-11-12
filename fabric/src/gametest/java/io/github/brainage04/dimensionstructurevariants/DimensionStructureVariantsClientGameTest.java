@@ -31,6 +31,7 @@ import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.commands.FillBiomeCommand;
@@ -64,6 +65,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity;
 import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.levelgen.LegacyRandomSource;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
@@ -197,6 +199,14 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     /** The client GameTest profile CI asks for: one stage of each structure. */
     private static final String SMOKE_PROFILE = "smoke";
 
+    /** The panel's line while the shot shows the vanilla blocks, and once the palette is on. */
+    private static final String PALETTE_OFF = "Palette off: the structure's vanilla blocks";
+
+    private static final String PALETTE_ON = "Palette on: the blocks of this biome";
+
+    /** Ticks after the palette switch before the client's rebuilt sections count. */
+    private static final int SWITCH_ARRIVAL_TICKS = 4;
+
     private enum Dimension {
         OVERWORLD(Level.OVERWORLD, BiomeTags.IS_OVERWORLD, "Overworld"),
         NETHER(Level.NETHER, BiomeTags.IS_NETHER, "Nether"),
@@ -237,13 +247,12 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
      * Overworld biomes that look the same on the flat ground: same ground block, about the same
      * grass, water and sky colour. Every Overworld biome must be in exactly one group.
      */
-    private record Group(String id, String label, Ground ground, List<String> biomes) {}
+    private record Group(String id, Ground ground, List<String> biomes) {}
 
     private static final List<Group> OVERWORLD_GROUPS =
             List.of(
                     new Group(
                             "plains",
-                            "green grass biomes",
                             Ground.NATURAL,
                             List.of(
                                     "plains",
@@ -274,22 +283,18 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                                     "lush_caves",
                                     "deep_dark",
                                     "sulfur_caves")),
-                    new Group("desert", "desert", Ground.SAND, List.of("desert")),
+                    new Group("desert", Ground.SAND, List.of("desert")),
                     new Group(
                             "badlands",
-                            "badlands biomes",
                             Ground.RED_SAND,
                             List.of("badlands", "eroded_badlands", "wooded_badlands")),
                     new Group(
                             "jungle",
-                            "jungle biomes",
                             Ground.NATURAL,
                             List.of("jungle", "sparse_jungle", "bamboo_jungle")),
-                    new Group(
-                            "swamp", "swamps", Ground.NATURAL, List.of("swamp", "mangrove_swamp")),
+                    new Group("swamp", Ground.NATURAL, List.of("swamp", "mangrove_swamp")),
                     new Group(
                             "snowy",
-                            "snowy biomes",
                             Ground.SNOW,
                             List.of(
                                     "snowy_plains",
@@ -301,36 +306,26 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                                     "jagged_peaks",
                                     "frozen_river",
                                     "snowy_beach")),
-                    new Group(
-                            "mushroom",
-                            "mushroom fields",
-                            Ground.MYCELIUM,
-                            List.of("mushroom_fields")),
+                    new Group("mushroom", Ground.MYCELIUM, List.of("mushroom_fields")),
                     new Group(
                             "warm_ocean",
-                            "warm oceans",
                             Ground.WARM_SEA,
                             List.of("warm_ocean", "lukewarm_ocean", "deep_lukewarm_ocean")),
                     new Group(
                             "ocean",
-                            "temperate and cold oceans",
                             Ground.SEA,
                             List.of("ocean", "deep_ocean", "cold_ocean", "deep_cold_ocean")),
                     new Group(
                             "frozen_ocean",
-                            "frozen oceans",
                             Ground.ICE,
                             List.of("frozen_ocean", "deep_frozen_ocean")));
 
-    /**
-     * The one ocean each Overworld variant shows. The other ocean biomes would wear the same blocks
-     * and only repeat the shot, which is what he asked to stop ("I'd just use one type of ocean").
-     */
+    /** The one ocean each Overworld variant is filmed in: the plain ocean for all three. */
     private static final Map<String, String> FILMED_OCEAN =
             Map.of(
                     "bastion_overworld", "ocean",
-                    "end_city_overworld", "frozen_ocean",
-                    "fortress_overworld", "warm_ocean");
+                    "end_city_overworld", "ocean",
+                    "fortress_overworld", "ocean");
 
     private static final Set<String> OCEAN_GROUPS = Set.of("warm_ocean", "ocean", "frozen_ocean");
 
@@ -355,7 +350,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             String variant,
             Dimension dimension,
             String group,
-            String groupLabel,
             ResourceKey<Biome> biome,
             List<ResourceKey<Biome>> members,
             Ground ground,
@@ -365,9 +359,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         }
 
         String subtitle() {
-            String name = biomeName(biome);
-            if (members.size() == 1) return "Biome: " + name;
-            return "Biome: " + name + " (stands for " + members.size() + " " + groupLabel + ")";
+            return "Biome: " + biomeName(biome);
         }
 
         boolean bastion() {
@@ -443,6 +435,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                     ClientGameTestServers.assertClientWorldAndPlayerAvailable(context);
                     context.runOnClient(
                             client -> {
+                                StageCaptionPanel.register();
                                 // Without occlusion culling every section in range is drawn
                                 // whatever the camera did in the last ticks.
                                 client.smartCull = false;
@@ -586,12 +579,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                     Comparator.comparingInt(
                             biome -> memberIndex(key.dimension(), biome.identifier().getPath())));
             String group;
-            String label;
             Ground ground;
             if (key.dimension() == Dimension.OVERWORLD) {
                 Group definition = OVERWORLD_GROUPS.get(key.groupIndex());
                 group = definition.id();
-                label = definition.label();
                 ground = definition.ground();
                 if (OCEAN_GROUPS.contains(group)
                         && !group.equals(FILMED_OCEAN.get(key.variant()))) {
@@ -600,7 +591,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             } else {
                 if (key.dimension() == Dimension.END && !filmedEnd.add(key.variant())) continue;
                 group = members.getFirst().identifier().getPath();
-                label = biomeName(members.getFirst());
                 ground = Ground.NATURAL;
             }
             int ordinal = ordinals.merge(key.dimension(), 1, Integer::sum) - 1;
@@ -610,7 +600,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                             key.variant(),
                             key.dimension(),
                             group,
-                            label,
                             members.getFirst(),
                             List.copyOf(members),
                             ground,
@@ -653,6 +642,33 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         };
     }
 
+    /**
+     * Every biome in which the stage's variant wears the palette the shot shows, in the order of
+     * the stages: the biomes the shot stands for.
+     */
+    private static List<String> sharingBiomes(MinecraftServer server, Stage stage) {
+        Identifier id = DimensionStructureVariants.of(stage.variant());
+        Structure structure =
+                server.registryAccess().lookupOrThrow(Registries.STRUCTURE).getValue(id);
+        var biomes = server.registryAccess().lookupOrThrow(Registries.BIOME);
+        StructurePalettes.Palette shown =
+                StructurePalettes.palette(id, biomes.getOrThrow(stage.biome()));
+        List<ResourceKey<Biome>> sharing = new ArrayList<>();
+        for (Holder<Biome> biome : structure.biomes()) {
+            if (StructurePalettes.palette(id, biome) == shown) {
+                sharing.add(biome.unwrapKey().orElseThrow());
+            }
+        }
+        sharing.sort(
+                Comparator.<ResourceKey<Biome>>comparingInt(
+                                biome -> groupIndex(stage.dimension(), biome))
+                        .thenComparingInt(
+                                biome ->
+                                        memberIndex(
+                                                stage.dimension(), biome.identifier().getPath())));
+        return sharing.stream().map(DimensionStructureVariantsClientGameTest::biomeName).toList();
+    }
+
     private static String structureName(String variant) {
         if (variant.startsWith("fortress")) return "Nether fortress";
         if (variant.startsWith("bastion")) return "Bastion remnant";
@@ -685,7 +701,14 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             ShowcaseCamera.Pose[] samples,
             int renderDistance,
             int viewDistance,
-            BlockPos watch) {}
+            BlockPos watch,
+            Swap swap) {}
+
+    /**
+     * What the shot switches to halfway: the blocks the mod built in {@code box}, x fastest, then
+     * z, then y. The shot opens on the same pieces in their vanilla blocks.
+     */
+    private record Swap(BoundingBox box, BlockState[] palette) {}
 
     /** The parts of a stage that are found one server task after the other. */
     private static final class Build {
@@ -729,6 +752,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                     ChunkPos chunk = location(build, stage, endStages);
                     build.start = start(build, stage, chunk);
                     build.startBox = build.start.getBoundingBox();
+                    if (stage.dimension() == Dimension.END) giveStartToTerrain(build);
                     build.pieces =
                             BoundingBox.encapsulatingBoxes(
                                             build.start.getPieces().stream()
@@ -810,8 +834,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         loadChunks(server, build, held);
         prepared = withForced(prepared, build.forced);
         server.runOnServer(
-                minecraftServer ->
-                        fillBiome(build.level, filled, stage.biome(), stage.id()));
+                minecraftServer -> fillBiome(build.level, filled, stage.biome(), stage.id()));
         if (stage.ground() != Ground.NATURAL) {
             List<ChunkPos> ground = chunks(filled);
             for (int from = 0; from < ground.size(); from += CHUNK_BATCH) {
@@ -822,8 +845,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             }
         }
         waitForServerLight(context, server, stage);
-        Prepared ready = prepared;
-        populate(context, server, stage, build, ready);
+        Prepared populated = prepared;
+        populate(context, server, stage, build, populated);
+        Swap swap = server.computeOnServer(minecraftServer -> showVanilla(build, stage));
+        Prepared ready = withSwap(populated, swap);
         waitForServerLight(context, server, stage);
         System.out.println(
                 "[DSV] "
@@ -845,7 +870,23 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 prepared.samples(),
                 prepared.renderDistance(),
                 prepared.viewDistance(),
-                prepared.watch());
+                prepared.watch(),
+                prepared.swap());
+    }
+
+    private static Prepared withSwap(Prepared prepared, Swap swap) {
+        return new Prepared(
+                prepared.occupied(),
+                prepared.groundY(),
+                prepared.padded(),
+                prepared.region(),
+                prepared.forced(),
+                prepared.orbit(),
+                prepared.samples(),
+                prepared.renderDistance(),
+                prepared.viewDistance(),
+                prepared.watch(),
+                swap);
     }
 
     /**
@@ -907,6 +948,185 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             }
         }
         throw new AssertionError("Found no place in the End for " + stage.id());
+    }
+
+    /**
+     * Hands an End stage's start to its chunk before the terrain around it generates, as natural
+     * generation does, so the terrain rises under the pieces where the structure's terrain
+     * adaptation says ({@code NoiseBasedChunkGenerator.java:102} builds the terrain's beard from
+     * the starts its chunk knows, {@code Beardifier.java:46-70}). Placed into terrain generated
+     * without it, an End village's farm stood over the slope with its water open below and the
+     * water ran down the island (12 Nov). The test server makes no starts itself: {@code
+     * ClientGameTestServers} turns generate-structures off.
+     */
+    private static void giveStartToTerrain(Build build) {
+        ChunkPos origin = build.start.getChunkPos();
+        ChunkAccess chunk =
+                build.level
+                        .getChunkSource()
+                        .getChunk(origin.x(), origin.z(), ChunkStatus.STRUCTURE_STARTS, true);
+        if (chunk == null || chunk.getPersistedStatus() != ChunkStatus.STRUCTURE_STARTS) {
+            throw new AssertionError(
+                    "The terrain at " + origin + " generated before its structure's start");
+        }
+        chunk.setStartForStructure(build.structure.value(), build.start);
+    }
+
+    /** The vanilla structure a variant moves, which no palette touches. */
+    private static Identifier vanillaStructure(String variant) {
+        if (variant.startsWith("fortress")) return Identifier.withDefaultNamespace("fortress");
+        if (variant.startsWith("bastion"))
+            return Identifier.withDefaultNamespace("bastion_remnant");
+        if (variant.startsWith("end_city")) return Identifier.withDefaultNamespace("end_city");
+        if (variant.startsWith("village")) return Identifier.withDefaultNamespace("village_plains");
+        throw new AssertionError("No vanilla structure for " + variant);
+    }
+
+    /**
+     * Rule 1 of the recordings (the feature off, then on): keeps the blocks the mod built for the
+     * stage and puts the same pieces in their place as the vanilla structure, so the shot opens on
+     * vanilla blocks and switches to the mod's palette halfway. The Nether village's ground patch
+     * and fungi belong to the palette, so a Nether stage goes back to its bare roof first; the
+     * structure's own entities, which the vanilla pieces place again, are removed.
+     */
+    private static Swap showVanilla(Build build, Stage stage) {
+        ServerLevel level = build.level;
+        BoundingBox around =
+                BoundingBox.encapsulatingBoxes(List.of(build.startBox, build.occupied))
+                        .orElseThrow();
+        int minY =
+                Math.max(
+                        level.getMinY(), stage.hasGround() ? build.groundY + 1 : around.minY() - 4);
+        int maxY = Math.min(level.getMaxY(), around.maxY() + 32);
+        BoundingBox box =
+                new BoundingBox(
+                        around.minX() - 8,
+                        minY,
+                        around.minZ() - 8,
+                        around.maxX() + 8,
+                        maxY,
+                        around.maxZ() + 8);
+        BlockState[] palette = read(level, box);
+        AABB area = AABB.of(box).inflate(8.0D);
+        Set<UUID> before = new HashSet<>();
+        for (Entity entity : level.getEntitiesOfClass(Entity.class, area)) {
+            before.add(entity.getUUID());
+        }
+        int removal =
+                Block.UPDATE_CLIENTS
+                        | Block.UPDATE_KNOWN_SHAPE
+                        | Block.UPDATE_SUPPRESS_DROPS
+                        | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+        if (stage.dimension() == Dimension.NETHER) {
+            BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+            for (int y = box.minY(); y <= box.maxY(); y++) {
+                for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                    for (int x = box.minX(); x <= box.maxX(); x++) {
+                        if (level.getBlockState(cursor.set(x, y, z)).isAir()) continue;
+                        level.setBlock(cursor, Blocks.AIR.defaultBlockState(), removal);
+                    }
+                }
+            }
+        }
+        Structure vanilla =
+                level.registryAccess()
+                        .lookupOrThrow(Registries.STRUCTURE)
+                        .getValue(vanillaStructure(stage.variant()));
+        StructureStart start =
+                new StructureStart(
+                        vanilla,
+                        build.start.getChunkPos(),
+                        0,
+                        new PiecesContainer(build.start.getPieces()));
+        ChunkPos.rangeClosed(
+                        ChunkPos.containing(new BlockPos(box.minX(), 0, box.minZ())),
+                        ChunkPos.containing(new BlockPos(box.maxX(), 0, box.maxZ())))
+                .forEach(
+                        chunk ->
+                                start.placeInChunk(
+                                        level,
+                                        level.structureManager(),
+                                        level.getChunkSource().getGenerator(),
+                                        level.getRandom(),
+                                        new BoundingBox(
+                                                chunk.getMinBlockX(),
+                                                level.getMinY(),
+                                                chunk.getMinBlockZ(),
+                                                chunk.getMaxBlockX(),
+                                                level.getMaxY() + 1,
+                                                chunk.getMaxBlockZ()),
+                                        chunk));
+        int again = 0;
+        for (Entity entity :
+                level.getEntitiesOfClass(
+                        Entity.class,
+                        area,
+                        entity ->
+                                !(entity instanceof Player)
+                                        && !before.contains(entity.getUUID()))) {
+            entity.discard();
+            again++;
+        }
+        BlockState[] shown = read(level, box);
+        int differing = 0;
+        for (int i = 0; i < shown.length; i++) {
+            if (shown[i] != palette[i]) differing++;
+        }
+        System.out.println(
+                "[DSV] "
+                        + stage.id()
+                        + " opens on the vanilla "
+                        + vanillaStructure(stage.variant())
+                        + ": "
+                        + differing
+                        + " blocks differ from the palette in "
+                        + box
+                        + ", "
+                        + again
+                        + " entities the vanilla pieces placed again removed");
+        if (differing == 0) {
+            throw new AssertionError(stage.id() + " looks the same with and without its palette");
+        }
+        return new Swap(box, palette);
+    }
+
+    /** Switches the stage to the blocks the mod built for it; returns how many changed. */
+    private static int showPalette(ServerLevel level, Swap swap) {
+        int flags =
+                Block.UPDATE_CLIENTS
+                        | Block.UPDATE_KNOWN_SHAPE
+                        | Block.UPDATE_SUPPRESS_DROPS
+                        | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+        BoundingBox box = swap.box();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        int index = 0;
+        int changed = 0;
+        for (int y = box.minY(); y <= box.maxY(); y++) {
+            for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                for (int x = box.minX(); x <= box.maxX(); x++) {
+                    BlockState wanted = swap.palette()[index++];
+                    if (level.getBlockState(cursor.set(x, y, z)) == wanted) continue;
+                    level.setBlock(cursor, wanted, flags);
+                    changed++;
+                }
+            }
+        }
+        return changed;
+    }
+
+    /** The block states in {@code box}, x fastest, then z, then y. */
+    private static BlockState[] read(ServerLevel level, BoundingBox box) {
+        BlockState[] states = new BlockState[box.getXSpan() * box.getYSpan() * box.getZSpan()];
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        int index = 0;
+        for (int y = box.minY(); y <= box.maxY(); y++) {
+            for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                for (int x = box.minX(); x <= box.maxX(); x++) {
+                    states[index++] = level.getBlockState(cursor.set(x, y, z));
+                }
+            }
+        }
+        return states;
     }
 
     private static int[] radii(int from, int to, int step) {
@@ -990,6 +1210,13 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     private static void place(Build build, Stage stage) {
         ServerLevel level = build.level;
         BoundingBox box = build.startBox;
+        // What the world's own features left on the ground goes before the structure is built, so
+        // the sweep never touches the structure's own ground patch.
+        int features =
+                stage.hasGround()
+                        ? clearStrayFeatures(
+                                level, build.pieces, groundHeight(level, chunkRange(box, 1)))
+                        : 0;
         ChunkPos.rangeClosed(
                         ChunkPos.containing(new BlockPos(box.minX(), 0, box.minZ())),
                         ChunkPos.containing(new BlockPos(box.maxX(), 0, box.maxZ())))
@@ -1041,8 +1268,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 stage.hasGround()
                         ? groundHeight(level, chunkRange(build.startBox, 1))
                         : level.getMinY() - 1;
-        int features =
-                stage.hasGround() ? clearStrayFeatures(level, build.pieces, build.groundY) : 0;
         build.occupied = occupiedBounds(level, build.pieces, build.groundY);
         build.padded = chunkRange(build.occupied, 1);
         if (stage.hasGround()) assertGround(level, stage, build.padded, build.groundY);
@@ -1149,7 +1374,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 samples,
                 renderDistance,
                 viewDistance,
-                watch);
+                watch,
+                null);
     }
 
     /**
@@ -1774,9 +2000,9 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     }
 
     /**
-     * Removes the blocks that stand on the stage's ground outside the structure's own footprint: a
-     * mushroom on the bare bedrock, a stray plant, in the foreground of the shot. Only a stage
-     * with a ground of its own is swept; the End's real terrain is left alone.
+     * Removes the blocks that stand on the stage's ground before the structure is built: a mushroom
+     * on the bare bedrock, a stray plant, in the foreground of the shot. Only a stage with a ground
+     * of its own is swept; the End's real terrain is left alone.
      */
     private static int clearStrayFeatures(ServerLevel level, BoundingBox pieces, int groundY) {
         double centreX = (pieces.minX() + pieces.maxX() + 1) / 2.0D;
@@ -1803,10 +2029,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         int removed = 0;
         for (int x = fromX; x <= toX; x++) {
             for (int z = fromZ; z <= toZ; z++) {
-                if (x >= pieces.minX()
-                        && x <= pieces.maxX()
-                        && z >= pieces.minZ()
-                        && z <= pieces.maxZ()) continue;
                 for (int y = floor; y <= ceiling; y++) {
                     if (level.getBlockState(cursor.set(x, y, z)).isAir()) continue;
                     level.setBlock(cursor, Blocks.AIR.defaultBlockState(), flags);
@@ -1960,6 +2182,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         context.runOnClient(
                 client -> {
                     ClientGameTestRecordingHud.clear();
+                    StageCaptionPanel.clear();
                     ShowcaseCamera.hold(orbit, 0.0D);
                 });
         server.runOnServer(
@@ -2113,6 +2336,16 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 "dimensionstructurevariants." + stage.id(),
                 stage.title(),
                 stage.subtitle());
+        List<String> sharing =
+                server.computeOnServer(minecraftServer -> sharingBiomes(minecraftServer, stage));
+        context.runOnClient(
+                client ->
+                        StageCaptionPanel.show(
+                                sharing.size() > 1
+                                        ? "All " + sharing.size() + " biomes with these blocks:"
+                                        : null,
+                                sharing,
+                                PALETTE_OFF));
         // The caption and the still camera are on screen before the shot starts, so the cut never
         // falls on a frame without the caption.
         context.waitTicks(6);
@@ -2138,8 +2371,63 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         int busyTicks = 0;
         int poppedTicks = 0;
         StringBuilder problems = new StringBuilder();
+        int switchTick = ShowcaseCamera.SHOT_TICKS / 2;
+        // The switch rebuilds the sections whose blocks change; the check takes the built sections
+        // afresh once the client has finished them.
+        boolean switching = false;
         for (int tick = 1; tick <= ShowcaseCamera.SHOT_TICKS; tick++) {
             context.waitTick();
+            if (tick == switchTick) {
+                int changed =
+                        server.computeOnServer(
+                                minecraftServer ->
+                                        showPalette(
+                                                minecraftServer.getLevel(stage.dimension().level),
+                                                prepared.swap()));
+                context.runOnClient(client -> StageCaptionPanel.switchOn(PALETTE_ON));
+                System.out.println(
+                        "[DSV] "
+                                + stage.id()
+                                + " switched to the palette at tick "
+                                + tick
+                                + ": "
+                                + changed
+                                + " blocks");
+                switching = true;
+                continue;
+            }
+            if (switching) {
+                if (!context.computeOnClient(
+                        client -> client.levelRenderer.hasRenderedAllSections())) {
+                    busyTicks++;
+                    continue;
+                }
+                // The changed blocks reach the client a tick or two after the server writes them.
+                if (tick < switchTick + SWITCH_ARRIVAL_TICKS) continue;
+                ShowcaseCamera.Pose pose = orbit.at(tick / (double) ShowcaseCamera.SHOT_TICKS);
+                Snapshot rebuilt =
+                        context.computeOnClient(
+                                client ->
+                                        snapshot(
+                                                client,
+                                                prepared.region(),
+                                                pose,
+                                                stage.visibleRange()));
+                if (rebuilt == null)
+                    throw new AssertionError(
+                            "A chunk of " + stage.id() + " left the client during the shot");
+                baseline = rebuilt.compiled();
+                switching = false;
+                System.out.println(
+                        "[DSV] "
+                                + stage.id()
+                                + " palette built on the client by tick "
+                                + tick
+                                + ": "
+                                + baseline.cardinality()
+                                + " sections");
+                continue;
+            }
             if (tick % CHECK_INTERVAL != 0) continue;
             ShowcaseCamera.Pose pose = orbit.at(tick / (double) ShowcaseCamera.SHOT_TICKS);
             Snapshot now =
