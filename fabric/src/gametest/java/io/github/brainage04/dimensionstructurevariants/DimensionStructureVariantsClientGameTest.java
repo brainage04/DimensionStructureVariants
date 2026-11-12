@@ -193,6 +193,11 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     /** Item entities that mobs dropped as they died, removed before each shot. */
     private static final Set<UUID> MOB_DROPS = new HashSet<>();
 
+    /** Entities the vanilla pieces add while {@link #showVanilla} places them, for removal. */
+    private static final List<Entity> PLACED_AGAIN = new ArrayList<>();
+
+    private static boolean placingVanilla;
+
     /** Item entities added to a server level in the current server tick. */
     private static final List<ItemEntity> NEW_ITEMS = new ArrayList<>();
 
@@ -488,6 +493,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         ServerEntityEvents.ENTITY_LOAD.register(
                 (entity, level) -> {
                     if (entity instanceof ItemEntity item) NEW_ITEMS.add(item);
+                    if (placingVanilla) PLACED_AGAIN.add(entity);
                 });
         ServerLivingEntityEvents.AFTER_DEATH.register(
                 (entity, source) -> {
@@ -1007,11 +1013,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                         maxY,
                         around.maxZ() + 8);
         BlockState[] palette = read(level, box);
-        AABB area = AABB.of(box).inflate(8.0D);
-        Set<UUID> before = new HashSet<>();
-        for (Entity entity : level.getEntitiesOfClass(Entity.class, area)) {
-            before.add(entity.getUUID());
-        }
         int removal =
                 Block.UPDATE_CLIENTS
                         | Block.UPDATE_KNOWN_SHAPE
@@ -1038,6 +1039,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                         build.start.getChunkPos(),
                         0,
                         new PiecesContainer(build.start.getPieces()));
+        PLACED_AGAIN.clear();
+        placingVanilla = true;
         ChunkPos.rangeClosed(
                         ChunkPos.containing(new BlockPos(box.minX(), 0, box.minZ())),
                         ChunkPos.containing(new BlockPos(box.maxX(), 0, box.maxZ())))
@@ -1056,17 +1059,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                                                 level.getMaxY() + 1,
                                                 chunk.getMaxBlockZ()),
                                         chunk));
-        int again = 0;
-        for (Entity entity :
-                level.getEntitiesOfClass(
-                        Entity.class,
-                        area,
-                        entity ->
-                                !(entity instanceof Player)
-                                        && !before.contains(entity.getUUID()))) {
-            entity.discard();
-            again++;
-        }
+        placingVanilla = false;
+        int again = PLACED_AGAIN.size();
+        for (Entity entity : PLACED_AGAIN) entity.discard();
+        PLACED_AGAIN.clear();
         BlockState[] shown = read(level, box);
         int differing = 0;
         for (int i = 0; i < shown.length; i++) {
@@ -2341,9 +2337,12 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         context.runOnClient(
                 client ->
                         StageCaptionPanel.show(
-                                sharing.size() > 1
-                                        ? "All " + sharing.size() + " biomes with these blocks:"
-                                        : null,
+                                switch (sharing.size()) {
+                                    case 1 -> null;
+                                    case 2 -> "Both biomes with these blocks:";
+                                    default ->
+                                            "All " + sharing.size() + " biomes with these blocks:";
+                                },
                                 sharing,
                                 PALETTE_OFF));
         // The caption and the still camera are on screen before the shot starts, so the cut never
