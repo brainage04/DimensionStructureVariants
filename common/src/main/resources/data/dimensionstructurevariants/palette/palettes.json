@@ -90,37 +90,92 @@
   "palettes": {
     "fortress_grass": {
       "blocks": {
-        "brick": "minecraft:stone_bricks",
-        "brick_stairs": "minecraft:stone_brick_stairs",
-        "brick_slab": "minecraft:stone_brick_slab",
-        "brick_wall": "minecraft:stone_brick_wall",
-        "fill": "minecraft:stone",
-        "floor": "minecraft:coarse_dirt",
+        "brick": {
+          "minecraft:stone_bricks": 10,
+          "minecraft:mossy_stone_bricks": 3,
+          "minecraft:cracked_stone_bricks": 3,
+          "minecraft:chiseled_stone_bricks": 1
+        },
+        "brick_stairs": {
+          "minecraft:stone_brick_stairs": 4,
+          "minecraft:mossy_stone_brick_stairs": 1
+        },
+        "brick_slab": {
+          "minecraft:stone_brick_slab": 4,
+          "minecraft:mossy_stone_brick_slab": 1
+        },
+        "brick_wall": "minecraft:iron_bars",
+        "fill": {
+          "minecraft:stone": 5,
+          "minecraft:cobblestone": 2,
+          "minecraft:andesite": 1
+        },
+        "floor": {
+          "minecraft:coarse_dirt": 3,
+          "minecraft:dirt": 1
+        },
         "plant": "minecraft:short_grass",
         "liquid": "minecraft:water",
-        "accent": "minecraft:moss_block"
+        "accent": "minecraft:chiseled_stone_bricks"
       }
     },
     "fortress_desert": {
       "blocks": {
-        "brick": "minecraft:sandstone",
-        "brick_stairs": "minecraft:sandstone_stairs",
-        "brick_slab": "minecraft:sandstone_slab",
-        "brick_wall": "minecraft:sandstone_wall",
-        "fill": "minecraft:sand",
+        "brick": {
+          "minecraft:sandstone": 5,
+          "minecraft:smooth_sandstone": 4,
+          "minecraft:cut_sandstone": 3,
+          "minecraft:chiseled_sandstone": 1
+        },
+        "brick_stairs": {
+          "minecraft:sandstone_stairs": 3,
+          "minecraft:smooth_sandstone_stairs": 2
+        },
+        "brick_slab": {
+          "minecraft:smooth_sandstone_slab": 3,
+          "minecraft:sandstone_slab": 2,
+          "minecraft:cut_sandstone_slab": 1
+        },
+        "brick_wall": "minecraft:iron_bars",
+        "fill": {
+          "minecraft:sand": 3,
+          "minecraft:sandstone": 2
+        },
         "floor": "minecraft:sand",
         "plant": "minecraft:dead_bush",
         "liquid": "minecraft:water",
-        "accent": "minecraft:chiseled_sandstone"
+        "accent": {
+          "minecraft:orange_terracotta": 2,
+          "minecraft:blue_terracotta": 1
+        }
       }
     },
     "fortress_badlands": {
       "blocks": {
-        "brick": "minecraft:red_sandstone",
-        "brick_stairs": "minecraft:red_sandstone_stairs",
-        "brick_slab": "minecraft:red_sandstone_slab",
-        "brick_wall": "minecraft:red_sandstone_wall",
-        "fill": "minecraft:terracotta",
+        "brick": {
+          "minecraft:red_sandstone": 5,
+          "minecraft:smooth_red_sandstone": 3,
+          "minecraft:cut_red_sandstone": 2,
+          "minecraft:chiseled_red_sandstone": 1,
+          "minecraft:terracotta": 2,
+          "minecraft:orange_terracotta": 1,
+          "minecraft:red_terracotta": 1
+        },
+        "brick_stairs": {
+          "minecraft:red_sandstone_stairs": 3,
+          "minecraft:smooth_red_sandstone_stairs": 2
+        },
+        "brick_slab": {
+          "minecraft:red_sandstone_slab": 2,
+          "minecraft:smooth_red_sandstone_slab": 2,
+          "minecraft:cut_red_sandstone_slab": 1
+        },
+        "brick_wall": "minecraft:dark_oak_fence",
+        "fill": {
+          "minecraft:terracotta": 3,
+          "minecraft:orange_terracotta": 1,
+          "minecraft:red_sand": 1
+        },
         "floor": "minecraft:red_sand",
         "plant": "minecraft:dead_bush",
         "liquid": "minecraft:water",
@@ -129,12 +184,35 @@
     },
     "fortress_jungle": {
       "blocks": {
-        "brick": "minecraft:mossy_stone_bricks",
-        "brick_stairs": "minecraft:mossy_stone_brick_stairs",
-        "brick_slab": "minecraft:mossy_stone_brick_slab",
-        "brick_wall": "minecraft:mossy_stone_brick_wall",
-        "fill": "minecraft:mossy_cobblestone",
-        "floor": "minecraft:coarse_dirt",
+        "brick": {
+          "minecraft:mossy_stone_bricks": 4,
+          "minecraft:stone_bricks": 2,
+          "minecraft:cracked_stone_bricks": 2,
+          "minecraft:chiseled_stone_bricks": 1,
+          "minecraft:mossy_cobblestone": 3,
+          "minecraft:cobblestone": 2
+        },
+        "brick_stairs": {
+          "minecraft:mossy_stone_brick_stairs": 2,
+          "minecraft:stone_brick_stairs": 1,
+          "minecraft:mossy_cobblestone_stairs": 2,
+          "minecraft:cobblestone_stairs": 1
+        },
+        "brick_slab": {
+          "minecraft:mossy_stone_brick_slab": 2,
+          "minecraft:stone_brick_slab": 1,
+          "minecraft:mossy_cobblestone_slab": 2,
+          "minecraft:cobblestone_slab": 1
+        },
+        "brick_wall": "minecraft:jungle_fence",
+        "fill": {
+          "minecraft:mossy_cobblestone": 3,
+          "minecraft:cobblestone": 2
+        },
+        "floor": {
+          "minecraft:coarse_dirt": 2,
+          "minecraft:podzol": 1
+        },
         "plant": "minecraft:fern",
         "liquid": "minecraft:water",
         "accent": "minecraft:moss_block"
@@ -142,12 +220,25 @@
     },
     "fortress_swamp": {
       "blocks": {
-        "brick": "minecraft:mud_bricks",
+        "brick": {
+          "minecraft:mud_bricks": 6,
+          "minecraft:packed_mud": 3,
+          "minecraft:coarse_dirt": 1,
+          "minecraft:rooted_dirt": 1
+        },
         "brick_stairs": "minecraft:mud_brick_stairs",
         "brick_slab": "minecraft:mud_brick_slab",
-        "brick_wall": "minecraft:mud_brick_wall",
-        "fill": "minecraft:mud",
-        "floor": "minecraft:packed_mud",
+        "brick_wall": "minecraft:mangrove_fence",
+        "fill": {
+          "minecraft:dirt": 3,
+          "minecraft:coarse_dirt": 2,
+          "minecraft:rooted_dirt": 2,
+          "minecraft:mud": 2
+        },
+        "floor": {
+          "minecraft:mud": 2,
+          "minecraft:rooted_dirt": 1
+        },
         "plant": "minecraft:moss_carpet",
         "liquid": "minecraft:water",
         "accent": "minecraft:mangrove_roots"
@@ -155,12 +246,25 @@
     },
     "fortress_snowy": {
       "blocks": {
-        "brick": "minecraft:packed_ice",
-        "brick_stairs": "minecraft:stone_brick_stairs",
-        "brick_slab": "minecraft:stone_brick_slab",
-        "brick_wall": "minecraft:stone_brick_wall",
-        "fill": "minecraft:snow_block",
-        "floor": "minecraft:ice",
+        "brick": {
+          "minecraft:packed_ice": 8,
+          "minecraft:snow_block": 4,
+          "minecraft:blue_ice": 2,
+          "minecraft:ice": 1,
+          "minecraft:powder_snow": 1
+        },
+        "brick_stairs": "minecraft:diorite_stairs",
+        "brick_slab": "minecraft:diorite_slab",
+        "brick_wall": "minecraft:glass_pane",
+        "fill": {
+          "minecraft:snow_block": 4,
+          "minecraft:packed_ice": 2,
+          "minecraft:powder_snow": 1
+        },
+        "floor": {
+          "minecraft:snow_block": 2,
+          "minecraft:powder_snow": 1
+        },
         "plant": "minecraft:snow",
         "liquid": "minecraft:water",
         "accent": "minecraft:blue_ice"
@@ -168,49 +272,63 @@
     },
     "fortress_mushroom": {
       "blocks": {
-        "brick": "minecraft:mushroom_stem",
-        "brick_stairs": "minecraft:stone_brick_stairs",
-        "brick_slab": "minecraft:stone_brick_slab",
-        "brick_wall": "minecraft:stone_brick_wall",
+        "brick": {
+          "minecraft:mushroom_stem": 5,
+          "minecraft:brown_mushroom_block": 3,
+          "minecraft:red_mushroom_block": 2
+        },
+        "brick_stairs": "minecraft:mud_brick_stairs",
+        "brick_slab": "minecraft:mud_brick_slab",
+        "brick_wall": "minecraft:iron_bars",
         "fill": "minecraft:mycelium",
-        "floor": "minecraft:brown_mushroom_block",
-        "plant": "minecraft:red_mushroom",
+        "floor": "minecraft:mycelium",
+        "plant": {
+          "minecraft:red_mushroom": 1,
+          "minecraft:brown_mushroom": 1
+        },
         "liquid": "minecraft:water",
         "accent": "minecraft:mushroom_stem"
       }
     },
-    "fortress_warm_ocean": {
-      "blocks": {
-        "brick": "minecraft:sandstone",
-        "brick_stairs": "minecraft:sandstone_stairs",
-        "brick_slab": "minecraft:sandstone_slab",
-        "brick_wall": "minecraft:sandstone_wall",
-        "fill": "minecraft:sand",
-        "floor": "minecraft:sand",
-        "plant": "minecraft:tube_coral_block",
-        "liquid": "minecraft:water",
-        "accent": "minecraft:brain_coral_block"
-      }
-    },
     "fortress_ocean": {
       "blocks": {
-        "brick": "minecraft:prismarine_bricks",
-        "brick_stairs": "minecraft:prismarine_brick_stairs",
-        "brick_slab": "minecraft:prismarine_brick_slab",
-        "brick_wall": "minecraft:prismarine_wall",
-        "fill": "minecraft:prismarine",
-        "floor": "minecraft:gravel",
-        "plant": "minecraft:dark_prismarine",
+        "brick": {
+          "minecraft:prismarine_bricks": 5,
+          "minecraft:prismarine": 4,
+          "minecraft:dark_prismarine": 2
+        },
+        "brick_stairs": {
+          "minecraft:prismarine_brick_stairs": 2,
+          "minecraft:prismarine_stairs": 2,
+          "minecraft:dark_prismarine_stairs": 1
+        },
+        "brick_slab": {
+          "minecraft:prismarine_brick_slab": 2,
+          "minecraft:prismarine_slab": 2,
+          "minecraft:dark_prismarine_slab": 1
+        },
+        "brick_wall": "minecraft:iron_bars",
+        "fill": {
+          "minecraft:prismarine": 2,
+          "minecraft:dark_prismarine": 1
+        },
+        "floor": "minecraft:sand",
+        "plant": "minecraft:sea_pickle",
         "liquid": "minecraft:water",
         "accent": "minecraft:sea_lantern"
       }
     },
     "fortress_frozen_ocean": {
       "blocks": {
-        "brick": "minecraft:prismarine_bricks",
+        "brick": {
+          "minecraft:prismarine_bricks": 4,
+          "minecraft:packed_ice": 3,
+          "minecraft:prismarine": 2,
+          "minecraft:blue_ice": 1
+        },
         "brick_stairs": "minecraft:prismarine_brick_stairs",
         "brick_slab": "minecraft:prismarine_brick_slab",
-        "brick_wall": "minecraft:prismarine_wall",
+        "brick_wall": "minecraft:iron_bars",
         "fill": "minecraft:packed_ice",
         "floor": "minecraft:ice",
         "plant": "minecraft:blue_ice",
@@ -355,11 +473,17 @@
         "pane": "minecraft:cyan_stained_glass_pane"
       }
     },
-    "end_city_cold_ocean": {
+    "end_city_ocean": {
       "blocks": {
-        "bricks": "minecraft:prismarine",
+        "bricks": {
+          "minecraft:prismarine_bricks": 3,
+          "minecraft:prismarine": 1
+        },
         "end_stone": "minecraft:prismarine",
-        "body": "minecraft:dark_prismarine",
+        "body": {
+          "minecraft:dark_prismarine": 3,
+          "minecraft:prismarine_bricks": 1
+        },
         "pillar": "minecraft:prismarine_bricks",
         "stairs": "minecraft:prismarine_stairs",
         "slab": "minecraft:prismarine_slab",
@@ -529,7 +653,14 @@
         "deco": "minecraft:crimson_planks",
         "deco2": "minecraft:nether_wart_block"
       },
-      "ground": "minecraft:crimson_nylium"
+      "ground": {
+        "minecraft:crimson_nylium": 3,
+        "minecraft:netherrack": 2
+      },
+      "ground_feature": {
+        "feature": "minecraft:crimson_fungus_planted",
+        "chance": 0.03
+      }
     },
     "village_nether_warped": {
       "extends": "village_nether",
@@ -550,7 +681,14 @@
         "deco": "minecraft:warped_planks",
         "deco2": "minecraft:warped_wart_block"
       },
-      "ground": "minecraft:warped_nylium"
+      "ground": {
+        "minecraft:warped_nylium": 3,
+        "minecraft:netherrack": 2
+      },
+      "ground_feature": {
+        "feature": "minecraft:warped_fungus_planted",
+        "chance": 0.03
+      }
     },
     "village_nether_soul": {
       "extends": "village_nether",
@@ -577,7 +715,11 @@
         "deco2": "minecraft:soul_sand",
         "glass": "minecraft:purple_stained_glass_pane"
       },
-      "ground": "minecraft:soul_soil"
+      "ground": {
+        "minecraft:soul_soil": 6,
+        "minecraft:soul_sand": 3,
+        "minecraft:bone_block": 1
+      }
     },
     "village_nether_basalt": {
       "extends": "village_nether",
@@ -606,7 +748,11 @@
         "light": "minecraft:torch",
         "wall_light": "minecraft:wall_torch"
       },
-      "ground": "minecraft:blackstone"
+      "ground": {
+        "minecraft:blackstone": 8,
+        "minecraft:basalt": 3,
+        "minecraft:gilded_blackstone": 1
+      }
     }
   },
   "structures": {
@@ -699,12 +845,7 @@
           "match": [
             "minecraft:warm_ocean",
             "minecraft:lukewarm_ocean",
-            "minecraft:deep_lukewarm_ocean"
-          ],
-          "palette": "fortress_warm_ocean"
-        },
-        {
-          "match": [
+            "minecraft:deep_lukewarm_ocean",
             "minecraft:ocean",
             "minecraft:deep_ocean",
             "minecraft:cold_ocean",
@@ -784,10 +925,12 @@
         },
         {
           "match": [
+            "minecraft:ocean",
+            "minecraft:deep_ocean",
             "minecraft:cold_ocean",
             "minecraft:deep_cold_ocean"
           ],
-          "palette": "end_city_cold_ocean"
+          "palette": "end_city_ocean"
         }
       ]
     },

@@ -3,6 +3,7 @@ package io.github.brainage04.dimensionstructurevariants.neoforge;
 import io.github.brainage04.dimensionstructurevariants.BiomeRestrictionGameTests;
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariants;
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariantsNeoForgeGameTests;
+import io.github.brainage04.dimensionstructurevariants.EndVillageGameTests;
 import io.github.brainage04.dimensionstructurevariants.PaletteGameTests;
 import io.github.brainage04.dimensionstructurevariants.SolidGroundGameTests;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -60,5 +61,18 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of("fence_connections_survive_wall_conversion"),
                 () -> PaletteGameTests::fenceConnectionsSurviveWallConversion);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of(
+                        "fortress_walls_are_textured_and_windows_see_through"),
+                () -> PaletteGameTests::fortressWallsAreTexturedAndWindowsSeeThrough);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("village_ground_is_a_natural_patch"),
+                () -> PaletteGameTests::villageGroundIsANaturalPatch);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("end_village_farm_water_stays_in_its_farm"),
+                () -> EndVillageGameTests::endVillageFarmWaterStaysInItsFarm);
     }
 }

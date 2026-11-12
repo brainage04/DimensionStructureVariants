@@ -64,6 +64,11 @@ public final class DimensionStructureVariantsGameTest {
         SolidGroundGameTests.endIslandVariantsOnlyStartOnSolidGround(helper);
     }
 
+    @GameTest(maxTicks = 400)
+    public void endVillageFarmWaterStaysInItsFarm(GameTestHelper helper) {
+        EndVillageGameTests.endVillageFarmWaterStaysInItsFarm(helper);
+    }
+
     @GameTest
     public void dimensionMaterialsAndProperties(GameTestHelper helper) {
         PaletteGameTests.dimensionMaterialsAndProperties(helper);
@@ -97,5 +102,15 @@ public final class DimensionStructureVariantsGameTest {
     @GameTest
     public void fenceConnectionsSurviveWallConversion(GameTestHelper helper) {
         PaletteGameTests.fenceConnectionsSurviveWallConversion(helper);
+    }
+
+    @GameTest
+    public void fortressWallsAreTexturedAndWindowsSeeThrough(GameTestHelper helper) {
+        PaletteGameTests.fortressWallsAreTexturedAndWindowsSeeThrough(helper);
+    }
+
+    @GameTest
+    public void villageGroundIsANaturalPatch(GameTestHelper helper) {
+        PaletteGameTests.villageGroundIsANaturalPatch(helper);
     }
 }

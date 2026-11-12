@@ -3,6 +3,7 @@ package io.github.brainage04.dimensionstructurevariants;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import it.unimi.dsi.fastutil.HashCommon;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -12,8 +13,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -31,23 +34,26 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.WallSide;
+import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Block substitution for the variants, one palette per structure and biome.
  *
  * <p>The tables live in {@code data/dimensionstructurevariants/palette/palettes.json}: a role set
  * maps the blocks a vanilla structure places to roles, a palette gives each role the block of the
- * biome it stands in, and a structure names the palette each of its biomes uses. Every target is a
- * vanilla block, so a client needs neither this mod nor a resource pack.
+ * biome it stands in, and a structure names the palette each of its biomes uses. A role may name
+ * several blocks with weights; the block at a position is then picked from the position alone, so a
+ * structure looks the same every time the world generates it. Every target is a vanilla block, so a
+ * client needs neither this mod nor a resource pack.
  */
 public final class StructurePalettes {
     private static final String DATA =
             "/data/" + DimensionStructureVariants.MOD_ID + "/palette/palettes.json";
 
-    private static final ThreadLocal<Map<BlockState, BlockState>> ACTIVE = new ThreadLocal<>();
-    private static final Map<String, Map<BlockState, BlockState>> COMPILED =
-            new ConcurrentHashMap<>();
+    private static final ThreadLocal<Palette> ACTIVE = new ThreadLocal<>();
+    private static final Map<String, Palette> COMPILED = new ConcurrentHashMap<>();
     private static volatile Data data;
 
     private StructurePalettes() {}
@@ -56,7 +62,7 @@ public final class StructurePalettes {
      * The palette of a structure start at {@code pos}, or null when the structure keeps its vanilla
      * blocks. The position picks the biome; the start's own centre is the natural choice.
      */
-    public static Map<BlockState, BlockState> palette(
+    public static @Nullable Palette palette(
             WorldGenLevel level, Structure structure, BlockPos pos) {
         Identifier id =
                 level.registryAccess().lookupOrThrow(Registries.STRUCTURE).getKey(structure);
@@ -65,7 +71,7 @@ public final class StructurePalettes {
     }
 
     /** The palette of variant {@code id} in {@code biome}, or null when it has none there. */
-    static Map<BlockState, BlockState> palette(Identifier id, Holder<Biome> biome) {
+    public static @Nullable Palette palette(Identifier id, Holder<Biome> biome) {
         if (!id.getNamespace().equals(DimensionStructureVariants.MOD_ID)) return null;
         Rules rules = data().structures.get(id.getPath());
         if (rules == null) return null;
@@ -75,37 +81,18 @@ public final class StructurePalettes {
                 id.getPath() + "|" + palette, key -> compile(rules.roles(), palette));
     }
 
-    /**
-     * What a structure start does besides its palette: the ground block its biome lays under the
-     * structure's own footprint, or null where the structure lays none.
-     */
-    public static Setting setting(WorldGenLevel level, Structure structure, BlockPos pos) {
-        Identifier id =
-                level.registryAccess().lookupOrThrow(Registries.STRUCTURE).getKey(structure);
-        if (id == null) return Setting.NONE;
-        return setting(id, level.getNoiseBiome(pos.getX() >> 2, pos.getY() >> 2, pos.getZ() >> 2));
-    }
-
-    /** The setting of variant {@code id} in {@code biome}; none when it has no palette there. */
-    static Setting setting(Identifier id, Holder<Biome> biome) {
-        Map<BlockState, BlockState> palette = palette(id, biome);
-        if (palette == null) return Setting.NONE;
-        return new Setting(palette, ground(id, biome));
-    }
-
-    public static Map<BlockState, BlockState> enter(
-            WorldGenLevel level, Structure structure, BlockPos pos) {
+    public static @Nullable Palette enter(WorldGenLevel level, Structure structure, BlockPos pos) {
         return push(palette(level, structure, pos));
     }
 
     /** Makes {@code palette} the active one and returns the palette the caller must restore. */
-    public static Map<BlockState, BlockState> push(Map<BlockState, BlockState> palette) {
-        Map<BlockState, BlockState> previous = ACTIVE.get();
+    public static @Nullable Palette push(@Nullable Palette palette) {
+        Palette previous = ACTIVE.get();
         restore(palette);
         return previous;
     }
 
-    public static void restore(Map<BlockState, BlockState> palette) {
+    public static void restore(@Nullable Palette palette) {
         if (palette == null) {
             ACTIVE.remove();
         } else {
@@ -113,9 +100,108 @@ public final class StructurePalettes {
         }
     }
 
-    public static BlockState remap(BlockState state) {
-        Map<BlockState, BlockState> palette = ACTIVE.get();
-        return palette == null ? state : palette.getOrDefault(state, state);
+    /** The block the active palette puts at {@code pos} in place of {@code state}. */
+    public static BlockState remap(BlockState state, BlockPos pos) {
+        Palette palette = ACTIVE.get();
+        return palette == null ? state : palette.remap(state, pos);
+    }
+
+    /** A compiled palette: what it puts in place of each vanilla state, and its ground. */
+    public static final class Palette {
+        private final Map<BlockState, Choice> states;
+        private final @Nullable Choice ground;
+        private final @Nullable ResourceKey<Feature> groundFeature;
+        private final float groundFeatureChance;
+
+        private Palette(
+                Map<BlockState, Choice> states,
+                @Nullable Choice ground,
+                @Nullable ResourceKey<Feature> groundFeature,
+                float groundFeatureChance) {
+            this.states = states;
+            this.ground = ground;
+            this.groundFeature = groundFeature;
+            this.groundFeatureChance = groundFeatureChance;
+        }
+
+        public BlockState remap(BlockState state, BlockPos pos) {
+            Choice choice = states.get(state);
+            return choice == null ? state : choice.at(pos.getX(), pos.getY(), pos.getZ());
+        }
+
+        /** The choice this palette makes for {@code state}, or null when it keeps it. */
+        public @Nullable Choice choiceFor(BlockState state) {
+            return states.get(state);
+        }
+
+        /** Every block state the palette can place in place of a vanilla one. */
+        public Set<BlockState> targets() {
+            Set<BlockState> targets = new LinkedHashSet<>();
+            for (Choice choice : states.values()) targets.addAll(choice.states());
+            return targets;
+        }
+
+        /** The ground the structure lays around its pieces, or null where it lays none. */
+        public @Nullable Choice ground() {
+            return ground;
+        }
+
+        /** The feature that now and then grows on that ground, or null. */
+        public @Nullable ResourceKey<Feature> groundFeature() {
+            return groundFeature;
+        }
+
+        /** The chance that a column of ground clear of the pieces grows the feature. */
+        public float groundFeatureChance() {
+            return groundFeatureChance;
+        }
+    }
+
+    /** One block, or several picked by weight from the position alone. */
+    public static final class Choice {
+        private final BlockState[] states;
+        private final int[] upTo;
+
+        private Choice(BlockState[] states, int[] weights) {
+            this.states = states;
+            this.upTo = new int[weights.length];
+            int total = 0;
+            for (int i = 0; i < weights.length; i++) {
+                total += weights[i];
+                upTo[i] = total;
+            }
+        }
+
+        public BlockState at(int x, int y, int z) {
+            if (states.length == 1) return states[0];
+            return pick(BlockPos.asLong(x, y, z));
+        }
+
+        /** The state a roll of {@code seed} lands on, each state as often as its weight says. */
+        public BlockState pick(long seed) {
+            int roll = (int) Math.floorMod(HashCommon.mix(seed), (long) upTo[upTo.length - 1]);
+            for (int i = 0; i < upTo.length; i++) {
+                if (roll < upTo[i]) return states[i];
+            }
+            return states[states.length - 1];
+        }
+
+        public List<BlockState> states() {
+            return List.of(states);
+        }
+
+        /** The state with the largest weight. */
+        public BlockState main() {
+            int best = 0;
+            for (int i = 1; i < states.length; i++) {
+                if (weight(i) > weight(best)) best = i;
+            }
+            return states[best];
+        }
+
+        private int weight(int index) {
+            return upTo[index] - (index == 0 ? 0 : upTo[index - 1]);
+        }
     }
 
     // ------------------------------------------------------------------------------------------
@@ -149,28 +235,20 @@ public final class StructurePalettes {
         }
     }
 
-    /** One palette: role to block id, where a null block keeps the source block as it is. */
-    private record Palette(Map<String, String> blocks, String ground) {}
-
-    /** The palette of one structure start and the ground block it lays under its footprint. */
-    public record Setting(Map<BlockState, BlockState> palette, BlockState ground) {
-        public static final Setting NONE = new Setting(null, null);
-    }
+    /**
+     * One palette as written: role to weighted blocks, where null keeps the source block as it is,
+     * and the ground it lays with the feature that grows on it.
+     */
+    private record RawPalette(
+            Map<String, Map<String, Integer>> blocks,
+            Map<String, Integer> ground,
+            String groundFeature,
+            float groundFeatureChance) {}
 
     private record Data(
             Map<String, Map<String, String>> roleSets,
-            Map<String, Palette> palettes,
+            Map<String, RawPalette> palettes,
             Map<String, Rules> structures) {}
-
-    /** The ground block variant {@code id} lays in {@code biome}, or null. */
-    private static BlockState ground(Identifier id, Holder<Biome> biome) {
-        Rules rules = data().structures.get(id.getPath());
-        if (rules == null) return null;
-        String palette = rules.paletteFor(biome);
-        if (palette == null) return null;
-        String ground = data().palettes.get(palette).ground();
-        return ground == null ? null : block(ground).defaultBlockState();
-    }
 
     private static Data data() {
         Data loaded = data;
@@ -207,7 +285,7 @@ public final class StructurePalettes {
         for (Map.Entry<String, JsonElement> entry : root.getAsJsonObject("palettes").entrySet()) {
             raw.put(entry.getKey(), entry.getValue().getAsJsonObject());
         }
-        Map<String, Palette> palettes = new LinkedHashMap<>();
+        Map<String, RawPalette> palettes = new LinkedHashMap<>();
         for (String name : raw.keySet()) {
             palettes.put(name, resolvePalette(name, raw, new ArrayList<>()));
         }
@@ -228,7 +306,7 @@ public final class StructurePalettes {
                     match.add(matcher(biome.getAsString()));
                 }
                 String palette = rule.get("palette").getAsString();
-                Palette resolved = palettes.get(palette);
+                RawPalette resolved = palettes.get(palette);
                 if (resolved == null) {
                     throw new IllegalStateException(
                             entry.getKey() + " names the unknown palette " + palette);
@@ -241,7 +319,7 @@ public final class StructurePalettes {
         return new Data(roleSets, palettes, structures);
     }
 
-    private static Palette resolvePalette(
+    private static RawPalette resolvePalette(
             String name, Map<String, JsonObject> raw, List<String> path) {
         JsonObject object = raw.get(name);
         if (object == null) throw new IllegalStateException("Unknown palette " + name);
@@ -249,27 +327,67 @@ public final class StructurePalettes {
             throw new IllegalStateException("Palette " + name + " extends itself through " + path);
         }
         path.add(name);
-        Map<String, String> blocks = new LinkedHashMap<>();
-        String ground = null;
+        Map<String, Map<String, Integer>> blocks = new LinkedHashMap<>();
+        Map<String, Integer> ground = null;
+        String feature = null;
+        float chance = 0.0F;
         if (object.has("extends")) {
-            Palette parent = resolvePalette(object.get("extends").getAsString(), raw, path);
+            RawPalette parent = resolvePalette(object.get("extends").getAsString(), raw, path);
             blocks.putAll(parent.blocks());
             ground = parent.ground();
+            feature = parent.groundFeature();
+            chance = parent.groundFeatureChance();
         }
         if (object.has("blocks")) {
             for (Map.Entry<String, JsonElement> entry :
                     object.getAsJsonObject("blocks").entrySet()) {
-                JsonElement target = entry.getValue();
-                blocks.put(entry.getKey(), target.isJsonNull() ? null : target.getAsString());
+                blocks.put(entry.getKey(), weights(name, entry.getValue()));
             }
         }
-        if (object.has("ground")) ground = object.get("ground").getAsString();
-        for (String target : blocks.values()) {
-            if (target != null) block(target);
+        if (object.has("ground")) ground = weights(name, object.get("ground"));
+        if (object.has("ground_feature")) {
+            JsonObject spec = object.getAsJsonObject("ground_feature");
+            feature = spec.get("feature").getAsString();
+            Identifier.parse(feature);
+            chance = spec.get("chance").getAsFloat();
+            if (chance <= 0.0F || chance > 1.0F) {
+                throw new IllegalStateException(
+                        "Palette " + name + " gives its ground feature the chance " + chance);
+            }
         }
-        if (ground != null) block(ground);
         path.remove(path.size() - 1);
-        return new Palette(Collections.unmodifiableMap(blocks), ground);
+        return new RawPalette(Collections.unmodifiableMap(blocks), ground, feature, chance);
+    }
+
+    /**
+     * A target as written: one block id, an object of block ids to weights, or null for "keep the
+     * vanilla block" (returned as null).
+     */
+    private static Map<String, Integer> weights(String palette, JsonElement target) {
+        if (target.isJsonNull()) return null;
+        Map<String, Integer> weights = new LinkedHashMap<>();
+        if (target.isJsonPrimitive()) {
+            weights.put(target.getAsString(), 1);
+        } else {
+            for (Map.Entry<String, JsonElement> entry : target.getAsJsonObject().entrySet()) {
+                int weight = entry.getValue().getAsInt();
+                if (weight <= 0) {
+                    throw new IllegalStateException(
+                            "Palette "
+                                    + palette
+                                    + " gives "
+                                    + entry.getKey()
+                                    + " the weight "
+                                    + weight);
+                }
+                weights.put(entry.getKey(), weight);
+            }
+            if (weights.isEmpty()) {
+                throw new IllegalStateException("Palette " + palette + " names an empty choice");
+            }
+        }
+        for (String block : weights.keySet()) block(block);
+        return Collections.unmodifiableMap(weights);
     }
 
     private static Matcher matcher(String value) {
@@ -286,7 +404,7 @@ public final class StructurePalettes {
      * knows fails here instead of quietly leaving blocks vanilla.
      */
     private static void checkCoverage(
-            String structure, Map<String, String> roles, String palette, Palette resolved) {
+            String structure, Map<String, String> roles, String palette, RawPalette resolved) {
         List<String> used = new ArrayList<>(roles.values());
         for (String role : used) {
             if (!resolved.blocks().containsKey(role)) {
@@ -313,28 +431,59 @@ public final class StructurePalettes {
         }
     }
 
-    private static Map<BlockState, BlockState> compile(String rolesName, String paletteName) {
+    private static Palette compile(String rolesName, String paletteName) {
         Data loaded = data();
         Map<String, String> roles = loaded.roleSets.get(rolesName);
-        Map<String, String> palette = loaded.palettes.get(paletteName).blocks();
-        Map<BlockState, BlockState> states = new IdentityHashMap<>();
+        RawPalette palette = loaded.palettes.get(paletteName);
+        Map<BlockState, Choice> states = new IdentityHashMap<>();
         boolean lava = false;
         for (Map.Entry<String, String> entry : roles.entrySet()) {
-            String target = palette.get(entry.getValue());
+            Map<String, Integer> target = palette.blocks().get(entry.getValue());
             if (target == null) continue;
-            Block block = block(target);
-            lava |= block == Blocks.LAVA;
-            addMappings(states, block(entry.getKey()), block);
+            for (String block : target.keySet()) lava |= block(block) == Blocks.LAVA;
+            addMappings(states, block(entry.getKey()), target);
         }
         if (lava) {
             // Lava cannot fill a block, so nothing beside it may hold water.
-            states.replaceAll(
-                    (source, state) ->
-                            state.hasProperty(BlockStateProperties.WATERLOGGED)
-                                    ? state.setValue(BlockStateProperties.WATERLOGGED, false)
-                                    : state);
+            states.replaceAll((source, choice) -> withoutWater(choice));
         }
-        return Collections.unmodifiableMap(states);
+        Choice ground = null;
+        if (palette.ground() != null) {
+            List<BlockState> blocks = new ArrayList<>();
+            for (String block : palette.ground().keySet()) {
+                blocks.add(block(block).defaultBlockState());
+            }
+            ground = choice(blocks, palette.ground());
+        }
+        ResourceKey<Feature> feature =
+                palette.groundFeature() == null
+                        ? null
+                        : ResourceKey.create(
+                                Registries.FEATURE, Identifier.parse(palette.groundFeature()));
+        return new Palette(
+                Collections.unmodifiableMap(states),
+                ground,
+                feature,
+                palette.groundFeatureChance());
+    }
+
+    private static Choice withoutWater(Choice choice) {
+        BlockState[] states = choice.states.clone();
+        for (int i = 0; i < states.length; i++) {
+            if (states[i].hasProperty(BlockStateProperties.WATERLOGGED)) {
+                states[i] = states[i].setValue(BlockStateProperties.WATERLOGGED, false);
+            }
+        }
+        int[] weights = new int[states.length];
+        for (int i = 0; i < weights.length; i++) weights[i] = choice.weight(i);
+        return new Choice(states, weights);
+    }
+
+    private static Choice choice(List<BlockState> states, Map<String, Integer> weights) {
+        int[] values = new int[states.size()];
+        int i = 0;
+        for (int weight : weights.values()) values[i++] = weight;
+        return new Choice(states.toArray(BlockState[]::new), values);
     }
 
     private static Block block(String id) {
@@ -344,18 +493,24 @@ public final class StructurePalettes {
     }
 
     private static void addMappings(
-            Map<BlockState, BlockState> states, Block source, Block target) {
+            Map<BlockState, Choice> states, Block source, Map<String, Integer> targets) {
         for (BlockState state : source.getStateDefinition().getPossibleStates()) {
-            BlockState replacement = target.withPropertiesOf(state);
-            for (Property<?> property : state.getProperties()) {
-                Property<?> targetProperty =
-                        target.getStateDefinition().getProperty(property.getName());
-                if (targetProperty != null && !replacement.hasProperty(property)) {
-                    replacement = copyCompatibleValue(state, replacement, property, targetProperty);
-                }
-            }
-            states.put(state, replacement);
+            List<BlockState> replacements = new ArrayList<>(targets.size());
+            for (String id : targets.keySet()) replacements.add(convert(state, block(id)));
+            states.put(state, choice(replacements, targets));
         }
+    }
+
+    private static BlockState convert(BlockState state, Block target) {
+        BlockState replacement = target.withPropertiesOf(state);
+        for (Property<?> property : state.getProperties()) {
+            Property<?> targetProperty =
+                    target.getStateDefinition().getProperty(property.getName());
+            if (targetProperty != null && !replacement.hasProperty(property)) {
+                replacement = copyCompatibleValue(state, replacement, property, targetProperty);
+            }
+        }
+        return replacement;
     }
 
     /** Retains facing values and converts fence connections into low wall sides. */
