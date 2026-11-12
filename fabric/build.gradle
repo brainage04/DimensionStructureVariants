@@ -1,0 +1,7 @@
+// A client GameTest runs the client, its dedicated server and the test in one JVM, so a G1 pause stops
+// all three: in a recorded take (dsv13-diag1) the two longest stretches without a frame, 121 and 171 ms,
+// each held a G1 pause, of 42 and 82 ms. ZGC does its work beside the threads, with pauses under a
+// millisecond (https://docs.oracle.com/en/java/javase/25/gctuning/z-garbage-collector.html).
+tasks.matching { it.name == 'runProductionClientGameTest' }.configureEach {
+	jvmArgs.add('-XX:+UseZGC')
+}
