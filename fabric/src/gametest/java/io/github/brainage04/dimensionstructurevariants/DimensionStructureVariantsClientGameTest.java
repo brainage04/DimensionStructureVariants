@@ -2648,6 +2648,12 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         /** Of the frames the client drew, this share must show a new picture. */
         private static final double PICTURE_SHARE = 0.8D;
 
+        /**
+         * How far a shot's length may stray from the 4 seconds the cut plays: the camera's turn
+         * ends inside a tick, and the shot on the tick after it.
+         */
+        private static final double SHOT_SECONDS_TOLERANCE = 0.25D;
+
         private static final int MAX_LINES = 20;
 
         private final String id;
@@ -2841,6 +2847,15 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                                 pictureShare,
                                 drawnTotal,
                                 PICTURE_SHARE));
+            double filmSeconds = ShowcaseCamera.SHOT_NANOS / 1.0E9D;
+            if (Math.abs(shotSeconds - filmSeconds) > SHOT_SECONDS_TOLERANCE)
+                PROBLEMS.add(
+                        String.format(
+                                Locale.ROOT,
+                                "%s: the shot lasted %.2f s, not the %.0f s the cut plays",
+                                id,
+                                shotSeconds,
+                                filmSeconds));
         }
     }
 
