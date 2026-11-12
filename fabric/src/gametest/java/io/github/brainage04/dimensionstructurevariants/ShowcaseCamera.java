@@ -32,6 +32,10 @@ public final class ShowcaseCamera {
     private static long frames;
     private static long startTick;
     private static float startPartial;
+    private static double startProgress;
+    private static double lastProgress;
+    private static long lastFrameNanos;
+    private static long longestFrameGapNanos;
 
     private ShowcaseCamera() {}
 
@@ -42,12 +46,28 @@ public final class ShowcaseCamera {
         running = false;
     }
 
-    /** Starts the shot at the current tick and frame; client thread only. */
-    public static void run(Orbit orbit) {
+    /**
+     * Runs the shot from {@code from} (0 to 1) of {@code orbit}, continuing from the pose a held
+     * camera shows; test thread's client tasks only.
+     */
+    public static void run(Orbit orbit, double from) {
         ShowcaseCamera.orbit = orbit;
         running = true;
-        startTick = ticks;
+        startProgress = from;
+        // A client GameTest hands the client its tasks just before the tick of the frame they
+        // run in (Fabric's gametest MinecraftMixin.postRunTasksHook), so that tick has not counted
+        // yet: counting it here puts the first frame on the held pose instead of a tick ahead.
+        startTick = ticks + 1;
         startPartial = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true);
+    }
+
+    /**
+     * Stops a running shot on the pose of the last frame and returns its progress; client thread
+     * only.
+     */
+    public static double pause() {
+        hold(orbit, lastProgress);
+        return lastProgress;
     }
 
     /** Hands the camera back to the player; client thread only. */
@@ -65,14 +85,30 @@ public final class ShowcaseCamera {
     public static double progress(float partialTicks) {
         if (!running) return heldProgress;
         double elapsed = ticks - startTick + partialTicks - startPartial;
-        return Math.max(0.0D, Math.min(1.0D, elapsed / SHOT_TICKS));
+        return Math.max(0.0D, Math.min(1.0D, startProgress + elapsed / SHOT_TICKS));
     }
 
     /** The pose this frame shows, or null when the camera follows the player. */
     public static Pose framePose(float partialTicks) {
         frames++;
+        long now = System.nanoTime();
+        if (lastFrameNanos != 0L)
+            longestFrameGapNanos = Math.max(longestFrameGapNanos, now - lastFrameNanos);
+        lastFrameNanos = now;
         Orbit current = orbit;
-        return current == null ? null : current.at(progress(partialTicks));
+        if (current == null) return null;
+        lastProgress = progress(partialTicks);
+        return current.at(lastProgress);
+    }
+
+    /**
+     * The longest time between two frames since the last call, in nanoseconds: the longest the
+     * picture stood still. Client thread only.
+     */
+    public static long takeLongestFrameGap() {
+        long longest = longestFrameGapNanos;
+        longestFrameGapNanos = 0L;
+        return longest;
     }
 
     /**

@@ -3,6 +3,9 @@ package io.github.brainage04.dimensionstructurevariants;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestRecorder;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestRecordingHud;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestServers;
+import io.github.brainage04.minecraftmodconventions.PerformanceOverlayPlacement;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Comparator;
@@ -92,8 +95,11 @@ import net.minecraft.world.phys.AABB;
  *
  * <p>Every shot runs the Overworld clock from noon to midnight with Night Vision on the camera
  * player, and circles the structure once per shot at a fixed distance, descending from looking 30
- * degrees down at the centre to looking 30 degrees up at it. {@code STAGE_START} and {@code
- * STAGE_END} with a wall-clock time mark each shot, and the delivered video is cut to them.
+ * degrees down at the centre to looking 30 degrees up at it. The first half shows the vanilla
+ * blocks; halfway the camera and the game stop off camera while the palette goes in, and the second
+ * half carries on from the same pose. {@code STAGE_START} and {@code STAGE_END} with a wall-clock
+ * time mark each half (the second one's id ends in {@code /on}), and the delivered video is cut to
+ * them.
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class DimensionStructureVariantsClientGameTest implements FabricClientGameTest {
@@ -209,7 +215,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
 
     private static final String PALETTE_ON = "Palette on: the blocks of this biome";
 
-    /** Ticks after the palette switch before the client's rebuilt sections count. */
+    /** What a shot's second half, with the palette on, adds to the stage id in its markers. */
+    private static final String PALETTE_HALF = "/on";
+
+    /** Ticks the changed blocks take to reach the client after the palette switch. */
     private static final int SWITCH_ARRIVAL_TICKS = 4;
 
     private enum Dimension {
@@ -2229,6 +2238,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         context.runOnClient(
                 client -> {
                     ClientGameTestRecordingHud.clear();
+                    // Under the caption panel, the overlay's own place, StageCaptionPanel lists the
+                    // biomes.
+                    ClientGameTestRecordingHud.placePerformanceOverlay(
+                            PerformanceOverlayPlacement.BOTTOM_RIGHT);
                     StageCaptionPanel.clear();
                     ShowcaseCamera.hold(orbit, 0.0D);
                 });
@@ -2415,70 +2428,24 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                     minecraftServer.tickRateManager().setTickRate(tickRate);
                     minecraftServer.tickRateManager().setFrozen(false);
                 });
-        context.runOnClient(client -> ShowcaseCamera.run(orbit));
+        context.runOnClient(
+                client -> {
+                    ShowcaseCamera.run(orbit, 0.0D);
+                    ShowcaseCamera.takeLongestFrameGap();
+                });
         long startMs = System.currentTimeMillis();
         System.out.println("STAGE_START " + startMs + " " + stage.id());
+        ShotTiming timing = new ShotTiming(stage.id(), tickRate);
         int busyTicks = 0;
         int poppedTicks = 0;
         StringBuilder problems = new StringBuilder();
         int switchTick = ShowcaseCamera.SHOT_TICKS / 2;
-        // The switch rebuilds the sections whose blocks change; the check takes the built sections
-        // afresh once the client has finished them.
-        boolean switching = false;
         for (int tick = 1; tick <= ShowcaseCamera.SHOT_TICKS; tick++) {
+            timing.beforeWait();
             context.waitTick();
+            timing.afterWait(context, server, tick);
             if (tick == switchTick) {
-                int changed =
-                        server.computeOnServer(
-                                minecraftServer ->
-                                        showPalette(
-                                                minecraftServer.getLevel(stage.dimension().level),
-                                                prepared.swap()));
-                System.out.println(
-                        "[DSV] "
-                                + stage.id()
-                                + " switched to the palette at tick "
-                                + tick
-                                + ": "
-                                + changed
-                                + " blocks");
-                switching = true;
-                continue;
-            }
-            if (switching) {
-                if (!context.computeOnClient(
-                        client -> client.levelRenderer.hasRenderedAllSections())) {
-                    busyTicks++;
-                    continue;
-                }
-                // The changed blocks reach the client a tick or two after the server writes them.
-                if (tick < switchTick + SWITCH_ARRIVAL_TICKS) continue;
-                ShowcaseCamera.Pose pose = orbit.at(tick / (double) ShowcaseCamera.SHOT_TICKS);
-                Snapshot rebuilt =
-                        context.computeOnClient(
-                                client ->
-                                        snapshot(
-                                                client,
-                                                prepared.region(),
-                                                pose,
-                                                stage.visibleRange()));
-                if (rebuilt == null)
-                    throw new AssertionError(
-                            "A chunk of " + stage.id() + " left the client during the shot");
-                baseline = rebuilt.compiled();
-                switching = false;
-                // The caption follows the picture: a large stage takes several ticks to rebuild
-                // (7 for the End fortress's 392 sections), and "Palette on" over vanilla blocks
-                // would describe something the frame does not show.
-                context.runOnClient(client -> StageCaptionPanel.switchOn(PALETTE_ON));
-                System.out.println(
-                        "[DSV] "
-                                + stage.id()
-                                + " palette built on the client by tick "
-                                + tick
-                                + ": "
-                                + baseline.cardinality()
-                                + " sections");
+                baseline = switchPalette(context, server, stage, prepared, timing);
                 continue;
             }
             if (tick % CHECK_INTERVAL != 0) continue;
@@ -2518,11 +2485,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             if (!context.computeOnClient(client -> client.levelRenderer.hasRenderedAllSections()))
                 busyTicks++;
         }
-        if (switching)
-            throw new AssertionError(
-                    "The palette of " + stage.id() + " was never built on the client in its shot");
         long endMs = System.currentTimeMillis();
-        System.out.println("STAGE_END " + endMs + " " + stage.id());
+        System.out.println("STAGE_END " + endMs + " " + stage.id() + PALETTE_HALF);
         String after =
                 server.computeOnServer(
                         minecraftServer -> {
@@ -2550,6 +2514,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                         + " ticksWithPopIn="
                         + poppedTicks
                         + problems);
+        timing.report();
         System.out.println(
                 "[DSV] SUMMARY "
                         + String.format(
@@ -2576,6 +2541,206 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                             + poppedTicks
                             + " ticks:"
                             + problems);
+        }
+    }
+
+    /**
+     * Switches the shot to the palette between its halves, off camera: the camera stops on the last
+     * frame's pose and the game freezes, the server swaps the blocks, the client builds all of
+     * them, the caption changes, and the shot carries on from the same pose. The cut joins the
+     * halves, so the film shows neither the swap's server time, during which the client cannot draw
+     * a frame, nor a structure the client has only partly rebuilt. Returns the sections built
+     * afterwards.
+     */
+    private static BitSet switchPalette(
+            ClientGameTestContext context,
+            TestDedicatedServerContext server,
+            Stage stage,
+            Prepared prepared,
+            ShotTiming timing) {
+        double[] held = new double[1];
+        server.runOnServer(minecraftServer -> minecraftServer.tickRateManager().setFrozen(true));
+        // The server tells the client it froze one tick later, which would let the client's day,
+        // mobs and particles run one tick past the server's.
+        context.runOnClient(
+                client -> {
+                    held[0] = ShowcaseCamera.pause();
+                    client.level.tickRateManager().setFrozen(true);
+                });
+        System.out.println("STAGE_END " + System.currentTimeMillis() + " " + stage.id());
+        long began = System.nanoTime();
+        int changed =
+                server.computeOnServer(
+                        minecraftServer ->
+                                showPalette(
+                                        minecraftServer.getLevel(stage.dimension().level),
+                                        prepared.swap()));
+        long swapMs = (System.nanoTime() - began) / 1_000_000L;
+        context.waitTicks(SWITCH_ARRIVAL_TICKS);
+        waitForServerLight(context, server, stage);
+        BitSet built = settle(context, stage, prepared);
+        context.runOnClient(client -> StageCaptionPanel.switchOn(PALETTE_ON));
+        // Frames of the held pose with the palette and its caption, for the cut to join on.
+        context.waitTicks(6);
+        System.out.println(
+                "[DSV] "
+                        + stage.id()
+                        + String.format(
+                                Locale.ROOT,
+                                " switched to the palette off camera at %.4f of the orbit: %d"
+                                        + " blocks in %d ms on the server, then %d sections built",
+                                held[0],
+                                changed,
+                                swapMs,
+                                built.cardinality()));
+        System.out.println(
+                "STAGE_START " + System.currentTimeMillis() + " " + stage.id() + PALETTE_HALF);
+        context.runOnClient(
+                client -> {
+                    client.level.tickRateManager().setFrozen(false);
+                    ShowcaseCamera.run(prepared.orbit(), held[0]);
+                    ShowcaseCamera.takeLongestFrameGap();
+                });
+        server.runOnServer(minecraftServer -> minecraftServer.tickRateManager().setFrozen(false));
+        timing.resume();
+        return built;
+    }
+
+    /**
+     * How long each tick of a shot took by the clock the film runs on, and where the time went: the
+     * server's tick and the test's own work between ticks, which the client waits for before its
+     * next tick (Fabric's gametest {@code ThreadingImpl}), garbage collection, which stops the
+     * client, the server and the test alike (one JVM), and the longest the client went without
+     * drawing a frame.
+     */
+    private static final class ShotTiming {
+        private static final double FRAME_GAP_LIMIT_MS = 100.0D;
+        private static final int MAX_LINES = 20;
+
+        private final String id;
+        private final double slotMs;
+        private final List<String> slow = new ArrayList<>();
+        private long returned;
+        private long waitCalled;
+        private long frames = -1L;
+        private int ticks;
+        private int overSlot;
+        private double longestWall;
+        private double longestGap;
+        private double longestServer;
+        private double longestWork;
+        private int longestGapTick;
+        private long gcMillis = gcMillis();
+
+        ShotTiming(String id, float tickRate) {
+            this.id = id;
+            this.slotMs = 1000.0D / tickRate;
+        }
+
+        void beforeWait() {
+            waitCalled = System.nanoTime();
+            if (returned == 0L) returned = waitCalled;
+        }
+
+        void afterWait(ClientGameTestContext context, TestDedicatedServerContext server, int tick) {
+            long now = System.nanoTime();
+            double wall = (now - returned) / 1.0E6D;
+            double work = (waitCalled - returned) / 1.0E6D;
+            returned = now;
+            long gcNow = gcMillis();
+            long gc = gcNow - gcMillis;
+            gcMillis = gcNow;
+            double serverMs =
+                    server.computeOnServer(
+                            minecraftServer ->
+                                    minecraftServer
+                                                    .getTickTimesNanos()[
+                                                    minecraftServer.getTickCount() % 100]
+                                            / 1.0E6D);
+            long[] client =
+                    context.computeOnClient(
+                            c ->
+                                    new long[] {
+                                        ShowcaseCamera.frames(),
+                                        ShowcaseCamera.takeLongestFrameGap()
+                                    });
+            long drawn = frames < 0L ? -1L : client[0] - frames;
+            frames = client[0];
+            double gap = client[1] / 1.0E6D;
+            ticks++;
+            if (wall > slotMs * 1.5D) overSlot++;
+            longestWall = Math.max(longestWall, wall);
+            longestServer = Math.max(longestServer, serverMs);
+            longestWork = Math.max(longestWork, work);
+            if (gap > longestGap) {
+                longestGap = gap;
+                longestGapTick = tick;
+            }
+            if ((wall > slotMs * 1.5D || gap > FRAME_GAP_LIMIT_MS * 0.8D)
+                    && slow.size() < MAX_LINES) {
+                slow.add(
+                        String.format(
+                                Locale.ROOT,
+                                "tick %d: %.0f ms (server %.0f, test %.0f, gc %d), %d frames,"
+                                        + " longest gap %.0f ms",
+                                tick,
+                                wall,
+                                serverMs,
+                                work,
+                                gc,
+                                drawn,
+                                gap));
+            }
+        }
+
+        /** The JVM's time in collector pauses; G1's concurrent cycles run beside the threads. */
+        private static long gcMillis() {
+            long total = 0L;
+            for (GarbageCollectorMXBean collector :
+                    ManagementFactory.getGarbageCollectorMXBeans()) {
+                if (collector.getName().contains("Concurrent")) continue;
+                total += Math.max(0L, collector.getCollectionTime());
+            }
+            return total;
+        }
+
+        /** Starts the clock again after a pause the film does not show. */
+        void resume() {
+            returned = 0L;
+            frames = -1L;
+            gcMillis = gcMillis();
+        }
+
+        void report() {
+            System.out.println(
+                    "[DSV] "
+                            + id
+                            + String.format(
+                                    Locale.ROOT,
+                                    " timing: %d ticks of %.0f ms, %d over 1.5 slots; longest tick"
+                                            + " %.0f ms, server tick %.0f ms, test work %.0f ms;"
+                                            + " longest frame gap %.0f ms at tick %d; host load"
+                                            + " %.1f on %d CPUs",
+                                    ticks,
+                                    slotMs,
+                                    overSlot,
+                                    longestWall,
+                                    longestServer,
+                                    longestWork,
+                                    longestGap,
+                                    longestGapTick,
+                                    ManagementFactory.getOperatingSystemMXBean()
+                                            .getSystemLoadAverage(),
+                                    Runtime.getRuntime().availableProcessors()));
+            for (String line : slow) System.out.println("[DSV] " + id + " slow " + line);
+            if (longestGap > FRAME_GAP_LIMIT_MS)
+                PROBLEMS.add(
+                        String.format(
+                                Locale.ROOT,
+                                "%s: the client drew no frame for %.0f ms at tick %d of its shot",
+                                id,
+                                longestGap,
+                                longestGapTick));
         }
     }
 
