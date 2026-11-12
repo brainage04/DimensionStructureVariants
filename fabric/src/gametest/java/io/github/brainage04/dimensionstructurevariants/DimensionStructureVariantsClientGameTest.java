@@ -19,6 +19,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.locks.LockSupport;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
@@ -26,6 +27,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -139,22 +141,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
 
     /** How far above the ground's surface the camera's descent stops. */
     private static final double FLOOR_ABOVE_GROUND = 2.0D;
-
-    /**
-     * Game ticks per second while a shot is filmed: the frame rate the rehearsal measured divided
-     * by {@link #FRAMES_PER_TICK}, between these bounds. Software rendering manages 3 to 18 frames
-     * a second and the game ticks at most once per frame in a client GameTest, so at the game's own
-     * 20 ticks a second every frame would be a new tick, 4.5 degrees of orbit apart. At a lower
-     * rate each tick gets several frames, the camera moves between them, and the cut plays the shot
-     * back at 20 ticks a second. A graphics card presents 60 frames or more, several per tick: the
-     * shot then runs at the game's own rate, its 80 ticks take their 4 seconds, and the cut keeps
-     * that speed instead of speeding the shot up.
-     */
-    private static final double MAX_SHOT_TICK_RATE = 20.0D;
-
-    private static final double MIN_SHOT_TICK_RATE = 1.0D;
-
-    private static final double FRAMES_PER_TICK = 2.0D;
 
     /** Chunks loaded and fed to the GameTest server in one task, so no task blocks for long. */
     private static final int CHUNK_BATCH = 96;
@@ -2248,6 +2234,23 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         server.runOnServer(
                 minecraftServer ->
                         minecraftServer.getPlayerList().setSimulationDistance(SIMULATION_DISTANCE));
+        // Two frames inside one game tick must be two pictures, or a film at 30 frames a second
+        // repeats half of them; the probe runs off camera, before the shot's own clock starts.
+        boolean movesBetweenTicks =
+                context.computeOnClient(
+                        client -> {
+                            ShowcaseCamera.run(orbit, 0.0D);
+                            ShowcaseCamera.Pose first = ShowcaseCamera.framePose();
+                            LockSupport.parkNanos(15_000_000L);
+                            ShowcaseCamera.Pose second = ShowcaseCamera.framePose();
+                            ShowcaseCamera.hold(orbit, 0.0D);
+                            return !first.equals(second);
+                        });
+        if (!movesBetweenTicks)
+            PROBLEMS.add(
+                    "The camera showed one pose for 15 ms at "
+                            + stage.id()
+                            + ", less than one tick, twice: the film would repeat frames");
         context.waitForScreen(null);
         // The server's view distance grows in steps, each complete on the client before the
         // next. The client asks for that distance but renders only renderDistance around the
@@ -2283,9 +2286,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 context.runOnClient(client -> ShowcaseCamera.hold(orbit, progress));
                 context.waitTick();
             }
-            // The frames the client presented along the shot, not the ticks the steps waited for:
-            // a card presents several frames per tick and a software rasterizer fewer than one,
-            // which is the difference the tick rate below has to make up for.
+            // The frames the client presented along the shot, not the ticks the steps waited for: a
+            // card presents several frames per tick and a software rasterizer fewer than one. The
+            // shot runs at the game's own 20 ticks a second whatever this is, because the camera is
+            // posed per frame (ShowcaseCamera); the number says how smooth the film will be.
             double seconds = (System.nanoTime() - began) / 1.0E9D;
             long rendered =
                     context.computeOnClient(client -> ShowcaseCamera.frames()) - beganFrames;
@@ -2308,23 +2312,15 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             baseline = after;
             if (converged) break;
         }
-        // Two frames a tick at least, so the 80 ticks get the 120 frames 4 seconds at 30 frames a
-        // second need once the cut plays them back at 20 ticks a second. A card that manages this
-        // at the game's own rate films the shot at 20 ticks a second and the cut plays it as it was
-        // filmed, one turn per 4 seconds.
-        float tickRate =
-                (float)
-                        Math.max(
-                                MIN_SHOT_TICK_RATE,
-                                Math.min(MAX_SHOT_TICK_RATE, framesPerSecond / FRAMES_PER_TICK));
         System.out.println(
                 "[DSV] "
                         + stage.id()
                         + " films at "
-                        + tickRate
-                        + " ticks a second (the client presented "
+                        + ShowcaseCamera.SHOT_TICK_RATE
+                        + " ticks a second, the game's own rate: 80 ticks are the shot's 4 seconds,"
+                        + " and the camera is posed on every frame the client draws (it presented "
                         + String.format(Locale.ROOT, "%.1f", framesPerSecond)
-                        + " frames a second)");
+                        + " a second)");
         if (baseline.isEmpty())
             throw new AssertionError("Expected sections to be built for " + stage.id());
 
@@ -2425,7 +2421,9 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                     minecraftServer
                             .clockManager()
                             .setRate(clock, (float) (MIDNIGHT - NOON) / ShowcaseCamera.SHOT_TICKS);
-                    minecraftServer.tickRateManager().setTickRate(tickRate);
+                    // The game's own tick rate and no other: the shot's 80 ticks are the 4 seconds
+                    // the cut plays, and the camera is posed on the frame's clock, not the tick's.
+                    minecraftServer.tickRateManager().setTickRate(ShowcaseCamera.SHOT_TICK_RATE);
                     minecraftServer.tickRateManager().setFrozen(false);
                 });
         context.runOnClient(
@@ -2435,7 +2433,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 });
         long startMs = System.currentTimeMillis();
         System.out.println("STAGE_START " + startMs + " " + stage.id());
-        ShotTiming timing = new ShotTiming(stage.id(), tickRate);
+        ShotTiming timing =
+                new ShotTiming(
+                        stage.id(),
+                        context.computeOnClient(client -> client.options.framerateLimit().get()));
         int busyTicks = 0;
         int poppedTicks = 0;
         StringBuilder problems = new StringBuilder();
@@ -2486,7 +2487,12 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 busyTicks++;
         }
         long endMs = System.currentTimeMillis();
+        // The shot ends on this frame: the clock stops here, so the held pose the next stage's
+        // setup
+        // needs is not counted as the picture standing still.
+        context.runOnClient(client -> ShowcaseCamera.pause());
         System.out.println("STAGE_END " + endMs + " " + stage.id() + PALETTE_HALF);
+        ShowcaseCamera.Still still = context.computeOnClient(client -> ShowcaseCamera.takeStill());
         String after =
                 server.computeOnServer(
                         minecraftServer -> {
@@ -2494,7 +2500,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                             Holder<WorldClock> clock = overworldClock(minecraftServer);
                             minecraftServer.clockManager().setRate(clock, 1.0F);
                             minecraftServer.tickRateManager().setFrozen(true);
-                            minecraftServer.tickRateManager().setTickRate(20.0F);
                             long total =
                                     minecraftServer.clockManager().getInstance(clock).totalTicks();
                             return mobs(minecraftServer.getLevel(stage.dimension().level), prepared)
@@ -2514,7 +2519,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                         + " ticksWithPopIn="
                         + poppedTicks
                         + problems);
-        timing.report();
+        timing.report(still);
         System.out.println(
                 "[DSV] SUMMARY "
                         + String.format(
@@ -2565,6 +2570,9 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         context.runOnClient(
                 client -> {
                     held[0] = ShowcaseCamera.pause();
+                    // The camera starts its numbers again when the shot carries on, so the half the
+                    // swap interrupts is added here.
+                    timing.half(ShowcaseCamera.takeStill());
                     client.level.tickRateManager().setFrozen(true);
                 });
         System.out.println("STAGE_END " + System.currentTimeMillis() + " " + stage.id());
@@ -2607,24 +2615,46 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
     }
 
     /**
-     * How long each tick of a shot took by the clock the film runs on, and where the time went: the
-     * server's tick and the test's own work between ticks, which the client waits for before its
-     * next tick (Fabric's gametest {@code ThreadingImpl}), garbage collection, which stops the
-     * client, the server and the test alike (one JVM), and the longest the client went without
-     * drawing a frame.
+     * What a shot's film looks like: how many frames the client drew, how many of them were new
+     * pictures, and how long one picture ever stood still. Also how long each tick took by the
+     * clock the film runs on and where the time went: the server's tick and the test's own work
+     * between ticks, which the client waits for before its next tick (Fabric's gametest {@code
+     * ThreadingImpl}), and garbage collection, which stops the client, the server and the test
+     * alike (one JVM).
+     *
+     * <p>The film is judged by the camera's own motion against the frames the client actually drew,
+     * not against its cap or its frame times: a client that draws the same pose twice fills the
+     * film with a repeated picture however quickly it draws it, and a client that draws nothing for
+     * a while leaves the capture to repeat its last picture. Both show up as one long still; the
+     * first also shows up as pictures short of frames.
      */
     private static final class ShotTiming {
-        private static final double FRAME_GAP_LIMIT_MS = 100.0D;
+        /** Frames a second a film is captured at when the client names no cap of its own. */
+        private static final int DEFAULT_FRAME_RATE = 30;
+
+        /**
+         * Stills of one picture allowed, in the frames the client drew: two frames of the same
+         * picture are one repeat the eye reads as smooth, three are a stutter.
+         */
+        private static final double STILL_FRAMES = 2.5D;
+
+        /** Of the frames the client drew, this share must show a new picture. */
+        private static final double PICTURE_SHARE = 0.8D;
+
         private static final int MAX_LINES = 20;
 
         private final String id;
         private final double slotMs;
+        private final int frameCap;
         private final List<String> slow = new ArrayList<>();
+        private ShowcaseCamera.Still firstHalf = new ShowcaseCamera.Still(0L, 0L, 0L, 0L);
         private long returned;
         private long waitCalled;
         private long frames = -1L;
         private int ticks;
         private int overSlot;
+        private double shotSeconds;
+        private long drawnTotal;
         private double longestWall;
         private double longestGap;
         private double longestServer;
@@ -2632,9 +2662,17 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
         private int longestGapTick;
         private long gcMillis = gcMillis();
 
-        ShotTiming(String id, float tickRate) {
+        /**
+         * @param frameCap the client's own frame cap ({@code maxFps}); the recorder sets it to the
+         *     capture rate, so this is how fast the film's pictures may come
+         */
+        ShotTiming(String id, int frameCap) {
             this.id = id;
-            this.slotMs = 1000.0D / tickRate;
+            this.slotMs = 1000.0D / ShowcaseCamera.SHOT_TICK_RATE;
+            this.frameCap =
+                    frameCap > 0 && frameCap < Options.UNLIMITED_FRAMERATE_CUTOFF
+                            ? frameCap
+                            : DEFAULT_FRAME_RATE;
         }
 
         void beforeWait() {
@@ -2665,9 +2703,11 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                                         ShowcaseCamera.takeLongestFrameGap()
                                     });
             long drawn = frames < 0L ? -1L : client[0] - frames;
+            if (drawn > 0L) drawnTotal += drawn;
             frames = client[0];
             double gap = client[1] / 1.0E6D;
             ticks++;
+            shotSeconds += wall / 1000.0D;
             if (wall > slotMs * 1.5D) overSlot++;
             longestWall = Math.max(longestWall, wall);
             longestServer = Math.max(longestServer, serverMs);
@@ -2676,8 +2716,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 longestGap = gap;
                 longestGapTick = tick;
             }
-            if ((wall > slotMs * 1.5D || gap > FRAME_GAP_LIMIT_MS * 0.8D)
-                    && slow.size() < MAX_LINES) {
+            if ((wall > slotMs * 1.5D || gap > slotMs * 1.5D) && slow.size() < MAX_LINES) {
                 slow.add(
                         String.format(
                                 Locale.ROOT,
@@ -2704,6 +2743,22 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             return total;
         }
 
+        /** Adds the half of the shot that the palette swap interrupted, off camera. */
+        void half(ShowcaseCamera.Still still) {
+            firstHalf = plus(firstHalf, still);
+        }
+
+        /**
+         * The two halves of a shot's film as one: the worst still, the repeats and the pictures.
+         */
+        private static ShowcaseCamera.Still plus(ShowcaseCamera.Still a, ShowcaseCamera.Still b) {
+            return new ShowcaseCamera.Still(
+                    Math.max(a.nanos(), b.nanos()),
+                    Math.max(a.longestRepeats(), b.longestRepeats()),
+                    a.repeats() + b.repeats(),
+                    a.pictures() + b.pictures());
+        }
+
         /** Starts the clock again after a pause the film does not show. */
         void resume() {
             returned = 0L;
@@ -2711,36 +2766,74 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             gcMillis = gcMillis();
         }
 
-        void report() {
+        /**
+         * Prints what the shot's film came to and fails the run when the picture repeats or stands
+         * still.
+         *
+         * @param still {@link ShowcaseCamera#takeStill()}: the longest one picture ever stood
+         *     still, the frames that repeated it and the pictures the shot showed
+         */
+        void report(ShowcaseCamera.Still secondHalf) {
+            ShowcaseCamera.Still still = plus(firstHalf, secondHalf);
+            double stillMs = still.nanos() / 1.0E6D;
+            double framesPerSecond = shotSeconds > 0.0D ? drawnTotal / shotSeconds : 0.0D;
+            double stillLimitMs = STILL_FRAMES * 1000.0D / framesPerSecond;
+            double pictureShare = drawnTotal > 0L ? still.pictures() / (double) drawnTotal : 1.0D;
             System.out.println(
                     "[DSV] "
                             + id
                             + String.format(
                                     Locale.ROOT,
-                                    " timing: %d ticks of %.0f ms, %d over 1.5 slots; longest tick"
-                                            + " %.0f ms, server tick %.0f ms, test work %.0f ms;"
-                                            + " longest frame gap %.0f ms at tick %d; host load"
-                                            + " %.1f on %d CPUs",
+                                    " timing: %d ticks of %.0f ms over %.2f s, %d over 1.5 slots;"
+                                            + " longest tick %.0f ms, server tick %.0f ms, test"
+                                            + " work %.0f ms; %d frames drawn (%.1f a second of the"
+                                            + " %d the client's cap allows) and %d pictures (%.1f a"
+                                            + " second, %.2f of the frames), %d repeats, longest"
+                                            + " still %.0f ms, longest frame gap %.0f ms at tick %d;"
+                                            + " host load %.1f on %d CPUs",
                                     ticks,
                                     slotMs,
+                                    shotSeconds,
                                     overSlot,
                                     longestWall,
                                     longestServer,
                                     longestWork,
+                                    drawnTotal,
+                                    framesPerSecond,
+                                    frameCap,
+                                    still.pictures(),
+                                    shotSeconds > 0.0D ? still.pictures() / shotSeconds : 0.0D,
+                                    pictureShare,
+                                    still.repeats(),
+                                    stillMs,
                                     longestGap,
                                     longestGapTick,
                                     ManagementFactory.getOperatingSystemMXBean()
                                             .getSystemLoadAverage(),
                                     Runtime.getRuntime().availableProcessors()));
             for (String line : slow) System.out.println("[DSV] " + id + " slow " + line);
-            if (longestGap > FRAME_GAP_LIMIT_MS)
+            if (drawnTotal > 2L && stillMs > stillLimitMs)
                 PROBLEMS.add(
                         String.format(
                                 Locale.ROOT,
-                                "%s: the client drew no frame for %.0f ms at tick %d of its shot",
+                                "%s: one picture stood still for %.0f ms with %d frames repeating"
+                                        + " it, more than the %.0f ms of two and a half of the"
+                                        + " frames the client drew (%.1f a second)",
                                 id,
-                                longestGap,
-                                longestGapTick));
+                                stillMs,
+                                still.longestRepeats(),
+                                stillLimitMs,
+                                framesPerSecond));
+            if (pictureShare < PICTURE_SHARE)
+                PROBLEMS.add(
+                        String.format(
+                                Locale.ROOT,
+                                "%s: only %.2f of the %d frames the client drew showed a new"
+                                        + " picture, under the %.2f the film needs",
+                                id,
+                                pictureShare,
+                                drawnTotal,
+                                PICTURE_SHARE));
         }
     }
 

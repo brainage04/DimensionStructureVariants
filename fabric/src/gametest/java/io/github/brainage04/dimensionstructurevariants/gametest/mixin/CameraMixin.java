@@ -17,14 +17,9 @@ abstract class CameraMixin {
     @Shadow
     protected abstract void setRotation(float yRot, float xRot);
 
-    @Inject(method = "tick", at = @At("HEAD"))
-    private void dimensionstructurevariants$countTick(CallbackInfo ci) {
-        ShowcaseCamera.onTick();
-    }
-
     @Inject(method = "alignWithEntity", at = @At("TAIL"))
     private void dimensionstructurevariants$fly(float partialTicks, CallbackInfo ci) {
-        ShowcaseCamera.Pose pose = ShowcaseCamera.framePose(partialTicks);
+        ShowcaseCamera.Pose pose = ShowcaseCamera.framePose();
         if (pose == null) return;
         setRotation(pose.yaw(), pose.pitch());
         setPosition(pose.x(), pose.y(), pose.z());
