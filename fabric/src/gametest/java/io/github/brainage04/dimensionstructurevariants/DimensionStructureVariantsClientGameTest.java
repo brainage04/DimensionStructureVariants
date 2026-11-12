@@ -2434,7 +2434,6 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                                         showPalette(
                                                 minecraftServer.getLevel(stage.dimension().level),
                                                 prepared.swap()));
-                context.runOnClient(client -> StageCaptionPanel.switchOn(PALETTE_ON));
                 System.out.println(
                         "[DSV] "
                                 + stage.id()
@@ -2468,6 +2467,10 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                             "A chunk of " + stage.id() + " left the client during the shot");
                 baseline = rebuilt.compiled();
                 switching = false;
+                // The caption follows the picture: a large stage takes several ticks to rebuild
+                // (7 for the End fortress's 392 sections), and "Palette on" over vanilla blocks
+                // would describe something the frame does not show.
+                context.runOnClient(client -> StageCaptionPanel.switchOn(PALETTE_ON));
                 System.out.println(
                         "[DSV] "
                                 + stage.id()
@@ -2515,6 +2518,9 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
             if (!context.computeOnClient(client -> client.levelRenderer.hasRenderedAllSections()))
                 busyTicks++;
         }
+        if (switching)
+            throw new AssertionError(
+                    "The palette of " + stage.id() + " was never built on the client in its shot");
         long endMs = System.currentTimeMillis();
         System.out.println("STAGE_END " + endMs + " " + stage.id());
         String after =
