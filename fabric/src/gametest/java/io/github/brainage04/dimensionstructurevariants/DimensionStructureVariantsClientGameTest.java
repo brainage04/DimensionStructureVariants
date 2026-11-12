@@ -1094,9 +1094,11 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
      * StructurePiece.fillColumnDown} only fills air, liquid and a few plants ({@code
      * StructurePiece.java:381-393}). Below each piece, down to the stage's ground (into it where
      * the ground is water, which the columns fill), a column is the palette's as long as each block
-     * is one the palette puts in place of Nether bricks. The block at one position cannot be
-     * compared with the palette's pick there, because an Overworld stage drops the structure to the
-     * ground after placing it.
+     * is one the palette puts in place of Nether bricks. Blocks are compared, not states: mushroom
+     * blocks clear the face toward a mushroom block of their own kind ({@code
+     * HugeMushroomBlock.java:53-66}). The block at one position cannot be compared with the
+     * palette's pick there either, because an Overworld stage drops the structure to the ground
+     * after placing it.
      */
     private static Map<BlockPos, BlockState> clearFoundations(
             ServerLevel level, Build build, Stage stage, int flags) {
@@ -1109,7 +1111,8 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                         ? null
                         : palette.choiceFor(Blocks.NETHER_BRICKS.defaultBlockState());
         if (bricks == null) return cleared;
-        Set<BlockState> columns = new HashSet<>(bricks.states());
+        Set<Block> columns = new HashSet<>();
+        for (BlockState state : bricks.states()) columns.add(state.getBlock());
         int ground = stage.ground().top == Blocks.WATER ? build.groundY - 1 : build.groundY;
         int bottom = Math.max(ground, level.getMinY() + 1);
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
@@ -1119,7 +1122,7 @@ public final class DimensionStructureVariantsClientGameTest implements FabricCli
                 for (int x = box.minX(); x <= box.maxX(); x++) {
                     for (int y = box.minY() - 1; y > bottom; y--) {
                         BlockState state = level.getBlockState(cursor.set(x, y, z));
-                        if (!columns.contains(state)) break;
+                        if (!columns.contains(state.getBlock())) break;
                         cleared.put(cursor.immutable(), state);
                         level.setBlock(cursor, Blocks.AIR.defaultBlockState(), flags);
                     }
