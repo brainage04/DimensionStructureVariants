@@ -356,10 +356,13 @@ public final class PaletteGameTests {
                     workerResult.get() == source,
                     "A worker must not inherit another thread's palette");
             StructurePalettes.Palette outer =
-                    StructurePalettes.enter(
-                            helper.getLevel(),
-                            structure(helper, Identifier.withDefaultNamespace("bastion_remnant")),
-                            BlockPos.ZERO);
+                    StructurePalettes.push(
+                            StructurePalettes.palette(
+                                    helper.getLevel(),
+                                    structure(
+                                            helper,
+                                            Identifier.withDefaultNamespace("bastion_remnant")),
+                                    BlockPos.ZERO));
             try {
                 helper.assertTrue(
                         StructurePalettes.remap(source, pos) == source,

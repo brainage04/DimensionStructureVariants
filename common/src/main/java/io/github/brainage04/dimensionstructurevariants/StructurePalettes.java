@@ -81,10 +81,6 @@ public final class StructurePalettes {
                 id.getPath() + "|" + palette, key -> compile(rules.roles(), palette));
     }
 
-    public static @Nullable Palette enter(WorldGenLevel level, Structure structure, BlockPos pos) {
-        return push(palette(level, structure, pos));
-    }
-
     /** Makes {@code palette} the active one and returns the palette the caller must restore. */
     public static @Nullable Palette push(@Nullable Palette palette) {
         Palette previous = ACTIVE.get();
