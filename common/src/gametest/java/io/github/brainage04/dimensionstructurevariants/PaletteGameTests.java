@@ -156,7 +156,37 @@ public final class PaletteGameTests {
                 "village_nether",
                 Biomes.NETHER_WASTES,
                 Blocks.COMPOSTER.defaultBlockState(),
-                Blocks.NETHER_WART_BLOCK.defaultBlockState());
+                Blocks.COMPOSTER.defaultBlockState());
+        assertRemap(
+                helper,
+                "village_nether",
+                Biomes.NETHER_WASTES,
+                Blocks.FARMLAND.defaultBlockState().setValue(BlockStateProperties.MOISTURE, 7),
+                Blocks.SOUL_SAND.defaultBlockState());
+        assertRemap(
+                helper,
+                "village_nether",
+                Biomes.NETHER_WASTES,
+                Blocks.WHEAT.defaultBlockState().setValue(BlockStateProperties.AGE_7, 7),
+                Blocks.NETHER_WART.defaultBlockState().setValue(BlockStateProperties.AGE_3, 3));
+        assertRemap(
+                helper,
+                "village_nether",
+                Biomes.NETHER_WASTES,
+                Blocks.CARROTS.defaultBlockState(),
+                Blocks.NETHER_WART.defaultBlockState());
+        assertRemap(
+                helper,
+                "village_end",
+                Biomes.END_HIGHLANDS,
+                Blocks.FARMLAND.defaultBlockState().setValue(BlockStateProperties.MOISTURE, 7),
+                Blocks.FARMLAND.defaultBlockState().setValue(BlockStateProperties.MOISTURE, 7));
+        assertRemap(
+                helper,
+                "village_end",
+                Biomes.END_HIGHLANDS,
+                Blocks.WHEAT.defaultBlockState().setValue(BlockStateProperties.AGE_7, 7),
+                Blocks.WHEAT.defaultBlockState().setValue(BlockStateProperties.AGE_7, 7));
         assertRemap(
                 helper,
                 "village_nether",
