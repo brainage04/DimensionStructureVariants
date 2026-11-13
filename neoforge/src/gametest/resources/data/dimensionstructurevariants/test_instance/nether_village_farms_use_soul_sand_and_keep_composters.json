@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 200,
+  "type": "minecraft:function",
+  "function": "dimensionstructurevariants:nether_village_farms_use_soul_sand_and_keep_composters"
+}

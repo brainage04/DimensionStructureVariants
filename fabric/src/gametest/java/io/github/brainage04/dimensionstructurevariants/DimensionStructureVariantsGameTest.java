@@ -113,4 +113,9 @@ public final class DimensionStructureVariantsGameTest {
     public void villageGroundIsANaturalPatch(GameTestHelper helper) {
         PaletteGameTests.villageGroundIsANaturalPatch(helper);
     }
+
+    @GameTest(maxTicks = 200)
+    public void netherVillageFarmsUseSoulSandAndKeepComposters(GameTestHelper helper) {
+        NetherVillageGameTests.netherVillageFarmsUseSoulSandAndKeepComposters(helper);
+    }
 }

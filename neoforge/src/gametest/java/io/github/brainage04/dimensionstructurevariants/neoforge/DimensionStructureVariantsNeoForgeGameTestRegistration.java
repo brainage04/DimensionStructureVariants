@@ -4,6 +4,7 @@ import io.github.brainage04.dimensionstructurevariants.BiomeRestrictionGameTests
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariants;
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariantsNeoForgeGameTests;
 import io.github.brainage04.dimensionstructurevariants.EndVillageGameTests;
+import io.github.brainage04.dimensionstructurevariants.NetherVillageGameTests;
 import io.github.brainage04.dimensionstructurevariants.PaletteGameTests;
 import io.github.brainage04.dimensionstructurevariants.SolidGroundGameTests;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -74,5 +75,10 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of("end_village_farm_water_stays_in_its_farm"),
                 () -> EndVillageGameTests::endVillageFarmWaterStaysInItsFarm);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of(
+                        "nether_village_farms_use_soul_sand_and_keep_composters"),
+                () -> NetherVillageGameTests::netherVillageFarmsUseSoulSandAndKeepComposters);
     }
 }
