@@ -3,6 +3,7 @@ package io.github.brainage04.dimensionstructurevariants.neoforge;
 import io.github.brainage04.dimensionstructurevariants.BiomeRestrictionGameTests;
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariants;
 import io.github.brainage04.dimensionstructurevariants.EndVillageGameTests;
+import io.github.brainage04.dimensionstructurevariants.NaturalGenerationGameTests;
 import io.github.brainage04.dimensionstructurevariants.PaletteGameTests;
 import io.github.brainage04.dimensionstructurevariants.SolidGroundGameTests;
 import io.github.brainage04.dimensionstructurevariants.VariantRegistrationGameTests;
@@ -74,5 +75,10 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of("end_village_farm_water_stays_in_its_farm"),
                 () -> EndVillageGameTests::endVillageFarmWaterStaysInItsFarm);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of(
+                        "structures_place_from_a_chunk_away_from_their_centre"),
+                () -> NaturalGenerationGameTests::structuresPlaceFromAChunkAwayFromTheirCentre);
     }
 }

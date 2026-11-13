@@ -231,7 +231,7 @@ public final class StructurePalettes {
             String groundFeature,
             float groundFeatureChance) {}
 
-    private record Data(
+    record Data(
             Map<String, Map<String, String>> roleSets,
             Map<String, RawPalette> palettes,
             Map<String, Rules> structures) {}
@@ -255,7 +255,10 @@ public final class StructurePalettes {
         } catch (IOException exception) {
             throw new IllegalStateException("Unreadable palette table " + DATA, exception);
         }
+        return parse(root);
+    }
 
+    static Data parse(JsonObject root) {
         Map<String, Map<String, String>> roleSets = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> set : root.getAsJsonObject("role_sets").entrySet()) {
             Map<String, String> roles = new LinkedHashMap<>();
