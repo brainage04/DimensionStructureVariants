@@ -19,10 +19,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
+import net.minecraft.core.QuartPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.Biome;
@@ -40,16 +42,16 @@ import org.jspecify.annotations.Nullable;
 /**
  * Block substitution for the variants, one palette per structure and biome.
  *
- * <p>The tables live in {@code data/dimensionstructurevariants/palette/palettes.json}: a role set
- * maps the blocks a vanilla structure places to roles, a palette gives each role the block of the
- * biome it stands in, and a structure names the palette each of its biomes uses. A role may name
- * several blocks with weights; the block at a position is then picked from the position alone, so a
- * structure looks the same every time the world generates it. Every target is a vanilla block, so a
- * client needs neither this mod nor a resource pack.
+ * <p>The tables live in {@code dimensionstructurevariants/palettes.json}, bundled in the mod's jar:
+ * a role set maps the blocks a vanilla structure places to roles, a palette gives each role the
+ * block of the biome it stands in, and a structure names the palette each of its biomes uses and a
+ * default palette for every other biome. A role may name several blocks with weights; the block at
+ * a position is then picked from the position alone, so a structure looks the same every time the
+ * world generates it. Every target is a vanilla block, so a client needs neither this mod nor a
+ * resource pack.
  */
 public final class StructurePalettes {
-    private static final String DATA =
-            "/data/" + DimensionStructureVariants.MOD_ID + "/palette/palettes.json";
+    private static final String DATA = "/" + DimensionStructureVariants.MOD_ID + "/palettes.json";
 
     private static final ThreadLocal<Palette> ACTIVE = new ThreadLocal<>();
     private static final Map<String, Palette> COMPILED = new ConcurrentHashMap<>();
@@ -65,17 +67,37 @@ public final class StructurePalettes {
             WorldGenLevel level, Structure structure, BlockPos pos) {
         Identifier id =
                 level.registryAccess().lookupOrThrow(Registries.STRUCTURE).getKey(structure);
-        if (id == null) return null;
-        return palette(id, level.getNoiseBiome(pos.getX() >> 2, pos.getY() >> 2, pos.getZ() >> 2));
+        if (id == null || !id.getNamespace().equals(DimensionStructureVariants.MOD_ID)) {
+            return null;
+        }
+        return palette(id, biome(level, pos));
     }
 
-    /** The palette of variant {@code id} in {@code biome}, or null when it has none there. */
+    /**
+     * The biome at {@code pos}. During natural generation the level is a {@code WorldGenRegion},
+     * which throws for a chunk more than one chunk from the one it decorates ({@code
+     * WorldGenRegion.java:131-158}), so there the biome comes from the generator's biome source,
+     * which is what a newly generated chunk stores ({@code ChunkGenerator.java:134-150}). Placed
+     * through a server level ({@code /place}, the GameTests, the film), the chunk's stored biome
+     * counts, so a biome filled before placement picks the palette.
+     */
+    private static Holder<Biome> biome(WorldGenLevel level, BlockPos pos) {
+        int x = QuartPos.fromBlock(pos.getX());
+        int y = QuartPos.fromBlock(pos.getY());
+        int z = QuartPos.fromBlock(pos.getZ());
+        return level instanceof ServerLevel
+                ? level.getNoiseBiome(x, y, z)
+                : level.getUncachedNoiseBiome(x, y, z);
+    }
+
+    /**
+     * The palette of variant {@code id} in {@code biome}, or null when {@code id} is no variant.
+     */
     public static @Nullable Palette palette(Identifier id, Holder<Biome> biome) {
         if (!id.getNamespace().equals(DimensionStructureVariants.MOD_ID)) return null;
         Rules rules = data().structures.get(id.getPath());
         if (rules == null) return null;
         String palette = rules.paletteFor(biome);
-        if (palette == null) return null;
         return COMPILED.computeIfAbsent(
                 id.getPath() + "|" + palette, key -> compile(rules.roles(), palette));
     }
@@ -210,14 +232,15 @@ public final class StructurePalettes {
 
     private record Rule(List<Matcher> match, String palette) {}
 
-    private record Rules(String roles, List<Rule> biomes) {
+    /** The palette of the first rule that matches a biome, else the structure's default. */
+    private record Rules(String roles, List<Rule> biomes, String fallback) {
         String paletteFor(Holder<Biome> biome) {
             for (Rule rule : biomes) {
                 for (Matcher matcher : rule.match()) {
                     if (matcher.matches(biome)) return rule.palette();
                 }
             }
-            return null;
+            return fallback;
         }
     }
 
@@ -231,7 +254,7 @@ public final class StructurePalettes {
             String groundFeature,
             float groundFeatureChance) {}
 
-    private record Data(
+    record Data(
             Map<String, Map<String, String>> roleSets,
             Map<String, RawPalette> palettes,
             Map<String, Rules> structures) {}
@@ -246,16 +269,17 @@ public final class StructurePalettes {
     }
 
     private static Data read() {
-        JsonObject root;
         try (InputStream stream = StructurePalettes.class.getResourceAsStream(DATA)) {
             if (stream == null) throw new IllegalStateException("Missing palette table " + DATA);
             try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
-                root = JsonParser.parseReader(reader).getAsJsonObject();
+                return parse(JsonParser.parseReader(reader).getAsJsonObject());
             }
         } catch (IOException exception) {
             throw new IllegalStateException("Unreadable palette table " + DATA, exception);
         }
+    }
 
+    static Data parse(JsonObject root) {
         Map<String, Map<String, String>> roleSets = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> set : root.getAsJsonObject("role_sets").entrySet()) {
             Map<String, String> roles = new LinkedHashMap<>();
@@ -292,17 +316,29 @@ public final class StructurePalettes {
                     match.add(matcher(biome.getAsString()));
                 }
                 String palette = rule.get("palette").getAsString();
-                RawPalette resolved = palettes.get(palette);
-                if (resolved == null) {
-                    throw new IllegalStateException(
-                            entry.getKey() + " names the unknown palette " + palette);
-                }
-                checkCoverage(entry.getKey(), roleSets.get(roles), palette, resolved);
+                checkPalette(entry.getKey(), roleSets.get(roles), palette, palettes);
                 biomes.add(new Rule(List.copyOf(match), palette));
             }
-            structures.put(entry.getKey(), new Rules(roles, List.copyOf(biomes)));
+            if (!object.has("default")) {
+                throw new IllegalStateException(entry.getKey() + " names no default palette");
+            }
+            String fallback = object.get("default").getAsString();
+            checkPalette(entry.getKey(), roleSets.get(roles), fallback, palettes);
+            structures.put(entry.getKey(), new Rules(roles, List.copyOf(biomes), fallback));
         }
         return new Data(roleSets, palettes, structures);
+    }
+
+    private static void checkPalette(
+            String structure,
+            Map<String, String> roles,
+            String palette,
+            Map<String, RawPalette> palettes) {
+        RawPalette resolved = palettes.get(palette);
+        if (resolved == null) {
+            throw new IllegalStateException(structure + " names the unknown palette " + palette);
+        }
+        checkCoverage(structure, roles, palette, resolved);
     }
 
     private static RawPalette resolvePalette(
@@ -473,9 +509,11 @@ public final class StructurePalettes {
     }
 
     private static Block block(String id) {
-        Block block = BuiltInRegistries.BLOCK.getValue(Identifier.parse(id));
-        if (block == null) throw new IllegalStateException("Unknown block " + id + " in " + DATA);
-        return block;
+        Identifier key = Identifier.parse(id);
+        if (!BuiltInRegistries.BLOCK.containsKey(key)) {
+            throw new IllegalStateException("Unknown block " + id + " in " + DATA);
+        }
+        return BuiltInRegistries.BLOCK.getValue(key);
     }
 
     private static void addMappings(

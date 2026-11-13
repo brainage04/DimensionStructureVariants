@@ -758,6 +758,7 @@
   "structures": {
     "fortress_overworld": {
       "roles": "fortress",
+      "default": "fortress_grass",
       "biomes": [
         {
           "match": [
@@ -864,6 +865,7 @@
     },
     "fortress_end": {
       "roles": "fortress",
+      "default": "fortress_end",
       "biomes": [
         {
           "match": [
@@ -875,6 +877,7 @@
     },
     "bastion_overworld": {
       "roles": "bastion",
+      "default": "bastion_ocean",
       "biomes": [
         {
           "match": [
@@ -904,6 +907,7 @@
     },
     "bastion_end": {
       "roles": "bastion",
+      "default": "bastion_end",
       "biomes": [
         {
           "match": [
@@ -915,6 +919,7 @@
     },
     "end_city_overworld": {
       "roles": "end_city",
+      "default": "end_city_ocean",
       "biomes": [
         {
           "match": [
@@ -936,6 +941,7 @@
     },
     "end_city_nether": {
       "roles": "end_city",
+      "default": "end_city_nether_wastes",
       "biomes": [
         {
           "match": [
@@ -971,6 +977,7 @@
     },
     "village_nether": {
       "roles": "village",
+      "default": "village_nether",
       "biomes": [
         {
           "match": [
@@ -1006,6 +1013,7 @@
     },
     "village_end": {
       "roles": "village",
+      "default": "village_end",
       "biomes": [
         {
           "match": [
