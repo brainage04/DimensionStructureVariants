@@ -32,6 +32,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.WallSide;
 import net.minecraft.world.level.levelgen.feature.Feature;
@@ -501,16 +502,39 @@ public final class StructurePalettes {
         }
     }
 
+    /**
+     * Copies the source's properties onto the target block. A number the target cannot hold, such
+     * as a wheat age of 7 on nether wart's 0 to 3 ({@code NetherWartBlock.java:20-21}), is cut down
+     * to the target's largest first, so a grown crop becomes grown wart instead of a sprout.
+     */
     private static BlockState convert(BlockState state, Block target) {
-        BlockState replacement = target.withPropertiesOf(state);
-        for (Property<?> property : state.getProperties()) {
+        BlockState capped = capToTarget(state, target);
+        BlockState replacement = target.withPropertiesOf(capped);
+        for (Property<?> property : capped.getProperties()) {
             Property<?> targetProperty =
                     target.getStateDefinition().getProperty(property.getName());
             if (targetProperty != null && !replacement.hasProperty(property)) {
-                replacement = copyCompatibleValue(state, replacement, property, targetProperty);
+                replacement = copyCompatibleValue(capped, replacement, property, targetProperty);
             }
         }
         return replacement;
+    }
+
+    /** {@code state} with each number above what {@code target} allows cut down to its largest. */
+    private static BlockState capToTarget(BlockState state, Block target) {
+        BlockState capped = state;
+        for (Property<?> property : state.getProperties()) {
+            Property<?> targetProperty =
+                    target.getStateDefinition().getProperty(property.getName());
+            if (!(property instanceof IntegerProperty source)
+                    || !(targetProperty instanceof IntegerProperty limit)) {
+                continue;
+            }
+            int largest = Collections.max(limit.getPossibleValues());
+            int value = capped.getValue(source);
+            if (value > largest) capped = capped.setValue(source, largest);
+        }
+        return capped;
     }
 
     /** Retains facing values and converts fence connections into low wall sides. */
