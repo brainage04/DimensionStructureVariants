@@ -14,6 +14,6 @@
 		]
 	},
 	"mixins": [
-		"dimensionstructurevariants-gametest.mixins.json"
+		"dimensionstructurevariants-recording.mixins.json"
 	]
 }

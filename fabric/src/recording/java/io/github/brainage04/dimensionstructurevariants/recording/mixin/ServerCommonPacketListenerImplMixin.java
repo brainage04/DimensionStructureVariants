@@ -1,4 +1,4 @@
-package io.github.brainage04.dimensionstructurevariants.gametest.mixin;
+package io.github.brainage04.dimensionstructurevariants.recording.mixin;
 
 import io.netty.channel.ChannelFutureListener;
 import net.minecraft.network.protocol.Packet;

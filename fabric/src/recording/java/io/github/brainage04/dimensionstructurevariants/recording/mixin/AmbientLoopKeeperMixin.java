@@ -1,4 +1,4 @@
-package io.github.brainage04.dimensionstructurevariants.gametest.mixin;
+package io.github.brainage04.dimensionstructurevariants.recording.mixin;
 
 import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 import net.minecraft.client.resources.sounds.BiomeAmbientSoundsHandler;

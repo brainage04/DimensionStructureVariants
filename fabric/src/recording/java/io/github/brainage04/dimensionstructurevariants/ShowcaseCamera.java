@@ -2,7 +2,7 @@ package io.github.brainage04.dimensionstructurevariants;
 
 /**
  * The recording's camera, posed on the client for every frame the client draws, so the orbit moves
- * between the game's ticks as well as on them. {@code gametest.mixin.CameraMixin} asks {@link
+ * between the game's ticks as well as on them. {@code recording.mixin.CameraMixin} asks {@link
  * #framePose} for the pose of each frame.
  *
  * <p>The test thread either holds the camera at one point of an orbit (off camera, while the client
