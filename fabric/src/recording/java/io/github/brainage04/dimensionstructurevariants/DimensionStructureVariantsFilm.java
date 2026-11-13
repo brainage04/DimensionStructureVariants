@@ -2,6 +2,7 @@ package io.github.brainage04.dimensionstructurevariants;
 
 import io.github.brainage04.minecraftmodconventions.ClientGameTestRecorder;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestRecordingHud;
+import io.github.brainage04.minecraftmodconventions.ClientGameTestRecordingSession;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestServers;
 import io.github.brainage04.minecraftmodconventions.PerformanceOverlayPlacement;
 import java.lang.management.GarbageCollectorMXBean;
@@ -2850,6 +2851,10 @@ public final class DimensionStructureVariantsFilm {
                                 pictureShare,
                                 drawnTotal,
                                 PICTURE_SHARE));
+            // Only a recording is cut into clips of the shot's length. A run that is not recorded
+            // can fall behind 20 ticks a second, as software rendering on a hosted runner does (CI
+            // run 43465975056: 4.27 s), and a long shot does no harm there.
+            if (!ClientGameTestRecordingSession.isEnabled()) return;
             double filmSeconds = ShowcaseCamera.SHOT_NANOS / 1.0E9D;
             if (Math.abs(shotSeconds - filmSeconds) > SHOT_SECONDS_TOLERANCE)
                 PROBLEMS.add(
