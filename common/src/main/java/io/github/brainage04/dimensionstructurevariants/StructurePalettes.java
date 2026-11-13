@@ -3,7 +3,6 @@ package io.github.brainage04.dimensionstructurevariants;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import it.unimi.dsi.fastutil.HashCommon;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -156,16 +155,11 @@ public final class StructurePalettes {
     /** One block, or several picked by weight from the position alone. */
     public static final class Choice {
         private final BlockState[] states;
-        private final int[] upTo;
+        private final WeightedPick pick;
 
         private Choice(BlockState[] states, int[] weights) {
             this.states = states;
-            this.upTo = new int[weights.length];
-            int total = 0;
-            for (int i = 0; i < weights.length; i++) {
-                total += weights[i];
-                upTo[i] = total;
-            }
+            this.pick = new WeightedPick(weights);
         }
 
         public BlockState at(int x, int y, int z) {
@@ -175,11 +169,7 @@ public final class StructurePalettes {
 
         /** The state a roll of {@code seed} lands on, each state as often as its weight says. */
         public BlockState pick(long seed) {
-            int roll = (int) Math.floorMod(HashCommon.mix(seed), (long) upTo[upTo.length - 1]);
-            for (int i = 0; i < upTo.length; i++) {
-                if (roll < upTo[i]) return states[i];
-            }
-            return states[states.length - 1];
+            return states[pick.index(seed)];
         }
 
         public List<BlockState> states() {
@@ -196,7 +186,7 @@ public final class StructurePalettes {
         }
 
         private int weight(int index) {
-            return upTo[index] - (index == 0 ? 0 : upTo[index - 1]);
+            return pick.weight(index);
         }
     }
 

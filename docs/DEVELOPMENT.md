@@ -14,6 +14,16 @@ Run the registry, biome-targeting, natural-structure-set, End solid-ground, pale
 heavy -- ./gradlew --no-daemon runAllGameTests
 ```
 
+Run the unit tests: `WeightedPickTest` checks with jqwik that the weighted pick behind a palette role with several blocks (`WeightedPick`) stays among the role's blocks and picks each about as often as its weight says, and pins the pick to a reference copy of its arithmetic, so a structure keeps its blocks from one release to the next.
+
+```shell
+heavy --quick -- ./gradlew --no-daemon :fabric:test
+```
+
+`:fabric:pitest` runs mutation tests on `WeightedPick` against those tests. It is not part of `check`; the report is written to `fabric/build/reports/pitest`.
+
+`check` and `build` run the MinecraftModConventions quality policy (formatting, Checkstyle, deprecation lints as errors) and its vanilla identity, tag identity and world height checks, in CI too. Keep `minecraftmodconventions_version` and the reusable-workflow versions in `.github/workflows/` the same.
+
 The project was initialized from [ModernMinecraftModTemplate](https://github.com/brainage04/ModernMinecraftModTemplate) and uses [MinecraftModConventions](https://github.com/brainage04/MinecraftModConventions) for shared build, GameTest, recording, and publishing conventions.
 
 ## Showcase recording
