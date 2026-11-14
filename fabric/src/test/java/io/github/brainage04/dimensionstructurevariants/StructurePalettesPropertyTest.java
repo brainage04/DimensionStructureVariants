@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonArray;
@@ -38,6 +39,7 @@ import net.jqwik.api.GenerationMode;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.constraints.IntRange;
+import net.jqwik.api.lifecycle.BeforeContainer;
 import net.jqwik.api.constraints.Size;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
@@ -88,6 +90,20 @@ class StructurePalettesPropertyTest {
         PALETTES = json(TABLE);
         VANILLA_TAGS = new LinkedHashMap<>();
         VANILLA_BIOMES = vanillaBiomes();
+    }
+
+    /**
+     * PIT swaps each mutant into a JVM where an earlier mutant may already have loaded the table
+     * and compiled the palettes, which would keep the mutated code from running.
+     */
+    @BeforeContainer
+    static void forgetTheLoadedTable() throws ReflectiveOperationException {
+        Field data = StructurePalettes.class.getDeclaredField("data");
+        data.setAccessible(true);
+        data.set(null, null);
+        Field compiled = StructurePalettes.class.getDeclaredField("COMPILED");
+        compiled.setAccessible(true);
+        ((Map<?, ?>) compiled.get(null)).clear();
     }
 
     // ---------------------------------------------------------------------------------------
@@ -189,6 +205,144 @@ class StructurePalettesPropertyTest {
         root.add("palettes", palettes);
         root.add("structures", structures);
         return root;
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // What a table must say, against generated tables
+    // ---------------------------------------------------------------------------------------
+
+    /** A block's weight in a choice must be at least 1. */
+    @Property
+    void aWeightBelowOneFailsTheTable(@ForAll @IntRange(min = -1000, max = 1000) int weight) {
+        JsonObject root = table(List.of(), 0);
+        JsonObject choice = new JsonObject();
+        choice.addProperty("minecraft:stone", 3);
+        choice.addProperty("minecraft:cobblestone", weight);
+        blocks(root, "p2").add("wall", choice);
+        if (weight >= 1) {
+            StructurePalettes.parse(root);
+        } else {
+            assertEquals(
+                    "Palette p2 gives minecraft:cobblestone the weight " + weight,
+                    assertThrows(IllegalStateException.class, () -> StructurePalettes.parse(root))
+                            .getMessage());
+        }
+    }
+
+    @Example
+    void aChoiceOfNoBlocksFailsTheTable() {
+        JsonObject root = table(List.of(), 0);
+        blocks(root, "p1").add("wall", new JsonObject());
+        assertEquals(
+                "Palette p1 names an empty choice",
+                assertThrows(IllegalStateException.class, () -> StructurePalettes.parse(root))
+                        .getMessage());
+    }
+
+    /** A ground feature's chance must lie above 0 and at most 1. */
+    @Property(generation = GenerationMode.EXHAUSTIVE)
+    void aGroundFeatureChanceOutsideZeroToOneFailsTheTable(
+            @ForAll @IntRange(min = -3, max = 1003) int thousandths) {
+        float chance = thousandths / 1000.0F;
+        JsonObject root = table(List.of(), 0);
+        JsonObject feature = new JsonObject();
+        feature.addProperty("feature", "minecraft:oak");
+        feature.addProperty("chance", chance);
+        root.getAsJsonObject("palettes").getAsJsonObject("p3").add("ground_feature", feature);
+        if (chance > 0.0F && chance <= 1.0F) {
+            StructurePalettes.parse(root);
+        } else {
+            assertThrows(IllegalStateException.class, () -> StructurePalettes.parse(root));
+        }
+    }
+
+    /**
+     * Every palette a structure uses answers each role of its role set, with a block or an explicit
+     * null, and no other role.
+     */
+    @Property(generation = GenerationMode.EXHAUSTIVE)
+    void aPaletteAnswersExactlyTheRolesOfItsStructure(
+            @ForAll @IntRange(min = 0, max = 2) int wall,
+            @ForAll @IntRange(min = 0, max = 2) int roof,
+            @ForAll @IntRange(min = 0, max = 2) int floor,
+            @ForAll boolean asDefault) {
+        JsonObject root =
+                table(asDefault ? List.of() : List.of(new RuleSpec(List.of("dsvtest:a"), 1)), 0);
+        root.getAsJsonObject("role_sets")
+                .getAsJsonObject("test")
+                .addProperty("minecraft:bricks", "roof");
+        for (int i = 0; i <= 3; i++) blocks(root, "p" + i).addProperty("roof", "minecraft:stone");
+        String used = asDefault ? "p0" : "p1";
+        JsonObject blocks = blocks(root, used);
+        answer(blocks, "wall", wall);
+        answer(blocks, "roof", roof);
+        answer(blocks, "floor", floor);
+        if (wall > 0 && roof > 0 && floor == 0) {
+            StructurePalettes.parse(root);
+        } else {
+            assertThrows(IllegalStateException.class, () -> StructurePalettes.parse(root));
+        }
+    }
+
+    /** 0 leaves the role out, 1 answers it with a block and 2 with an explicit null. */
+    private static void answer(JsonObject blocks, String role, int how) {
+        blocks.remove(role);
+        if (how == 1) blocks.addProperty(role, "minecraft:stone");
+        if (how == 2) blocks.add(role, com.google.gson.JsonNull.INSTANCE);
+    }
+
+    @Property
+    void aRuleOrDefaultNamingAnUnknownPaletteFailsTheTable(@ForAll boolean inARule) {
+        JsonObject root = table(List.of(new RuleSpec(List.of("dsvtest:a"), 1)), 0);
+        JsonObject structure = root.getAsJsonObject("structures").getAsJsonObject("test");
+        if (inARule) {
+            structure
+                    .getAsJsonArray("biomes")
+                    .get(0)
+                    .getAsJsonObject()
+                    .addProperty("palette", "nowhere");
+        } else {
+            structure.addProperty("default", "nowhere");
+        }
+        assertEquals(
+                "test names the unknown palette nowhere",
+                assertThrows(IllegalStateException.class, () -> StructurePalettes.parse(root))
+                        .getMessage());
+    }
+
+    /**
+     * A palette that extends another takes every block it does not set itself from it, through any
+     * number of steps; a palette that extends itself, directly or through others, fails.
+     */
+    @Property
+    void aPaletteTakesTheBlocksOfThePalettesItExtends(
+            @ForAll @IntRange(min = 1, max = 6) int steps, @ForAll boolean cycle) {
+        JsonObject root = table(List.of(), 0);
+        JsonObject palettes = root.getAsJsonObject("palettes");
+        for (int i = 1; i <= steps; i++) {
+            JsonObject palette = new JsonObject();
+            palette.addProperty("extends", "c" + (i - 1));
+            palettes.add("c" + i, palette);
+        }
+        JsonObject first = new JsonObject();
+        first.add("blocks", blocks(root, "p0").deepCopy());
+        if (cycle) first.addProperty("extends", "c" + steps);
+        palettes.add("c0", first);
+        root.getAsJsonObject("structures")
+                .getAsJsonObject("test")
+                .addProperty("default", "c" + steps);
+        if (cycle) {
+            assertTrue(
+                    assertThrows(IllegalStateException.class, () -> StructurePalettes.parse(root))
+                            .getMessage()
+                            .contains(" extends itself through "));
+        } else {
+            StructurePalettes.parse(root);
+        }
+    }
+
+    private static JsonObject blocks(JsonObject root, String palette) {
+        return root.getAsJsonObject("palettes").getAsJsonObject(palette).getAsJsonObject("blocks");
     }
 
     // ---------------------------------------------------------------------------------------
@@ -400,6 +554,34 @@ class StructurePalettesPropertyTest {
             BlockState state,
             net.minecraft.world.level.block.state.properties.Property<T> property) {
         return property.getName(state.getValue(property));
+    }
+
+    /**
+     * While a palette is active, every block written goes through it; a nested push of no palette
+     * keeps blocks as they are until the caller restores the palette it got back.
+     */
+    @Property(tries = 300)
+    void theActivePaletteRemapsUntilItIsRestored(
+            @ForAll("palettes") PaletteCase palette,
+            @ForAll @IntRange(min = 0, max = Integer.MAX_VALUE) int source,
+            @ForAll @IntRange(min = -30_000_000, max = 30_000_000) int x,
+            @ForAll @IntRange(min = -30_000_000, max = 30_000_000) int z) {
+        StructurePalettes.Palette compiled = palette.palette();
+        BlockState state = palette.sources().get(source % palette.sources().size());
+        BlockPos pos = new BlockPos(x, 64, z);
+        assertSame(state, StructurePalettes.remap(state, pos));
+        assertNull(StructurePalettes.push(compiled));
+        try {
+            assertSame(compiled.remap(state, pos), StructurePalettes.remap(state, pos));
+            StructurePalettes.Palette outer = StructurePalettes.push(null);
+            assertSame(compiled, outer);
+            assertSame(state, StructurePalettes.remap(state, pos));
+            StructurePalettes.restore(outer);
+            assertSame(compiled.remap(state, pos), StructurePalettes.remap(state, pos));
+        } finally {
+            StructurePalettes.restore(null);
+        }
+        assertSame(state, StructurePalettes.remap(state, pos));
     }
 
     // ---------------------------------------------------------------------------------------
