@@ -26,7 +26,7 @@ The mod keeps vanilla piece layouts, loot tables, mobs, and generation algorithm
 
 End villages and bastions generate only in the outer islands' `end_highlands`/`end_midlands` biomes (never on the main island or in the void ring around it), and only where terrain lies under the core of their footprint, so they never start over the void. The Nether End city, like vanilla End cities, rises from the surface heightmap, which in the Nether is the bedrock roof.
 
-Unmapped functional blocks (loot containers, workstations, beds, bells and ladders) and entity data stay vanilla. End villages retain wooden doors/trapdoors because vanilla has no End equivalent.
+Other functional blocks (loot containers, workstations such as composters, beds, bells and ladders) and entity data stay vanilla, except that barrels in Nether villages become stripped crimson hyphae. End villages retain wooden doors/trapdoors because vanilla has no End equivalent.
 
 ## Getting started
 

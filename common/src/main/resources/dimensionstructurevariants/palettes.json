@@ -595,8 +595,8 @@
         "grass": "minecraft:air",
         "tall_grass": "minecraft:air",
         "liquid": "minecraft:water",
-        "workstation": "minecraft:purpur_block",
-        "storage": "minecraft:purpur_pillar"
+        "workstation": null,
+        "storage": null
       }
     },
     "village_nether": {
