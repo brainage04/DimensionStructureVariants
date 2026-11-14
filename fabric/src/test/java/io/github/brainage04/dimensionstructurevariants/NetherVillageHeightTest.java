@@ -50,8 +50,8 @@ import net.minecraft.world.level.levelgen.structure.pools.JigsawPlacement;
 /**
  * The Nether village used to start at the fixed y 129, one block above the vanilla Nether roof. It
  * now projects its start onto a heightmap, so a Nether whose terrain a datapack moves gets the
- * village on its surface; in the vanilla Nether it must still stand at y 129, and where the
- * terrain leaves no room above it the village must not start at all.
+ * village on its surface; in the vanilla Nether it must still stand at y 129, and where the terrain
+ * leaves no room above it the village must not start at all.
  */
 class NetherVillageHeightTest {
     private static final String STRUCTURE =
@@ -104,8 +104,8 @@ class NetherVillageHeightTest {
     }
 
     /**
-     * A datapack Nether whose noise reaches the dimension's top puts the first free block above
-     * the world, so a start there would lie wholly outside it, a village {@code /locate} finds but
+     * A datapack Nether whose noise reaches the dimension's top puts the first free block above the
+     * world, so a start there would lie wholly outside it, a village {@code /locate} finds but
      * nobody can see. The padding must drop every such start.
      */
     @Example
