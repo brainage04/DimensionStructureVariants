@@ -21,14 +21,14 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.chunk.status.ChunkPyramid;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.chunk.status.ChunkStep;
-import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.RandomState;
 import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.BuiltinStructures;
+import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
-import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import org.jspecify.annotations.Nullable;
 
@@ -44,7 +44,8 @@ public final class NaturalGenerationGameTests {
     private static final ChunkPos VARIANT_START = new ChunkPos(1000, 1040);
 
     private static final ResourceKey<Structure> VILLAGE_NETHER =
-            ResourceKey.create(Registries.STRUCTURE, DimensionStructureVariants.of("village_nether"));
+            ResourceKey.create(
+                    Registries.STRUCTURE, DimensionStructureVariants.of("village_nether"));
 
     private static final ChunkPos VILLAGE_START = new ChunkPos(1000, 1080);
 
@@ -94,15 +95,14 @@ public final class NaturalGenerationGameTests {
 
     /**
      * The Nether village stands one block above the first free block its generator reports, so a
-     * Nether whose terrain a datapack moves keeps the village on its surface. The test level's
-     * flat Overworld puts that block far below the vanilla Nether roof, where the village used to
-     * start whatever the terrain.
+     * Nether whose terrain a datapack moves keeps the village on its surface. The test level's flat
+     * Overworld puts that block far below the vanilla Nether roof, where the village used to start
+     * whatever the terrain.
      */
     public static void theNetherVillageStandsOnItsGeneratorsSurface(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         StructureStart start = start(helper, level, VILLAGE_NETHER, VILLAGE_START);
-        PoolElementStructurePiece centre =
-                (PoolElementStructurePiece) start.getPieces().getFirst();
+        PoolElementStructurePiece centre = (PoolElementStructurePiece) start.getPieces().getFirst();
         BoundingBox box = centre.getBoundingBox();
         int surface =
                 level.getChunkSource()

@@ -55,8 +55,7 @@ class NetherVillageHeightTest {
                 Heightmap.Types.CODEC
                         .parse(JsonOps.INSTANCE, structure.get("project_start_to_heightmap"))
                         .getOrThrow();
-        int startHeight =
-                structure.getAsJsonObject("start_height").get("absolute").getAsInt();
+        int startHeight = structure.getAsJsonObject("start_height").get("absolute").getAsInt();
 
         HolderLookup.Provider registries = VanillaRegistries.createWorldLookup();
         Holder<NoiseGeneratorSettings> settings =
