@@ -309,8 +309,7 @@ public final class EndVillageGameTests {
         List<String> lost = new ArrayList<>();
         for (StructurePiece piece : start.getPieces()) {
             if (!(piece instanceof PoolElementStructurePiece pool)
-                    || !(pool.getElement() instanceof SinglePoolElement element))
-                continue;
+                    || !(pool.getElement() instanceof SinglePoolElement element)) continue;
             StructureTemplate template =
                     level.getStructureTemplateManager().getOrCreate(element.getTemplateLocation());
             StructurePlaceSettings settings =
