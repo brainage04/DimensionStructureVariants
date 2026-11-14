@@ -765,6 +765,7 @@ class StructurePalettesPropertyTest {
         JsonObject structure =
                 PALETTES.getAsJsonObject("structures").getAsJsonObject(palette.variant());
         String name = paletteName(palette);
+        JsonObject resolved = resolvedPalette(name);
         BlockState state = palette.sources().get(source % palette.sources().size());
         String role =
                 PALETTES.getAsJsonObject("role_sets")
