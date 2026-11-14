@@ -39,8 +39,8 @@ import net.jqwik.api.GenerationMode;
 import net.jqwik.api.Property;
 import net.jqwik.api.Provide;
 import net.jqwik.api.constraints.IntRange;
-import net.jqwik.api.lifecycle.BeforeContainer;
 import net.jqwik.api.constraints.Size;
+import net.jqwik.api.lifecycle.BeforeProperty;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -94,10 +94,11 @@ class StructurePalettesPropertyTest {
 
     /**
      * PIT swaps each mutant into a JVM where an earlier mutant may already have loaded the table
-     * and compiled the palettes, which would keep the mutated code from running.
+     * and compiled the palettes, which would keep the mutated code from running, and it credits the
+     * loading code only to the property that ran it first.
      */
-    @BeforeContainer
-    static void forgetTheLoadedTable() throws ReflectiveOperationException {
+    @BeforeProperty
+    void forgetTheLoadedTable() throws ReflectiveOperationException {
         Field data = StructurePalettes.class.getDeclaredField("data");
         data.setAccessible(true);
         data.set(null, null);
@@ -493,6 +494,103 @@ class StructurePalettesPropertyTest {
         if (choice.states().size() > 1) {
             assertSame(placed, choice.pick(BlockPos.asLong(x, y, z)));
         }
+    }
+
+    /**
+     * A compiled palette replaces every state of a role's block with the blocks the table gives
+     * that role, through the palettes it extends, its main block being the first of the largest
+     * weight; a role the table answers with null keeps its block. Its ground and ground feature are
+     * the table's.
+     */
+    @Property(tries = 1000)
+    void aCompiledPaletteHoldsWhatTheTableSays(
+            @ForAll("palettes") PaletteCase palette,
+            @ForAll @IntRange(min = 0, max = Integer.MAX_VALUE) int source) {
+        StructurePalettes.Palette compiled = palette.palette();
+        JsonObject structure =
+                PALETTES.getAsJsonObject("structures").getAsJsonObject(palette.variant());
+        String name = structure.get("default").getAsString();
+        for (JsonElement rule : structure.getAsJsonArray("biomes")) {
+            if (resolve(rule.getAsJsonObject().get("match")).contains(palette.biome())) {
+                name = rule.getAsJsonObject().get("palette").getAsString();
+                break;
+            }
+        }
+        JsonObject resolved = resolvedPalette(name);
+        BlockState state = palette.sources().get(source % palette.sources().size());
+        String role =
+                PALETTES.getAsJsonObject("role_sets")
+                        .getAsJsonObject(structure.get("roles").getAsString())
+                        .get(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString())
+                        .getAsString();
+        JsonElement target = resolved.getAsJsonObject("blocks").get(role);
+        StructurePalettes.Choice choice = compiled.choiceFor(state);
+        if (target.isJsonNull()) {
+            assertNull(choice, state + " has the null role " + role + " in " + name);
+        } else {
+            assertNotNull(choice, state + " has the role " + role + " in " + name);
+            assertChoice(weights(target), choice, role + " in " + name);
+        }
+        if (resolved.has("ground")) {
+            assertNotNull(compiled.ground(), name);
+            assertChoice(weights(resolved.get("ground")), compiled.ground(), "ground of " + name);
+        } else {
+            assertNull(compiled.ground(), name);
+        }
+        if (resolved.has("ground_feature")) {
+            JsonObject feature = resolved.getAsJsonObject("ground_feature");
+            assertEquals(
+                    feature.get("feature").getAsString(),
+                    compiled.groundFeature().identifier().toString());
+            assertEquals(feature.get("chance").getAsFloat(), compiled.groundFeatureChance());
+        } else {
+            assertNull(compiled.groundFeature(), name);
+            assertEquals(0.0F, compiled.groundFeatureChance());
+        }
+    }
+
+    private static void assertChoice(
+            Map<String, Integer> weights, StructurePalettes.Choice choice, String what) {
+        List<String> blocks = new ArrayList<>();
+        for (BlockState placed : choice.states()) {
+            blocks.add(BuiltInRegistries.BLOCK.getKey(placed.getBlock()).toString());
+        }
+        assertEquals(List.copyOf(weights.keySet()), blocks, what);
+        String main = null;
+        for (Map.Entry<String, Integer> entry : weights.entrySet()) {
+            if (main == null || entry.getValue() > weights.get(main)) main = entry.getKey();
+        }
+        assertEquals(
+                main, BuiltInRegistries.BLOCK.getKey(choice.main().getBlock()).toString(), what);
+    }
+
+    /** A target as the table writes it: one block of weight 1, or blocks with their weights. */
+    private static Map<String, Integer> weights(JsonElement target) {
+        Map<String, Integer> weights = new LinkedHashMap<>();
+        if (target.isJsonPrimitive()) {
+            weights.put(target.getAsString(), 1);
+        } else {
+            target.getAsJsonObject().asMap().forEach((id, w) -> weights.put(id, w.getAsInt()));
+        }
+        return weights;
+    }
+
+    /** A palette with what it takes from the palettes it extends, as one object. */
+    private static JsonObject resolvedPalette(String name) {
+        JsonObject raw = PALETTES.getAsJsonObject("palettes").getAsJsonObject(name);
+        JsonObject resolved =
+                raw.has("extends")
+                        ? resolvedPalette(raw.get("extends").getAsString())
+                        : new JsonObject();
+        JsonObject blocks =
+                resolved.has("blocks") ? resolved.getAsJsonObject("blocks") : new JsonObject();
+        if (raw.has("blocks")) {
+            raw.getAsJsonObject("blocks").asMap().forEach(blocks::add);
+        }
+        resolved.add("blocks", blocks);
+        if (raw.has("ground")) resolved.add("ground", raw.get("ground"));
+        if (raw.has("ground_feature")) resolved.add("ground_feature", raw.get("ground_feature"));
+        return resolved;
     }
 
     /**
