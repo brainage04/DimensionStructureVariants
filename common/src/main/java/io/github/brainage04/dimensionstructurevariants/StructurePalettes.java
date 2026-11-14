@@ -246,7 +246,7 @@ public final class StructurePalettes {
     private record Rule(List<Matcher> match, String palette) {}
 
     /** The palette of the first rule that matches a biome, else the structure's default. */
-    private record Rules(String roles, List<Rule> biomes, String fallback) {
+    record Rules(String roles, List<Rule> biomes, String fallback) {
         String paletteFor(Holder<Biome> biome) {
             String palette = ruleFor(biome);
             return palette == null ? fallback : palette;

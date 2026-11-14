@@ -1,5 +1,7 @@
 package io.github.brainage04.dimensionstructurevariants;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonElement;
@@ -23,6 +25,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import net.jqwik.api.Example;
+import net.jqwik.api.ForAll;
+import net.jqwik.api.Property;
+import net.jqwik.api.constraints.IntRange;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderLookup;
@@ -69,6 +74,8 @@ class NetherVillageHeightTest {
 
     private static final JsonObject VILLAGE;
 
+    private static final int TALLEST;
+
     static {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
@@ -84,6 +91,11 @@ class NetherVillageHeightTest {
                         .value();
         NETHER = LevelHeightAccessor.create(nether.minY(), nether.height());
         VILLAGE = json(STRUCTURE);
+        try {
+            TALLEST = tallestTownCentre();
+        } catch (IOException | URISyntaxException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 
     @Example
@@ -91,12 +103,11 @@ class NetherVillageHeightTest {
         assertTrue(
                 VILLAGE.has("project_start_to_heightmap"),
                 "The Nether village must follow the generator's surface");
-        int tallest = tallestTownCentre();
         List<String> moved = new ArrayList<>();
         for (Floor floor : floors(VANILLA)) {
             if (floor.y() != OLD_START_HEIGHT) {
                 moved.add(floor + ": moved to y " + floor.y());
-            } else if (isDropped(centrePiece(floor, tallest))) {
+            } else if (isDropped(centrePiece(floor, TALLEST))) {
                 moved.add(floor + ": dropped for its height");
             }
         }
@@ -117,6 +128,21 @@ class NetherVillageHeightTest {
         assertTrue(kept.isEmpty(), "A village started above the world in " + kept);
     }
 
+    /**
+     * The same for any seed and any column of the world: the vanilla Nether's roof gives every
+     * column one surface, so no seed or place moves the village off y 129 or drops it.
+     */
+    @Property(tries = 40)
+    void anySeedAndColumnOfTheVanillaNetherKeepsTheVillageAtItsOldHeight(
+            @ForAll long seed,
+            @ForAll @IntRange(min = -29_999_984, max = 29_999_984) int x,
+            @ForAll @IntRange(min = -29_999_984, max = 29_999_984) int z)
+            throws Exception {
+        Floor floor = floor(generator(VANILLA), randomState(VANILLA, seed), seed, x, z);
+        assertEquals(OLD_START_HEIGHT, floor.y(), floor.toString());
+        assertFalse(isDropped(centrePiece(floor, TALLEST)), floor + ": dropped for its height");
+    }
+
     private record Floor(long seed, int x, int z, int y) {
         @Override
         public String toString() {
@@ -126,31 +152,43 @@ class NetherVillageHeightTest {
 
     /** The floor height of a start in every sampled column of every seed. */
     private static List<Floor> floors(Holder<NoiseGeneratorSettings> settings) {
+        ChunkGenerator generator = generator(settings);
+        List<Floor> floors = new ArrayList<>();
+        for (long seed : SEEDS) {
+            RandomState random = randomState(settings, seed);
+            for (int x = -6000; x <= 6000; x += 375) {
+                for (int z = -6000; z <= 6000; z += 375) {
+                    floors.add(floor(generator, random, seed, x, z));
+                }
+            }
+        }
+        return floors;
+    }
+
+    private static RandomState randomState(Holder<NoiseGeneratorSettings> settings, long seed) {
+        return RandomState.create(
+                REGISTRIES.lookupOrThrow(Registries.NOISE), seed, settings.value());
+    }
+
+    private static ChunkGenerator generator(Holder<NoiseGeneratorSettings> settings) {
+        return new NoiseBasedChunkGenerator(
+                new FixedBiomeSource(
+                        REGISTRIES
+                                .lookupOrThrow(Registries.BIOME)
+                                .getOrThrow(Biomes.NETHER_WASTES)),
+                settings);
+    }
+
+    /** The floor height of a start in one column. */
+    private static Floor floor(
+            ChunkGenerator generator, RandomState random, long seed, int x, int z) {
         Heightmap.Types heightmap =
                 Heightmap.Types.CODEC
                         .parse(JsonOps.INSTANCE, VILLAGE.get("project_start_to_heightmap"))
                         .getOrThrow();
         int startHeight = VILLAGE.getAsJsonObject("start_height").get("absolute").getAsInt();
-        ChunkGenerator generator =
-                new NoiseBasedChunkGenerator(
-                        new FixedBiomeSource(
-                                REGISTRIES
-                                        .lookupOrThrow(Registries.BIOME)
-                                        .getOrThrow(Biomes.NETHER_WASTES)),
-                        settings);
-        List<Floor> floors = new ArrayList<>();
-        for (long seed : SEEDS) {
-            RandomState random =
-                    RandomState.create(
-                            REGISTRIES.lookupOrThrow(Registries.NOISE), seed, settings.value());
-            for (int x = -6000; x <= 6000; x += 375) {
-                for (int z = -6000; z <= 6000; z += 375) {
-                    int surface = generator.getFirstFreeHeight(x, z, heightmap, NETHER, random);
-                    floors.add(new Floor(seed, x, z, startHeight + surface));
-                }
-            }
-        }
-        return floors;
+        int surface = generator.getFirstFreeHeight(x, z, heightmap, NETHER, random);
+        return new Floor(seed, x, z, startHeight + surface);
     }
 
     /**
