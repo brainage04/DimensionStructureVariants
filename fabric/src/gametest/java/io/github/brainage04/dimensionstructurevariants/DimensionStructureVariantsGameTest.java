@@ -78,4 +78,9 @@ public final class DimensionStructureVariantsGameTest {
     public void theNetherVillageStandsOnItsGeneratorsSurface(GameTestHelper helper) {
         NaturalGenerationGameTests.theNetherVillageStandsOnItsGeneratorsSurface(helper);
     }
+
+    @GameTest(maxTicks = 200)
+    public void netherVillageFarmsUseSoulSandAndKeepComposters(GameTestHelper helper) {
+        NetherVillageGameTests.netherVillageFarmsUseSoulSandAndKeepComposters(helper);
+    }
 }
