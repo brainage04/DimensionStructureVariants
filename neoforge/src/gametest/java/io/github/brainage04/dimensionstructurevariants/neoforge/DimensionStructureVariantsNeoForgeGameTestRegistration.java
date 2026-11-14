@@ -80,5 +80,9 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 DimensionStructureVariants.of(
                         "structures_place_from_a_chunk_away_from_their_centre"),
                 () -> NaturalGenerationGameTests::structuresPlaceFromAChunkAwayFromTheirCentre);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("the_nether_village_stands_on_its_generators_surface"),
+                () -> NaturalGenerationGameTests::theNetherVillageStandsOnItsGeneratorsSurface);
     }
 }

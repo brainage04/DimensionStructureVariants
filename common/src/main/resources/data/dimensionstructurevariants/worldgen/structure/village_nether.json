@@ -30,9 +30,10 @@
     }
   ],
   "size": 6,
+  "project_start_to_heightmap": "WORLD_SURFACE_WG",
   "spawn_overrides": {},
   "start_height": {
-    "absolute": 129
+    "absolute": 1
   },
   "start_pool": "minecraft:village/plains/town_centers",
   "step": "surface_structures",

@@ -73,4 +73,9 @@ public final class DimensionStructureVariantsGameTest {
     public void structuresPlaceFromAChunkAwayFromTheirCentre(GameTestHelper helper) {
         NaturalGenerationGameTests.structuresPlaceFromAChunkAwayFromTheirCentre(helper);
     }
+
+    @GameTest
+    public void theNetherVillageStandsOnItsGeneratorsSurface(GameTestHelper helper) {
+        NaturalGenerationGameTests.theNetherVillageStandsOnItsGeneratorsSurface(helper);
+    }
 }

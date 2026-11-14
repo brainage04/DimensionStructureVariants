@@ -255,21 +255,31 @@ public final class PaletteGameTests {
         helper.succeed();
     }
 
-    /** Every palette a structure can pick answers every block the variant has a role for. */
+    /**
+     * Every vanilla biome a variant can start in has a rule of its own. The default palette is for
+     * what no rule foresees (a datapack's biome, or a centre outside the variant's biomes), so a
+     * vanilla biome that reaches it, for example one a new game version adds to {@code
+     * #minecraft:is_overworld}, needs a rule written for it.
+     */
     public static void everyTargetedBiomeResolvesAPalette(GameTestHelper helper) {
         var registries = helper.getLevel().registryAccess();
         var structures = registries.lookupOrThrow(Registries.STRUCTURE);
         var biomes = registries.lookupOrThrow(Registries.BIOME);
         for (StructureVariantCatalog.Variant variant : StructureVariantCatalog.VARIANTS) {
             Identifier id = variant.structure().identifier();
+            helper.assertTrue(
+                    StructurePalettes.palette(id, biomes.getOrThrow(variant.targetBiome())) != null,
+                    id + " has no palette");
             List<String> missing = new ArrayList<>();
             for (Holder<Biome> biome :
                     structures.getOrThrow(variant.structure()).value().biomes()) {
-                if (StructurePalettes.palette(id, biome) == null) {
-                    missing.add(biome.unwrapKey().orElseThrow().identifier().toString());
+                Identifier biomeId = biome.unwrapKey().orElseThrow().identifier();
+                if (biomeId.getNamespace().equals(Identifier.DEFAULT_NAMESPACE)
+                        && !StructurePalettes.hasRule(id, biome)) {
+                    missing.add(biomeId.toString());
                 }
             }
-            helper.assertTrue(missing.isEmpty(), id + " has no palette in " + missing);
+            helper.assertTrue(missing.isEmpty(), id + " has no rule for " + missing);
         }
         helper.assertTrue(
                 StructurePalettes.palette(
