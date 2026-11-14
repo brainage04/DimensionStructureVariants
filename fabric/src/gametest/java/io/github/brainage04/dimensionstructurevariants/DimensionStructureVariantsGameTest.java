@@ -68,4 +68,9 @@ public final class DimensionStructureVariantsGameTest {
     public void villageGroundIsANaturalPatch(GameTestHelper helper) {
         PaletteGameTests.villageGroundIsANaturalPatch(helper);
     }
+
+    @GameTest
+    public void structuresPlaceFromAChunkAwayFromTheirCentre(GameTestHelper helper) {
+        NaturalGenerationGameTests.structuresPlaceFromAChunkAwayFromTheirCentre(helper);
+    }
 }
