@@ -1,6 +1,7 @@
 package io.github.brainage04.dimensionstructurevariants;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -93,6 +94,19 @@ class StructurePalettesTest {
         assertSame(palette("village_nether", Biomes.NETHER_WASTES), datapack);
     }
 
+    /** A biome that takes the default has no rule; one a rule names has. */
+    @Example
+    void onlyABiomeARuleNamesHasARule() {
+        assertTrue(hasRule("village_nether", Biomes.NETHER_WASTES));
+        assertTrue(hasRule("bastion_overworld", Biomes.WARM_OCEAN));
+        assertFalse(hasRule("village_nether", DATAPACK_NETHER_BIOME));
+        assertFalse(hasRule("bastion_overworld", Biomes.BEACH));
+        assertFalse(
+                StructurePalettes.hasRule(
+                        Identifier.withDefaultNamespace("bastion_remnant"),
+                        BIOMES.get(Biomes.NETHER_WASTES)));
+    }
+
     /**
      * During natural generation a start is placed through the FEATURES step's region, which throws
      * for a biome read more than one chunk from the chunk it decorates. A vanilla structure must
@@ -153,6 +167,10 @@ class StructurePalettesTest {
 
     private static StructurePalettes.Palette palette(String variant, ResourceKey<Biome> biome) {
         return StructurePalettes.palette(DimensionStructureVariants.of(variant), BIOMES.get(biome));
+    }
+
+    private static boolean hasRule(String variant, ResourceKey<Biome> biome) {
+        return StructurePalettes.hasRule(DimensionStructureVariants.of(variant), BIOMES.get(biome));
     }
 
     private static JsonObject table(String brick, boolean withDefault) {

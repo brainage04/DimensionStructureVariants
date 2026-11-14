@@ -76,10 +76,12 @@ public final class StructurePalettes {
     /**
      * The biome at {@code pos}. During natural generation the level is a {@code WorldGenRegion},
      * which throws for a chunk more than one chunk from the one it decorates ({@code
-     * WorldGenRegion.java:131-158}), so there the biome comes from the generator's biome source,
-     * which is what a newly generated chunk stores ({@code ChunkGenerator.java:134-150}). Placed
-     * through a server level ({@code /place}, the GameTests, the film), the chunk's stored biome
-     * counts, so a biome filled before placement picks the palette.
+     * WorldGenRegion.java:131-158}), so there the biome comes from the generator's biome source:
+     * the noise biome a newly generated chunk stores ({@code ChunkGenerator.java:134-150}), except
+     * where the chunk is blended with chunks from before 1.18 ({@code
+     * NoiseBasedChunkGenerator.java:94-97}). Placed through a server level ({@code /place}, the
+     * GameTests, the film), the chunk's stored biome counts, so a biome filled before placement
+     * picks the palette.
      */
     private static Holder<Biome> biome(WorldGenLevel level, BlockPos pos) {
         int x = QuartPos.fromBlock(pos.getX());
@@ -100,6 +102,16 @@ public final class StructurePalettes {
         String palette = rules.paletteFor(biome);
         return COMPILED.computeIfAbsent(
                 id.getPath() + "|" + palette, key -> compile(rules.roles(), palette));
+    }
+
+    /**
+     * Whether a rule of variant {@code id} names {@code biome}, so that it does not fall back to
+     * the variant's default palette there.
+     */
+    public static boolean hasRule(Identifier id, Holder<Biome> biome) {
+        if (!id.getNamespace().equals(DimensionStructureVariants.MOD_ID)) return false;
+        Rules rules = data().structures.get(id.getPath());
+        return rules != null && rules.ruleFor(biome) != null;
     }
 
     /** Makes {@code palette} the active one and returns the palette the caller must restore. */
@@ -235,12 +247,17 @@ public final class StructurePalettes {
     /** The palette of the first rule that matches a biome, else the structure's default. */
     private record Rules(String roles, List<Rule> biomes, String fallback) {
         String paletteFor(Holder<Biome> biome) {
+            String palette = ruleFor(biome);
+            return palette == null ? fallback : palette;
+        }
+
+        @Nullable String ruleFor(Holder<Biome> biome) {
             for (Rule rule : biomes) {
                 for (Matcher matcher : rule.match()) {
                     if (matcher.matches(biome)) return rule.palette();
                 }
             }
-            return fallback;
+            return null;
         }
     }
 
