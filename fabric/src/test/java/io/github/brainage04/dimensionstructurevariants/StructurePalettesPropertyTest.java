@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -56,6 +57,7 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -99,12 +101,32 @@ class StructurePalettesPropertyTest {
      */
     @BeforeProperty
     void forgetTheLoadedTable() throws ReflectiveOperationException {
+        loadTable(null);
+    }
+
+    /** Makes {@code root} the loaded table, or none when null, with no palette compiled yet. */
+    private static void loadTable(JsonObject root) throws ReflectiveOperationException {
         Field data = StructurePalettes.class.getDeclaredField("data");
         data.setAccessible(true);
-        data.set(null, null);
+        data.set(null, root == null ? null : StructurePalettes.parse(root));
         Field compiled = StructurePalettes.class.getDeclaredField("COMPILED");
         compiled.setAccessible(true);
         ((Map<?, ?>) compiled.get(null)).clear();
+    }
+
+    /**
+     * The palette the structure {@code test} of {@code root} uses in a biome its rules do not name.
+     * The bundled table is loaded again afterwards, for the tests that read it.
+     */
+    private static StructurePalettes.Palette defaultPaletteOf(JsonObject root)
+            throws ReflectiveOperationException {
+        try {
+            loadTable(root);
+            return StructurePalettes.palette(
+                    DimensionStructureVariants.of("test"), TEST_HOLDERS.get("a"));
+        } finally {
+            loadTable(null);
+        }
     }
 
     // ---------------------------------------------------------------------------------------
@@ -313,20 +335,35 @@ class StructurePalettesPropertyTest {
 
     /**
      * A palette that extends another takes every block it does not set itself from it, through any
-     * number of steps; a palette that extends itself, directly or through others, fails.
+     * number of steps, and a block set on the way overrides the one before it; a palette that
+     * extends itself, directly or through others, fails.
      */
     @Property
     void aPaletteTakesTheBlocksOfThePalettesItExtends(
-            @ForAll @IntRange(min = 1, max = 6) int steps, @ForAll boolean cycle) {
+            @ForAll @IntRange(min = 1, max = 6) int steps,
+            @ForAll @IntRange(min = 0, max = 7) int overriddenAt,
+            @ForAll boolean cycle)
+            throws ReflectiveOperationException {
         JsonObject root = table(List.of(), 0);
+        root.getAsJsonObject("role_sets")
+                .getAsJsonObject("test")
+                .addProperty("minecraft:bricks", "roof");
         JsonObject palettes = root.getAsJsonObject("palettes");
         for (int i = 1; i <= steps; i++) {
             JsonObject palette = new JsonObject();
             palette.addProperty("extends", "c" + (i - 1));
+            if (i == overriddenAt) {
+                JsonObject blocks = new JsonObject();
+                blocks.addProperty("roof", "minecraft:andesite");
+                palette.add("blocks", blocks);
+            }
             palettes.add("c" + i, palette);
         }
         JsonObject first = new JsonObject();
-        first.add("blocks", blocks(root, "p0").deepCopy());
+        JsonObject blocks = new JsonObject();
+        blocks.addProperty("wall", "minecraft:stone");
+        blocks.addProperty("roof", "minecraft:cobblestone");
+        first.add("blocks", blocks);
         if (cycle) first.addProperty("extends", "c" + steps);
         palettes.add("c0", first);
         root.getAsJsonObject("structures")
@@ -337,9 +374,141 @@ class StructurePalettesPropertyTest {
                     assertThrows(IllegalStateException.class, () -> StructurePalettes.parse(root))
                             .getMessage()
                             .contains(" extends itself through "));
-        } else {
-            StructurePalettes.parse(root);
+            return;
         }
+        StructurePalettes.Palette compiled = defaultPaletteOf(root);
+        assertEquals(
+                List.of(Blocks.STONE.defaultBlockState()),
+                compiled.choiceFor(Blocks.STONE_BRICKS.defaultBlockState()).states());
+        Block roof =
+                overriddenAt >= 1 && overriddenAt <= steps ? Blocks.ANDESITE : Blocks.COBBLESTONE;
+        assertEquals(
+                List.of(roof.defaultBlockState()),
+                compiled.choiceFor(Blocks.BRICKS.defaultBlockState()).states());
+    }
+
+    private static final List<String> WALL_BLOCKS =
+            List.of(
+                    "minecraft:stone",
+                    "minecraft:cobblestone",
+                    "minecraft:andesite",
+                    "minecraft:diorite");
+
+    private static final List<String> STAIR_BLOCKS =
+            List.of(
+                    "minecraft:oak_stairs",
+                    "minecraft:spruce_stairs",
+                    "minecraft:birch_stairs",
+                    "minecraft:jungle_stairs");
+
+    private static final List<String> GROUND_BLOCKS =
+            List.of("minecraft:dirt", "minecraft:gravel", "minecraft:sand", "minecraft:clay");
+
+    /** Two to four weights in any order, the first of the largest never first unless all tie. */
+    @Provide
+    Arbitrary<List<Integer>> severalWeights() {
+        return Arbitraries.integers()
+                .between(1, 6)
+                .list()
+                .ofMinSize(2)
+                .ofMaxSize(4)
+                .map(StructurePalettesPropertyTest::heaviestNotFirst);
+    }
+
+    private static List<Integer> heaviestNotFirst(List<Integer> weights) {
+        List<Integer> moved = new ArrayList<>(weights);
+        int largest = Collections.max(moved);
+        for (int i = 1; i < moved.size() && moved.get(0) == largest; i++) {
+            if (moved.get(i) < largest) Collections.swap(moved, 0, i);
+        }
+        return moved;
+    }
+
+    /**
+     * A compiled palette keeps the weight its table gives each block of a role and of its ground:
+     * its main block is the first of the largest weight, and it picks what a pick of the table's
+     * weights picks. With lava among its blocks, here in a role with several, it places nothing
+     * waterlogged; without, a replacement keeps the water of the state it replaces.
+     */
+    @Property(tries = 300)
+    void aCompiledPaletteKeepsTheWeightsOfItsTable(
+            @ForAll("severalWeights") List<Integer> wall,
+            @ForAll("severalWeights") List<Integer> stairs,
+            @ForAll("severalWeights") List<Integer> liquid,
+            @ForAll("severalWeights") List<Integer> ground,
+            @ForAll boolean lava,
+            @ForAll long seed)
+            throws ReflectiveOperationException {
+        List<String> liquidBlocks =
+                List.of(
+                        "minecraft:magma_block",
+                        lava ? "minecraft:lava" : "minecraft:obsidian",
+                        "minecraft:blackstone",
+                        "minecraft:basalt");
+        Map<String, Integer> wallTargets = weighted(WALL_BLOCKS, wall);
+        Map<String, Integer> stairTargets = weighted(STAIR_BLOCKS, stairs);
+        Map<String, Integer> liquidTargets = weighted(liquidBlocks, liquid);
+        Map<String, Integer> groundTargets = weighted(GROUND_BLOCKS, ground);
+        JsonObject root = table(List.of(), 0);
+        JsonObject roles = root.getAsJsonObject("role_sets").getAsJsonObject("test");
+        roles.addProperty("minecraft:stone_brick_stairs", "stairs");
+        roles.addProperty("minecraft:water", "liquid");
+        JsonObject palette = root.getAsJsonObject("palettes").getAsJsonObject("p0");
+        JsonObject blocks = palette.getAsJsonObject("blocks");
+        blocks.add("wall", weightsJson(wallTargets));
+        blocks.add("stairs", weightsJson(stairTargets));
+        blocks.add("liquid", weightsJson(liquidTargets));
+        palette.add("ground", weightsJson(groundTargets));
+        StructurePalettes.Palette compiled = defaultPaletteOf(root);
+        assertRoleWeights(compiled, Blocks.STONE_BRICKS, wallTargets, lava, seed);
+        assertRoleWeights(compiled, Blocks.STONE_BRICK_STAIRS, stairTargets, lava, seed);
+        assertRoleWeights(compiled, Blocks.WATER, liquidTargets, lava, seed);
+        assertWeights(groundTargets, compiled.ground(), seed, "ground");
+    }
+
+    private static Map<String, Integer> weighted(List<String> blocks, List<Integer> weights) {
+        Map<String, Integer> weighted = new LinkedHashMap<>();
+        for (int i = 0; i < weights.size(); i++) weighted.put(blocks.get(i), weights.get(i));
+        return weighted;
+    }
+
+    private static JsonObject weightsJson(Map<String, Integer> weights) {
+        JsonObject json = new JsonObject();
+        weights.forEach(json::addProperty);
+        return json;
+    }
+
+    private static void assertRoleWeights(
+            StructurePalettes.Palette palette,
+            Block source,
+            Map<String, Integer> weights,
+            boolean lava,
+            long seed) {
+        for (BlockState state : source.getStateDefinition().getPossibleStates()) {
+            StructurePalettes.Choice choice = palette.choiceFor(state);
+            assertNotNull(choice, state.toString());
+            assertWeights(weights, choice, seed, state.toString());
+            boolean water =
+                    !lava
+                            && state.hasProperty(BlockStateProperties.WATERLOGGED)
+                            && state.getValue(BlockStateProperties.WATERLOGGED);
+            for (BlockState placed : choice.states()) {
+                if (placed.hasProperty(BlockStateProperties.WATERLOGGED)) {
+                    assertEquals(
+                            water,
+                            placed.getValue(BlockStateProperties.WATERLOGGED),
+                            placed + " in place of " + state);
+                }
+            }
+        }
+    }
+
+    private static void assertWeights(
+            Map<String, Integer> weights, StructurePalettes.Choice choice, long seed, String what) {
+        assertChoice(weights, choice, what);
+        int[] array = weights.values().stream().mapToInt(Integer::intValue).toArray();
+        assertSame(
+                choice.states().get(new WeightedPick(array).index(seed)), choice.pick(seed), what);
     }
 
     private static JsonObject blocks(JsonObject root, String palette) {
@@ -370,12 +539,31 @@ class StructurePalettesPropertyTest {
     Arbitrary<StartBiome> startBiomes() {
         List<StartBiome> starts = new ArrayList<>();
         for (String variant : PALETTES.getAsJsonObject("structures").keySet()) {
-            JsonElement biomes = json(STRUCTURES + variant + ".json").get("biomes");
-            for (ResourceKey<Biome> biome : resolve(biomes))
+            for (ResourceKey<Biome> biome : startBiomesOf(variant))
                 starts.add(new StartBiome(variant, biome));
         }
-        assertFalse(starts.isEmpty());
         return Arbitraries.of(starts);
+    }
+
+    private static Set<ResourceKey<Biome>> startBiomesOf(String variant) {
+        return resolve(json(STRUCTURES + variant + ".json").get("biomes"));
+    }
+
+    /**
+     * Every variant may start in at least one vanilla biome. A biome tag missing from the classpath
+     * resolves to no biome, which would leave its variant out of the start biome checks.
+     */
+    @Example
+    void everyVariantStartsInAVanillaBiome() {
+        for (String variant : PALETTES.getAsJsonObject("structures").keySet()) {
+            Set<ResourceKey<Biome>> biomes = startBiomesOf(variant);
+            assertFalse(biomes.isEmpty(), variant + " starts in no biome");
+            for (ResourceKey<Biome> biome : biomes) {
+                assertTrue(
+                        VANILLA_BIOMES.containsKey(biome),
+                        variant + " starts in the unknown biome " + biome.identifier());
+            }
+        }
     }
 
     /** A matcher naming a biome or tag vanilla does not have would never match. */
@@ -441,6 +629,10 @@ class StructurePalettesPropertyTest {
     /** Each variant once per vanilla biome its rules name, and once in a biome they do not. */
     @Provide
     Arbitrary<PaletteCase> palettes() {
+        return Arbitraries.of(paletteCases());
+    }
+
+    private static List<PaletteCase> paletteCases() {
         List<PaletteCase> cases = new ArrayList<>();
         for (Map.Entry<String, JsonElement> entry :
                 PALETTES.getAsJsonObject("structures").entrySet()) {
@@ -465,7 +657,19 @@ class StructurePalettesPropertyTest {
                 cases.add(new PaletteCase(entry.getKey(), biome, List.copyOf(sources)));
             }
         }
-        return Arbitraries.of(cases);
+        return cases;
+    }
+
+    /** The name of the palette the table gives a case's variant in its biome. */
+    private static String paletteName(PaletteCase palette) {
+        JsonObject structure =
+                PALETTES.getAsJsonObject("structures").getAsJsonObject(palette.variant());
+        for (JsonElement rule : structure.getAsJsonArray("biomes")) {
+            if (resolve(rule.getAsJsonObject().get("match")).contains(palette.biome())) {
+                return rule.getAsJsonObject().get("palette").getAsString();
+            }
+        }
+        return structure.get("default").getAsString();
     }
 
     /**
@@ -491,9 +695,60 @@ class StructurePalettesPropertyTest {
         assertTrue(choice.states().contains(placed), placed + " is not among " + choice.states());
         assertSame(placed, choice.at(x, y, z));
         assertSame(placed, compiled.remap(state, new BlockPos(x, y, z)));
-        if (choice.states().size() > 1) {
-            assertSame(placed, choice.pick(BlockPos.asLong(x, y, z)));
+    }
+
+    record WeightedRole(PaletteCase palette, Block source) {}
+
+    /** Each block that a palette of the table replaces with one of several. */
+    @Provide
+    Arbitrary<WeightedRole> weightedRoles() {
+        List<WeightedRole> roles = new ArrayList<>();
+        for (PaletteCase palette : paletteCases()) {
+            JsonObject blocks = resolvedPalette(paletteName(palette)).getAsJsonObject("blocks");
+            String roleSet =
+                    PALETTES.getAsJsonObject("structures")
+                            .getAsJsonObject(palette.variant())
+                            .get("roles")
+                            .getAsString();
+            for (Map.Entry<String, JsonElement> role :
+                    PALETTES.getAsJsonObject("role_sets").getAsJsonObject(roleSet).entrySet()) {
+                JsonElement target = blocks.get(role.getValue().getAsString());
+                if (!target.isJsonNull() && weights(target).size() > 1) {
+                    roles.add(
+                            new WeightedRole(
+                                    palette,
+                                    BuiltInRegistries.BLOCK.getValue(
+                                            Identifier.parse(role.getKey()))));
+                }
+            }
         }
+        return Arbitraries.of(roles);
+    }
+
+    /**
+     * Positions apart get every block of a role with several, so a structure does not settle on one
+     * of them. The walk stops once every block has turned up; its cap of 2^20 positions misses a
+     * block with a share of one in 10,000 with odds below e^-100.
+     */
+    @Property(tries = 500)
+    void positionsApartGetEveryBlockOfTheirRole(
+            @ForAll("weightedRoles") WeightedRole role,
+            @ForAll @IntRange(min = 0, max = Integer.MAX_VALUE) int stateIndex,
+            @ForAll @IntRange(min = -30_000_000, max = 30_000_000) int x,
+            @ForAll @IntRange(min = -64, max = 319) int y,
+            @ForAll @IntRange(min = -30_000_000, max = 30_000_000) int z) {
+        StructurePalettes.Palette compiled = role.palette().palette();
+        List<BlockState> states = role.source().getStateDefinition().getPossibleStates();
+        BlockState state = states.get(stateIndex % states.size());
+        Set<BlockState> unseen = new HashSet<>(compiled.choiceFor(state).states());
+        int walked = 0;
+        while (!unseen.isEmpty() && walked < 1 << 20) {
+            unseen.remove(compiled.remap(state, new BlockPos(x, y, z + walked)));
+            walked++;
+        }
+        assertTrue(
+                unseen.isEmpty(),
+                unseen + " never took the place of " + state + " in " + walked + " positions");
     }
 
     /**
@@ -509,14 +764,7 @@ class StructurePalettesPropertyTest {
         StructurePalettes.Palette compiled = palette.palette();
         JsonObject structure =
                 PALETTES.getAsJsonObject("structures").getAsJsonObject(palette.variant());
-        String name = structure.get("default").getAsString();
-        for (JsonElement rule : structure.getAsJsonArray("biomes")) {
-            if (resolve(rule.getAsJsonObject().get("match")).contains(palette.biome())) {
-                name = rule.getAsJsonObject().get("palette").getAsString();
-                break;
-            }
-        }
-        JsonObject resolved = resolvedPalette(name);
+        String name = paletteName(palette);
         BlockState state = palette.sources().get(source % palette.sources().size());
         String role =
                 PALETTES.getAsJsonObject("role_sets")
