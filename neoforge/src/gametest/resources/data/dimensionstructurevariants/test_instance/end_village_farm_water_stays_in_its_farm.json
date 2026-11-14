@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 400,
+  "type": "minecraft:function",
+  "function": "dimensionstructurevariants:end_village_farm_water_stays_in_its_farm"
+}

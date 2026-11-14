@@ -14,23 +14,69 @@ Run the registry, biome-targeting, natural-structure-set, End solid-ground, pale
 heavy -- ./gradlew --no-daemon runAllGameTests
 ```
 
+Run the unit tests: `WeightedPickTest` checks with jqwik that the weighted pick behind a palette role with several blocks (`WeightedPick`) stays among the role's blocks and picks each about as often as its weight says, and pins the pick to a reference copy of its arithmetic, so a structure keeps its blocks from one release to the next.
+
+```shell
+heavy --quick -- ./gradlew --no-daemon :fabric:test
+```
+
+`:fabric:pitest` runs mutation tests on `WeightedPick` against those tests. It is not part of `check`; the report is written to `fabric/build/reports/pitest`.
+
+`check` and `build` run the MinecraftModConventions quality policy (formatting, Checkstyle, deprecation lints as errors) and its vanilla identity, tag identity and world height checks, in CI too. Keep `minecraftmodconventions_version` and the reusable-workflow versions in `.github/workflows/` the same.
+
 The project was initialized from [ModernMinecraftModTemplate](https://github.com/brainage04/ModernMinecraftModTemplate) and uses [MinecraftModConventions](https://github.com/brainage04/MinecraftModConventions) for shared build, GameTest, recording, and publishing conventions.
 
 ## Showcase recording
 
-`DimensionStructureVariantsClientGameTest` films every variant in each group of biomes that looks different (the groups are listed in the test; every biome a variant lists must be in one), ordered by dimension, structure and biome group. Each shot is 80 game ticks: the camera circles the structure once, at a fixed distance from its centre, while it descends from looking 30 degrees down to looking 30 degrees up at the centre (less where the ground stops it, 2 blocks above it), driven on the client every frame, while the Overworld clock runs from noon to midnight and the camera player has Night Vision. Before each shot natural spawning and the structure's spawners run with the player in creative mode. A shot runs at half the frame rate its rehearsal measured (1 to 4 ticks a second), so that software rendering gives each tick two frames or more; the test logs `STAGE_START` and `STAGE_END` around each shot, and the cut plays each window back at 20 ticks a second (4 seconds a shot).
+The film lives in the `recording` source set (`fabric/src/recording`): `DimensionStructureVariantsFilm` with its camera (`ShowcaseCamera`), its biome panel (`StageCaptionPanel`), the film-only mixins and the Nether dimension type with the longer fog. `fabric/src/gametest` holds only tests; its client GameTest, `DimensionStructureVariantsClientGameTest`, runs the film over the variants of `StructureVariantCatalog`.
+
+`DimensionStructureVariantsFilm` films every variant in each group of biomes that looks different (the test lists the groups, and every biome a variant lists must be in one), ordered by dimension, structure and biome group. Each shot is 80 game ticks: the camera circles the structure once, at a fixed distance from its centre, while it descends from looking 30 degrees down to looking 30 degrees up at the centre (less where the ground stops it, 2 blocks above it), driven on the client every frame, while the Overworld clock runs from noon to midnight and the camera player has Night Vision. Before each shot natural spawning and the structure's spawners run with the player in creative mode. A shot runs at the game's own 20 ticks a second, so its 80 ticks are the 4 seconds the cut plays, and the camera is posed on the frame's own clock rather than on the tick: the clock starts at the shot's first frame, covers those 4 seconds, and every frame the client draws shows a new pose, at 30 frames a second as well as at 60. The shot ends when the camera's turn does, so a slow tick neither cuts the turn short nor leaves the camera standing at its end. A shot logs what its film came to, the frames it drew and the pictures among them, and the longest one picture ever stood still, and fails the run when fewer than 8 frames in 10 show a new picture or when one picture stands still for more than two and a half of the frames the client draws, and when a shot strays more than a quarter of a second from its 4 seconds: a client that waits out a slow server tick, or draws the same pose twice, would leave a repeated image in the cut. It also probes the property directly, two poses 15 ms apart inside one tick, before each shot. The test logs the `STAGE_START` and `STAGE_END` markers around each shot, and the cut plays each window back at the capture's 30 frames a second (4 seconds a shot).
+
+Each shot opens on the structure's pieces in their vanilla blocks and switches to the mod's palette at tick 40, so the first 2 seconds show the structure without the palette and the last 2 seconds with it. The test keeps the blocks the mod built, places the same pieces again as the vanilla structure (`minecraft:fortress`, `minecraft:bastion_remnant`, `minecraft:end_city` or `minecraft:village_plains`, which no palette touches) and writes the kept blocks back halfway through the shot. A Nether stage goes back to its bare roof first, because the village's ground patch and fungi belong to the palette, and the structure's own entities, which the vanilla pieces place again, are removed. The pop-in check takes the built sections afresh once the client has rebuilt the switched ones. A panel under the caption names every biome the shot's palette covers and whether the palette is on; it says the palette is on once the client has rebuilt the switched sections, a few ticks after the switch on a large stage.
+
+End stages stand on terrain that generated with the structure's start already in its chunk, as natural generation does, so the terrain rises under the pieces where the structure's terrain adaptation says. The test server makes no structure starts itself (MinecraftModConventions turns `generate-structures` off), so the test gives the start to its chunk before the chunks around it generate.
 
 ```shell
 heavy --mem 10G -- ./gradlew --no-daemon :fabric:recordClientGameTest
+GTR_RECORDING_DISPLAY=:1 heavy --mem 10G -- ./gradlew --no-daemon :fabric:recordClientGameTest
 DSV_STAGES=fortress_overworld/desert,village_nether heavy --mem 10G -- ./gradlew --no-daemon :fabric:recordClientGameTest
 ```
+
+`GTR_RECORDING_DISPLAY=:1` records an X display that already has the machine's graphics card behind its GLX (an `Xorg` on the card, or `:0` on a machine whose desktop runs on it) instead of the recorder's own `Xvfb`; the recording's metadata then names the graphics device, the presented frame rate and the reason when the software path was kept.
+
+The camera's radius follows the 98th percentile of the structure's own blocks around its centre
+(`framedHalf`), so a long empty corridor end or an End ship's tip does not push the camera out; the
+10-block clearance belongs to that framed mass, while a block outside it only has to be missed.
+Stages that stand on a ground of their own have the blocks that stand on that ground outside the
+structure's footprint swept before the shot, so a mushroom on the bare bedrock cannot appear in the
+foreground.
+
+The cut is taken from the caption panel, not the log's clock: every clip opens on the frame after its
+caption's last change and width animation, and a clip whose first frame matches another stage's caption
+fails the cut. Each clip opens and closes with a 0.15 s audio fade, and the finished film is normalised
+to about -20 LUFS with a -1.5 dBFS ceiling, so the Nether drone and mob sounds are audible and no cut
+jumps.
 
 `DSV_STAGES` (comma separated stage ids such as `fortress_overworld/desert`, or variant ids) films only those stages.
 
 Without `DSV_STAGES`, `CLIENT_GAMETEST_PROFILE=smoke` films one stage of each structure (bastion, end city, fortress, village), spread over the three dimensions; both CI jobs that start the client run that profile, because the full run takes about an hour. Items that mobs dropped as they died while a stage was populated are removed before its shot and logged; any other loose item, chest loot above all, fails the run.
 
+A biome's drone is a streamed sound, so the sound engine holds four one-second buffers of it and
+refills them once per frame (`ChannelAccess.scheduleTick`, reached from `SoundEngine.tick`); placing a
+stage's structure stalls the client for seconds, the buffers run dry, the engine drops the loop, and
+vanilla never replays it until the player's ambient setting changes (`BiomeAmbientSoundsHandler.tick`
+only reacts to a changed loop event). The recording client therefore runs `AmbientLoopKeeperMixin`,
+which forgets a loop instance the engine has dropped so the handler recreates it, and logs each
+restart. The mixin is in the recording source set and is never loaded by the mod.
+
 ## Placement implementation
 
-The exact block-to-block tables live in [`StructurePalettes.java`](../common/src/main/java/io/github/brainage04/dimensionstructurevariants/StructurePalettes.java). A shared server-side placement context selects the palette by structure registry ID. Both template/jigsaw writes and procedural fortress foundations pass through it. Compatible block-state properties are preserved, including horizontal wall attachments; unrelated structures and later terrain/player block writes are untouched.
+The palette table lives in [`palettes.json`](../common/src/main/resources/data/dimensionstructurevariants/palette/palettes.json). A role set names a role for each block a vanilla structure places; a palette gives each role the block of one biome, and a structure names the palette each of its biomes uses. `StructurePalettes` reads the table once, checks that every palette answers every role its structure uses (an explicit null keeps the vanilla block), and compiles a block-state map per structure and palette.
+
+`StructureStartMixin` picks the palette from the biome at the structure start's centre, so all chunks of one structure share it, and lays the palette's ground before the pieces are placed (`StructureGround`). Template, jigsaw and procedural fortress writes then pass through the active palette (`StructureBlockMixin`, a hook on `setBlock` that also reads the position). A role may name several blocks with weights, for example `{"minecraft:stone_bricks": 10, "minecraft:cracked_stone_bricks": 3}`. The block at a position comes from a hash of the packed block position alone, so a structure looks the same every time its world generates. Compatible block-state properties are preserved, including horizontal wall attachments. Unrelated structures and later terrain or player block writes are untouched.
+
+`StructureGround` lays the ground in every open column under the pieces and in each column whose distance to the nearest piece stays under an edge of 4 blocks, which simplex noise moves by up to 3 blocks either way, so the patch has the round, wandering outline of terrain and stays inside the 12 blocks a structure with terrain adaptation adds to its bounding box. A palette's `ground` may also name several blocks with weights, picked per clump of about 4 blocks whose borders the noise bends, and its `ground_feature` names a feature (a planted crimson or warped fungus) that grows with the given chance on a ground column at least 5 blocks from every piece.
+
+The Nether village pools under `worldgen/template_pool/village_nether` are rigid copies of the plains pools, so every piece stands at the structure's own height instead of following the terrain. Its `start_height` puts that height at y 129, one block above the first free block over the Nether roof, which leaves the ground layer its palettes name (crimson nylium, warped nylium, soul soil, netherrack or blackstone) at y 128; the bedrock roof at y 127 stays untouched.
 
 Custom Nether/End villager types are not added: in Minecraft 26.3, villager types are a built-in static registry rather than a datapack-loaded dynamic registry. New types and their client textures would break the no-client-requirement contract. Existing vanilla villagers and professions remain unchanged.

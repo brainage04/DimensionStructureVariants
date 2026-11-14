@@ -1,250 +1,93 @@
 package io.github.brainage04.dimensionstructurevariants;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.DyeColor;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.WorldGenLevel;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.WallSide;
+import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import org.jspecify.annotations.Nullable;
 
-/** Vanilla block states only: clients need neither this mod nor a resource pack. */
+/**
+ * Block substitution for the variants, one palette per structure and biome.
+ *
+ * <p>The tables live in {@code data/dimensionstructurevariants/palette/palettes.json}: a role set
+ * maps the blocks a vanilla structure places to roles, a palette gives each role the block of the
+ * biome it stands in, and a structure names the palette each of its biomes uses. A role may name
+ * several blocks with weights; the block at a position is then picked from the position alone, so a
+ * structure looks the same every time the world generates it. Every target is a vanilla block, so a
+ * client needs neither this mod nor a resource pack.
+ */
 public final class StructurePalettes {
-    private static final ThreadLocal<Map<BlockState, BlockState>> ACTIVE = new ThreadLocal<>();
-    private static final Map<BlockState, BlockState> FROZEN_CITY =
-            palette(
-                    Blocks.END_STONE_BRICKS,
-                    Blocks.PACKED_ICE,
-                    Blocks.PURPUR_BLOCK,
-                    Blocks.BLUE_ICE,
-                    Blocks.PURPUR_PILLAR,
-                    Blocks.SNOW_BLOCK,
-                    Blocks.PURPUR_STAIRS,
-                    Blocks.PRISMARINE_STAIRS,
-                    Blocks.PURPUR_SLAB,
-                    Blocks.PRISMARINE_BRICK_SLAB,
-                    Blocks.STAINED_GLASS.pick(DyeColor.MAGENTA),
-                    Blocks.STAINED_GLASS.pick(DyeColor.CYAN),
-                    Blocks.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA),
-                    Blocks.STAINED_GLASS_PANE.pick(DyeColor.CYAN));
-    private static final Map<BlockState, BlockState> OCEAN_BASTION =
-            palette(
-                    Blocks.BLACKSTONE, Blocks.PRISMARINE,
-                    Blocks.POLISHED_BLACKSTONE, Blocks.DARK_PRISMARINE,
-                    Blocks.POLISHED_BLACKSTONE_BRICKS, Blocks.PRISMARINE_BRICKS,
-                    Blocks.CRACKED_POLISHED_BLACKSTONE_BRICKS, Blocks.PRISMARINE,
-                    Blocks.CHISELED_POLISHED_BLACKSTONE, Blocks.DARK_PRISMARINE,
-                    Blocks.GILDED_BLACKSTONE, Blocks.SEA_LANTERN,
-                    Blocks.GOLD_BLOCK, Blocks.SEA_LANTERN,
-                    Blocks.BLACKSTONE_STAIRS, Blocks.PRISMARINE_STAIRS,
-                    Blocks.POLISHED_BLACKSTONE_STAIRS, Blocks.DARK_PRISMARINE_STAIRS,
-                    Blocks.POLISHED_BLACKSTONE_BRICK_STAIRS, Blocks.PRISMARINE_BRICK_STAIRS,
-                    Blocks.BLACKSTONE_SLAB, Blocks.PRISMARINE_SLAB,
-                    Blocks.POLISHED_BLACKSTONE_SLAB, Blocks.DARK_PRISMARINE_SLAB,
-                    Blocks.POLISHED_BLACKSTONE_BRICK_SLAB, Blocks.PRISMARINE_BRICK_SLAB,
-                    Blocks.BLACKSTONE_WALL, Blocks.PRISMARINE_WALL,
-                    Blocks.POLISHED_BLACKSTONE_WALL, Blocks.PRISMARINE_WALL,
-                    Blocks.POLISHED_BLACKSTONE_BRICK_WALL, Blocks.PRISMARINE_WALL,
-                    Blocks.BASALT, Blocks.DARK_PRISMARINE,
-                    Blocks.POLISHED_BASALT, Blocks.DARK_PRISMARINE,
-                    Blocks.SMOOTH_BASALT, Blocks.DARK_PRISMARINE,
-                    Blocks.NETHERRACK, Blocks.PRISMARINE,
-                    Blocks.SOUL_SAND, Blocks.SAND,
-                    Blocks.MAGMA_BLOCK, Blocks.SEA_LANTERN,
-                    Blocks.LAVA, Blocks.WATER,
-                    Blocks.CRYING_OBSIDIAN, Blocks.SEA_LANTERN);
-    private static final Map<BlockState, BlockState> END_COMPLEX =
-            palette(
-                    Blocks.BLACKSTONE, Blocks.END_STONE,
-                    Blocks.POLISHED_BLACKSTONE, Blocks.PURPUR_BLOCK,
-                    Blocks.POLISHED_BLACKSTONE_BRICKS, Blocks.END_STONE_BRICKS,
-                    Blocks.CRACKED_POLISHED_BLACKSTONE_BRICKS, Blocks.END_STONE,
-                    Blocks.CHISELED_POLISHED_BLACKSTONE, Blocks.PURPUR_PILLAR,
-                    Blocks.GILDED_BLACKSTONE, Blocks.PURPUR_BLOCK,
-                    Blocks.GOLD_BLOCK, Blocks.PURPUR_PILLAR,
-                    Blocks.BLACKSTONE_STAIRS, Blocks.END_STONE_BRICK_STAIRS,
-                    Blocks.POLISHED_BLACKSTONE_STAIRS, Blocks.PURPUR_STAIRS,
-                    Blocks.POLISHED_BLACKSTONE_BRICK_STAIRS, Blocks.END_STONE_BRICK_STAIRS,
-                    Blocks.BLACKSTONE_SLAB, Blocks.END_STONE_BRICK_SLAB,
-                    Blocks.POLISHED_BLACKSTONE_SLAB, Blocks.PURPUR_SLAB,
-                    Blocks.POLISHED_BLACKSTONE_BRICK_SLAB, Blocks.END_STONE_BRICK_SLAB,
-                    Blocks.BLACKSTONE_WALL, Blocks.END_STONE_BRICK_WALL,
-                    Blocks.POLISHED_BLACKSTONE_WALL, Blocks.END_STONE_BRICK_WALL,
-                    Blocks.POLISHED_BLACKSTONE_BRICK_WALL, Blocks.END_STONE_BRICK_WALL,
-                    Blocks.BASALT, Blocks.PURPUR_PILLAR,
-                    Blocks.POLISHED_BASALT, Blocks.PURPUR_PILLAR,
-                    Blocks.SMOOTH_BASALT, Blocks.PURPUR_BLOCK,
-                    Blocks.NETHERRACK, Blocks.END_STONE,
-                    Blocks.NETHER_BRICKS, Blocks.END_STONE_BRICKS,
-                    Blocks.NETHER_BRICK_STAIRS, Blocks.END_STONE_BRICK_STAIRS,
-                    Blocks.NETHER_BRICK_SLAB, Blocks.END_STONE_BRICK_SLAB,
-                    Blocks.NETHER_BRICK_FENCE, Blocks.END_STONE_BRICK_WALL,
-                    Blocks.SOUL_SAND, Blocks.END_STONE,
-                    Blocks.NETHER_WART, Blocks.AIR,
-                    Blocks.MAGMA_BLOCK, Blocks.PURPUR_BLOCK,
-                    Blocks.LAVA, Blocks.PURPUR_BLOCK,
-                    Blocks.CRYING_OBSIDIAN, Blocks.PURPUR_PILLAR);
-    private static final Map<BlockState, BlockState> END_VILLAGE =
-            palette(
-                    Blocks.COBBLESTONE,
-                    Blocks.END_STONE_BRICKS,
-                    Blocks.MOSSY_COBBLESTONE,
-                    Blocks.END_STONE,
-                    Blocks.COBBLESTONE_STAIRS,
-                    Blocks.END_STONE_BRICK_STAIRS,
-                    Blocks.MOSSY_COBBLESTONE_STAIRS,
-                    Blocks.END_STONE_BRICK_STAIRS,
-                    Blocks.COBBLESTONE_SLAB,
-                    Blocks.END_STONE_BRICK_SLAB,
-                    Blocks.MOSSY_COBBLESTONE_SLAB,
-                    Blocks.END_STONE_BRICK_SLAB,
-                    Blocks.COBBLESTONE_WALL,
-                    Blocks.END_STONE_BRICK_WALL,
-                    Blocks.MOSSY_COBBLESTONE_WALL,
-                    Blocks.END_STONE_BRICK_WALL,
-                    Blocks.OAK_LOG,
-                    Blocks.PURPUR_PILLAR,
-                    Blocks.STRIPPED_OAK_LOG,
-                    Blocks.PURPUR_PILLAR,
-                    Blocks.OAK_WOOD,
-                    Blocks.PURPUR_PILLAR,
-                    Blocks.OAK_PLANKS,
-                    Blocks.PURPUR_BLOCK,
-                    Blocks.OAK_STAIRS,
-                    Blocks.PURPUR_STAIRS,
-                    Blocks.OAK_SLAB,
-                    Blocks.PURPUR_SLAB,
-                    Blocks.OAK_FENCE,
-                    Blocks.END_STONE_BRICK_WALL,
-                    Blocks.OAK_LEAVES,
-                    Blocks.PURPUR_BLOCK,
-                    Blocks.GRASS_BLOCK,
-                    Blocks.END_STONE,
-                    Blocks.DIRT,
-                    Blocks.END_STONE,
-                    Blocks.DIRT_PATH,
-                    Blocks.END_STONE_BRICKS,
-                    Blocks.HAY_BLOCK,
-                    Blocks.PURPUR_PILLAR,
-                    Blocks.DYED_TERRACOTTA.pick(DyeColor.WHITE),
-                    Blocks.END_STONE_BRICKS,
-                    Blocks.TERRACOTTA,
-                    Blocks.PURPUR_BLOCK,
-                    Blocks.GLASS_PANE,
-                    Blocks.STAINED_GLASS_PANE.pick(DyeColor.MAGENTA),
-                    Blocks.TORCH,
-                    Blocks.END_ROD,
-                    Blocks.WALL_TORCH,
-                    Blocks.END_ROD,
-                    Blocks.DANDELION,
-                    Blocks.CHORUS_FLOWER,
-                    Blocks.POPPY,
-                    Blocks.CHORUS_FLOWER,
-                    Blocks.SHORT_GRASS,
-                    Blocks.AIR,
-                    Blocks.TALL_GRASS,
-                    Blocks.AIR);
-    private static final Map<BlockState, BlockState> NETHER_VILLAGE =
-            palette(
-                    Blocks.COBBLESTONE,
-                    Blocks.NETHER_BRICKS,
-                    Blocks.MOSSY_COBBLESTONE,
-                    Blocks.BLACKSTONE,
-                    Blocks.COBBLESTONE_STAIRS,
-                    Blocks.NETHER_BRICK_STAIRS,
-                    Blocks.MOSSY_COBBLESTONE_STAIRS,
-                    Blocks.BLACKSTONE_STAIRS,
-                    Blocks.COBBLESTONE_SLAB,
-                    Blocks.NETHER_BRICK_SLAB,
-                    Blocks.MOSSY_COBBLESTONE_SLAB,
-                    Blocks.BLACKSTONE_SLAB,
-                    Blocks.COBBLESTONE_WALL,
-                    Blocks.NETHER_BRICK_WALL,
-                    Blocks.MOSSY_COBBLESTONE_WALL,
-                    Blocks.BLACKSTONE_WALL,
-                    Blocks.OAK_LOG,
-                    Blocks.BASALT,
-                    Blocks.STRIPPED_OAK_LOG,
-                    Blocks.POLISHED_BASALT,
-                    Blocks.OAK_WOOD,
-                    Blocks.BASALT,
-                    Blocks.OAK_PLANKS,
-                    Blocks.RED_NETHER_BRICKS,
-                    Blocks.OAK_STAIRS,
-                    Blocks.RED_NETHER_BRICK_STAIRS,
-                    Blocks.OAK_SLAB,
-                    Blocks.RED_NETHER_BRICK_SLAB,
-                    Blocks.OAK_FENCE,
-                    Blocks.NETHER_BRICK_FENCE,
-                    Blocks.OAK_FENCE_GATE,
-                    Blocks.CRIMSON_FENCE_GATE,
-                    Blocks.OAK_DOOR,
-                    Blocks.CRIMSON_DOOR,
-                    Blocks.OAK_TRAPDOOR,
-                    Blocks.CRIMSON_TRAPDOOR,
-                    Blocks.OAK_PRESSURE_PLATE,
-                    Blocks.CRIMSON_PRESSURE_PLATE,
-                    Blocks.OAK_BUTTON,
-                    Blocks.CRIMSON_BUTTON,
-                    Blocks.OAK_LEAVES,
-                    Blocks.NETHER_WART_BLOCK,
-                    Blocks.GRASS_BLOCK,
-                    Blocks.NETHERRACK,
-                    Blocks.DIRT,
-                    Blocks.NETHERRACK,
-                    Blocks.DIRT_PATH,
-                    Blocks.GRAVEL,
-                    Blocks.HAY_BLOCK,
-                    Blocks.SOUL_SAND,
-                    Blocks.DYED_TERRACOTTA.pick(DyeColor.WHITE),
-                    Blocks.NETHER_BRICKS,
-                    Blocks.TERRACOTTA,
-                    Blocks.RED_NETHER_BRICKS,
-                    Blocks.GLASS_PANE,
-                    Blocks.STAINED_GLASS_PANE.pick(DyeColor.ORANGE),
-                    Blocks.TORCH,
-                    Blocks.SOUL_TORCH,
-                    Blocks.WALL_TORCH,
-                    Blocks.SOUL_WALL_TORCH,
-                    Blocks.DANDELION,
-                    Blocks.CRIMSON_FUNGUS,
-                    Blocks.POPPY,
-                    Blocks.CRIMSON_FUNGUS,
-                    Blocks.SHORT_GRASS,
-                    Blocks.CRIMSON_ROOTS,
-                    Blocks.TALL_GRASS,
-                    Blocks.AIR);
+    private static final String DATA =
+            "/data/" + DimensionStructureVariants.MOD_ID + "/palette/palettes.json";
+
+    private static final ThreadLocal<Palette> ACTIVE = new ThreadLocal<>();
+    private static final Map<String, Palette> COMPILED = new ConcurrentHashMap<>();
+    private static volatile Data data;
 
     private StructurePalettes() {}
 
-    /** The caller must restore the returned context in a finally block. */
-    public static Map<BlockState, BlockState> enter(WorldGenLevel level, Structure structure) {
-        Map<BlockState, BlockState> previous = ACTIVE.get();
+    /**
+     * The palette of a structure start at {@code pos}, or null when the structure keeps its vanilla
+     * blocks. The position picks the biome; the start's own centre is the natural choice.
+     */
+    public static @Nullable Palette palette(
+            WorldGenLevel level, Structure structure, BlockPos pos) {
         Identifier id =
                 level.registryAccess().lookupOrThrow(Registries.STRUCTURE).getKey(structure);
-        Map<BlockState, BlockState> palette = null;
-        if (id != null && id.getNamespace().equals(DimensionStructureVariants.MOD_ID)) {
-            palette =
-                    switch (id.getPath()) {
-                        case "end_city_overworld" -> FROZEN_CITY;
-                        case "bastion_overworld" -> OCEAN_BASTION;
-                        case "bastion_end", "fortress_end" -> END_COMPLEX;
-                        case "village_end" -> END_VILLAGE;
-                        case "village_nether" -> NETHER_VILLAGE;
-                        default -> null;
-                    };
-        }
+        if (id == null) return null;
+        return palette(id, level.getNoiseBiome(pos.getX() >> 2, pos.getY() >> 2, pos.getZ() >> 2));
+    }
+
+    /** The palette of variant {@code id} in {@code biome}, or null when it has none there. */
+    public static @Nullable Palette palette(Identifier id, Holder<Biome> biome) {
+        if (!id.getNamespace().equals(DimensionStructureVariants.MOD_ID)) return null;
+        Rules rules = data().structures.get(id.getPath());
+        if (rules == null) return null;
+        String palette = rules.paletteFor(biome);
+        if (palette == null) return null;
+        return COMPILED.computeIfAbsent(
+                id.getPath() + "|" + palette, key -> compile(rules.roles(), palette));
+    }
+
+    /** Makes {@code palette} the active one and returns the palette the caller must restore. */
+    public static @Nullable Palette push(@Nullable Palette palette) {
+        Palette previous = ACTIVE.get();
         restore(palette);
         return previous;
     }
 
-    public static void restore(Map<BlockState, BlockState> palette) {
+    public static void restore(@Nullable Palette palette) {
         if (palette == null) {
             ACTIVE.remove();
         } else {
@@ -252,29 +95,408 @@ public final class StructurePalettes {
         }
     }
 
-    public static BlockState remap(BlockState state) {
-        Map<BlockState, BlockState> palette = ACTIVE.get();
-        return palette == null ? state : palette.getOrDefault(state, state);
+    /** The block the active palette puts at {@code pos} in place of {@code state}. */
+    public static BlockState remap(BlockState state, BlockPos pos) {
+        Palette palette = ACTIVE.get();
+        return palette == null ? state : palette.remap(state, pos);
     }
 
-    private static Map<BlockState, BlockState> palette(Block... pairs) {
-        Map<BlockState, BlockState> states = new IdentityHashMap<>();
-        for (int i = 0; i < pairs.length; i += 2) {
-            Block target = pairs[i + 1];
-            for (BlockState source : pairs[i].getStateDefinition().getPossibleStates()) {
-                BlockState replacement = target.withPropertiesOf(source);
-                for (Property<?> property : source.getProperties()) {
-                    Property<?> targetProperty =
-                            target.getStateDefinition().getProperty(property.getName());
-                    if (targetProperty != null && !replacement.hasProperty(property)) {
-                        replacement =
-                                copyCompatibleValue(source, replacement, property, targetProperty);
-                    }
+    /** A compiled palette: what it puts in place of each vanilla state, and its ground. */
+    public static final class Palette {
+        private final Map<BlockState, Choice> states;
+        private final @Nullable Choice ground;
+        private final @Nullable ResourceKey<Feature> groundFeature;
+        private final float groundFeatureChance;
+
+        private Palette(
+                Map<BlockState, Choice> states,
+                @Nullable Choice ground,
+                @Nullable ResourceKey<Feature> groundFeature,
+                float groundFeatureChance) {
+            this.states = states;
+            this.ground = ground;
+            this.groundFeature = groundFeature;
+            this.groundFeatureChance = groundFeatureChance;
+        }
+
+        public BlockState remap(BlockState state, BlockPos pos) {
+            Choice choice = states.get(state);
+            return choice == null ? state : choice.at(pos.getX(), pos.getY(), pos.getZ());
+        }
+
+        /** The choice this palette makes for {@code state}, or null when it keeps it. */
+        public @Nullable Choice choiceFor(BlockState state) {
+            return states.get(state);
+        }
+
+        /** Every block state the palette can place in place of a vanilla one. */
+        public Set<BlockState> targets() {
+            Set<BlockState> targets = new LinkedHashSet<>();
+            for (Choice choice : states.values()) targets.addAll(choice.states());
+            return targets;
+        }
+
+        /** The ground the structure lays around its pieces, or null where it lays none. */
+        public @Nullable Choice ground() {
+            return ground;
+        }
+
+        /** The feature that now and then grows on that ground, or null. */
+        public @Nullable ResourceKey<Feature> groundFeature() {
+            return groundFeature;
+        }
+
+        /** The chance that a column of ground clear of the pieces grows the feature. */
+        public float groundFeatureChance() {
+            return groundFeatureChance;
+        }
+    }
+
+    /** One block, or several picked by weight from the position alone. */
+    public static final class Choice {
+        private final BlockState[] states;
+        private final WeightedPick pick;
+
+        private Choice(BlockState[] states, int[] weights) {
+            this.states = states;
+            this.pick = new WeightedPick(weights);
+        }
+
+        public BlockState at(int x, int y, int z) {
+            if (states.length == 1) return states[0];
+            return pick(BlockPos.asLong(x, y, z));
+        }
+
+        /** The state a roll of {@code seed} lands on, each state as often as its weight says. */
+        public BlockState pick(long seed) {
+            return states[pick.index(seed)];
+        }
+
+        public List<BlockState> states() {
+            return List.of(states);
+        }
+
+        /** The state with the largest weight. */
+        public BlockState main() {
+            int best = 0;
+            for (int i = 1; i < states.length; i++) {
+                if (weight(i) > weight(best)) best = i;
+            }
+            return states[best];
+        }
+
+        private int weight(int index) {
+            return pick.weight(index);
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // The table
+    // ------------------------------------------------------------------------------------------
+
+    private static final class Matcher {
+        private final ResourceKey<Biome> biome;
+        private final TagKey<Biome> tag;
+
+        private Matcher(ResourceKey<Biome> biome, TagKey<Biome> tag) {
+            this.biome = biome;
+            this.tag = tag;
+        }
+
+        boolean matches(Holder<Biome> candidate) {
+            return biome != null ? candidate.is(biome) : candidate.is(tag);
+        }
+    }
+
+    private record Rule(List<Matcher> match, String palette) {}
+
+    private record Rules(String roles, List<Rule> biomes) {
+        String paletteFor(Holder<Biome> biome) {
+            for (Rule rule : biomes) {
+                for (Matcher matcher : rule.match()) {
+                    if (matcher.matches(biome)) return rule.palette();
                 }
-                states.put(source, replacement);
+            }
+            return null;
+        }
+    }
+
+    /**
+     * One palette as written: role to weighted blocks, where null keeps the source block as it is,
+     * and the ground it lays with the feature that grows on it.
+     */
+    private record RawPalette(
+            Map<String, Map<String, Integer>> blocks,
+            Map<String, Integer> ground,
+            String groundFeature,
+            float groundFeatureChance) {}
+
+    private record Data(
+            Map<String, Map<String, String>> roleSets,
+            Map<String, RawPalette> palettes,
+            Map<String, Rules> structures) {}
+
+    private static Data data() {
+        Data loaded = data;
+        if (loaded != null) return loaded;
+        synchronized (StructurePalettes.class) {
+            if (data == null) data = read();
+            return data;
+        }
+    }
+
+    private static Data read() {
+        JsonObject root;
+        try (InputStream stream = StructurePalettes.class.getResourceAsStream(DATA)) {
+            if (stream == null) throw new IllegalStateException("Missing palette table " + DATA);
+            try (Reader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
+                root = JsonParser.parseReader(reader).getAsJsonObject();
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unreadable palette table " + DATA, exception);
+        }
+
+        Map<String, Map<String, String>> roleSets = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> set : root.getAsJsonObject("role_sets").entrySet()) {
+            Map<String, String> roles = new LinkedHashMap<>();
+            for (Map.Entry<String, JsonElement> entry :
+                    set.getValue().getAsJsonObject().entrySet()) {
+                block(entry.getKey());
+                roles.put(entry.getKey(), entry.getValue().getAsString());
+            }
+            roleSets.put(set.getKey(), roles);
+        }
+
+        Map<String, JsonObject> raw = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : root.getAsJsonObject("palettes").entrySet()) {
+            raw.put(entry.getKey(), entry.getValue().getAsJsonObject());
+        }
+        Map<String, RawPalette> palettes = new LinkedHashMap<>();
+        for (String name : raw.keySet()) {
+            palettes.put(name, resolvePalette(name, raw, new ArrayList<>()));
+        }
+
+        Map<String, Rules> structures = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : root.getAsJsonObject("structures").entrySet()) {
+            JsonObject object = entry.getValue().getAsJsonObject();
+            String roles = object.get("roles").getAsString();
+            if (!roleSets.containsKey(roles)) {
+                throw new IllegalStateException(
+                        entry.getKey() + " names the unknown role set " + roles);
+            }
+            List<Rule> biomes = new ArrayList<>();
+            for (JsonElement element : object.getAsJsonArray("biomes")) {
+                JsonObject rule = element.getAsJsonObject();
+                List<Matcher> match = new ArrayList<>();
+                for (JsonElement biome : rule.getAsJsonArray("match")) {
+                    match.add(matcher(biome.getAsString()));
+                }
+                String palette = rule.get("palette").getAsString();
+                RawPalette resolved = palettes.get(palette);
+                if (resolved == null) {
+                    throw new IllegalStateException(
+                            entry.getKey() + " names the unknown palette " + palette);
+                }
+                checkCoverage(entry.getKey(), roleSets.get(roles), palette, resolved);
+                biomes.add(new Rule(List.copyOf(match), palette));
+            }
+            structures.put(entry.getKey(), new Rules(roles, List.copyOf(biomes)));
+        }
+        return new Data(roleSets, palettes, structures);
+    }
+
+    private static RawPalette resolvePalette(
+            String name, Map<String, JsonObject> raw, List<String> path) {
+        JsonObject object = raw.get(name);
+        if (object == null) throw new IllegalStateException("Unknown palette " + name);
+        if (path.contains(name)) {
+            throw new IllegalStateException("Palette " + name + " extends itself through " + path);
+        }
+        path.add(name);
+        Map<String, Map<String, Integer>> blocks = new LinkedHashMap<>();
+        Map<String, Integer> ground = null;
+        String feature = null;
+        float chance = 0.0F;
+        if (object.has("extends")) {
+            RawPalette parent = resolvePalette(object.get("extends").getAsString(), raw, path);
+            blocks.putAll(parent.blocks());
+            ground = parent.ground();
+            feature = parent.groundFeature();
+            chance = parent.groundFeatureChance();
+        }
+        if (object.has("blocks")) {
+            for (Map.Entry<String, JsonElement> entry :
+                    object.getAsJsonObject("blocks").entrySet()) {
+                blocks.put(entry.getKey(), weights(name, entry.getValue()));
             }
         }
-        return states;
+        if (object.has("ground")) ground = weights(name, object.get("ground"));
+        if (object.has("ground_feature")) {
+            JsonObject spec = object.getAsJsonObject("ground_feature");
+            feature = spec.get("feature").getAsString();
+            Identifier.parse(feature);
+            chance = spec.get("chance").getAsFloat();
+            if (chance <= 0.0F || chance > 1.0F) {
+                throw new IllegalStateException(
+                        "Palette " + name + " gives its ground feature the chance " + chance);
+            }
+        }
+        path.remove(path.size() - 1);
+        return new RawPalette(Collections.unmodifiableMap(blocks), ground, feature, chance);
+    }
+
+    /**
+     * A target as written: one block id, an object of block ids to weights, or null for "keep the
+     * vanilla block" (returned as null).
+     */
+    private static Map<String, Integer> weights(String palette, JsonElement target) {
+        if (target.isJsonNull()) return null;
+        Map<String, Integer> weights = new LinkedHashMap<>();
+        if (target.isJsonPrimitive()) {
+            weights.put(target.getAsString(), 1);
+        } else {
+            for (Map.Entry<String, JsonElement> entry : target.getAsJsonObject().entrySet()) {
+                int weight = entry.getValue().getAsInt();
+                if (weight <= 0) {
+                    throw new IllegalStateException(
+                            "Palette "
+                                    + palette
+                                    + " gives "
+                                    + entry.getKey()
+                                    + " the weight "
+                                    + weight);
+                }
+                weights.put(entry.getKey(), weight);
+            }
+            if (weights.isEmpty()) {
+                throw new IllegalStateException("Palette " + palette + " names an empty choice");
+            }
+        }
+        for (String block : weights.keySet()) block(block);
+        return Collections.unmodifiableMap(weights);
+    }
+
+    private static Matcher matcher(String value) {
+        if (value.startsWith("#")) {
+            return new Matcher(
+                    null, TagKey.create(Registries.BIOME, Identifier.parse(value.substring(1))));
+        }
+        return new Matcher(ResourceKey.create(Registries.BIOME, Identifier.parse(value)), null);
+    }
+
+    /**
+     * Every role a structure's role set names must be answered by each palette the structure uses,
+     * with a block or an explicit null for "keep the vanilla block", so a role name no palette
+     * knows fails here instead of quietly leaving blocks vanilla.
+     */
+    private static void checkCoverage(
+            String structure, Map<String, String> roles, String palette, RawPalette resolved) {
+        List<String> used = new ArrayList<>(roles.values());
+        for (String role : used) {
+            if (!resolved.blocks().containsKey(role)) {
+                throw new IllegalStateException(
+                        "Palette "
+                                + palette
+                                + " for "
+                                + structure
+                                + " has no block for role "
+                                + role);
+            }
+        }
+        for (String role : resolved.blocks().keySet()) {
+            if (!used.contains(role)) {
+                throw new IllegalStateException(
+                        "Palette "
+                                + palette
+                                + " sets role "
+                                + role
+                                + ", which "
+                                + structure
+                                + " never uses");
+            }
+        }
+    }
+
+    private static Palette compile(String rolesName, String paletteName) {
+        Data loaded = data();
+        Map<String, String> roles = loaded.roleSets.get(rolesName);
+        RawPalette palette = loaded.palettes.get(paletteName);
+        Map<BlockState, Choice> states = new IdentityHashMap<>();
+        boolean lava = false;
+        for (Map.Entry<String, String> entry : roles.entrySet()) {
+            Map<String, Integer> target = palette.blocks().get(entry.getValue());
+            if (target == null) continue;
+            for (String block : target.keySet()) lava |= block(block) == Blocks.LAVA;
+            addMappings(states, block(entry.getKey()), target);
+        }
+        if (lava) {
+            // Lava cannot fill a block, so nothing beside it may hold water.
+            states.replaceAll((source, choice) -> withoutWater(choice));
+        }
+        Choice ground = null;
+        if (palette.ground() != null) {
+            List<BlockState> blocks = new ArrayList<>();
+            for (String block : palette.ground().keySet()) {
+                blocks.add(block(block).defaultBlockState());
+            }
+            ground = choice(blocks, palette.ground());
+        }
+        ResourceKey<Feature> feature =
+                palette.groundFeature() == null
+                        ? null
+                        : ResourceKey.create(
+                                Registries.FEATURE, Identifier.parse(palette.groundFeature()));
+        return new Palette(
+                Collections.unmodifiableMap(states),
+                ground,
+                feature,
+                palette.groundFeatureChance());
+    }
+
+    private static Choice withoutWater(Choice choice) {
+        BlockState[] states = choice.states.clone();
+        for (int i = 0; i < states.length; i++) {
+            if (states[i].hasProperty(BlockStateProperties.WATERLOGGED)) {
+                states[i] = states[i].setValue(BlockStateProperties.WATERLOGGED, false);
+            }
+        }
+        int[] weights = new int[states.length];
+        for (int i = 0; i < weights.length; i++) weights[i] = choice.weight(i);
+        return new Choice(states, weights);
+    }
+
+    private static Choice choice(List<BlockState> states, Map<String, Integer> weights) {
+        int[] values = new int[states.size()];
+        int i = 0;
+        for (int weight : weights.values()) values[i++] = weight;
+        return new Choice(states.toArray(BlockState[]::new), values);
+    }
+
+    private static Block block(String id) {
+        Block block = BuiltInRegistries.BLOCK.getValue(Identifier.parse(id));
+        if (block == null) throw new IllegalStateException("Unknown block " + id + " in " + DATA);
+        return block;
+    }
+
+    private static void addMappings(
+            Map<BlockState, Choice> states, Block source, Map<String, Integer> targets) {
+        for (BlockState state : source.getStateDefinition().getPossibleStates()) {
+            List<BlockState> replacements = new ArrayList<>(targets.size());
+            for (String id : targets.keySet()) replacements.add(convert(state, block(id)));
+            states.put(state, choice(replacements, targets));
+        }
+    }
+
+    private static BlockState convert(BlockState state, Block target) {
+        BlockState replacement = target.withPropertiesOf(state);
+        for (Property<?> property : state.getProperties()) {
+            Property<?> targetProperty =
+                    target.getStateDefinition().getProperty(property.getName());
+            if (targetProperty != null && !replacement.hasProperty(property)) {
+                replacement = copyCompatibleValue(state, replacement, property, targetProperty);
+            }
+        }
+        return replacement;
     }
 
     /** Retains facing values and converts fence connections into low wall sides. */

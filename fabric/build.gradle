@@ -1,0 +1,40 @@
+plugins {
+	id 'info.solidsoft.pitest' version '1.19.0'
+}
+
+// A client GameTest runs the client, its dedicated server and the test in one JVM, so a G1 pause stops
+// all three: in a recorded take (dsv13-diag1) the two longest stretches without a frame, 121 and 171 ms,
+// each held a G1 pause, of 42 and 82 ms. ZGC does its work beside the threads, with pauses under a
+// millisecond (https://docs.oracle.com/en/java/javase/25/gctuning/z-garbage-collector.html).
+tasks.matching { it.name == 'runProductionClientGameTest' }.configureEach {
+	jvmArgs.add('-XX:+UseZGC')
+}
+
+dependencies {
+	// jqwik 1.10.2 runs on JUnit Platform 1.14; the BOM keeps the rest of JUnit on the same release.
+	testImplementation platform('org.junit:junit-bom:5.14.4')
+	testImplementation 'net.jqwik:jqwik:1.10.2'
+	testImplementation 'org.junit.jupiter:junit-jupiter-api'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+configurations.named('testRuntimeClasspath') {
+	// With fabric-loader-junit on the test classpath, Gradle discovered none of the jqwik properties
+	// (dsv-r1-unit, 14 Nov). The unit tests use no Minecraft or Fabric class.
+	exclude group: 'net.fabricmc', module: 'fabric-loader-junit'
+}
+
+pitest {
+	pitestVersion = '1.30.2'
+	junit5PluginVersion = '1.2.3'
+	targetClasses = ['io.github.brainage04.dimensionstructurevariants.WeightedPick']
+	targetTests = ['io.github.brainage04.dimensionstructurevariants.WeightedPickTest']
+	additionalMutableCodePaths = project(':common').sourceSets.main.output.classesDirs.files
+	threads = 1
+	timeoutConstInMillis = 5000
+	outputFormats = ['HTML', 'XML']
+	timestampedReports = false
+}
+tasks.named('pitest') {
+	dependsOn ':common:classes'
+}

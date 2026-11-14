@@ -15,8 +15,10 @@ public final class BiomeRestrictionGameTests {
     public static void oceanAndIslandVariantsStayInTheirBiomes(GameTestHelper helper) {
         var biomes = helper.getLevel().registryAccess().lookupOrThrow(Registries.BIOME);
         var structures = helper.getLevel().registryAccess().lookupOrThrow(Registries.STRUCTURE);
-        Set<ResourceKey<Biome>> coldOceans =
+        Set<ResourceKey<Biome>> endCityOceans =
                 Set.of(
+                        Biomes.OCEAN,
+                        Biomes.DEEP_OCEAN,
                         Biomes.FROZEN_OCEAN,
                         Biomes.DEEP_FROZEN_OCEAN,
                         Biomes.COLD_OCEAN,
@@ -29,7 +31,7 @@ public final class BiomeRestrictionGameTests {
                 boolean expected =
                         switch (id) {
                             case "bastion_overworld" -> biome.is(BiomeTags.IS_OCEAN);
-                            case "end_city_overworld" -> coldOceans.contains(biome.key());
+                            case "end_city_overworld" -> endCityOceans.contains(biome.key());
                             default -> islands.contains(biome.key());
                         };
                 helper.assertTrue(
