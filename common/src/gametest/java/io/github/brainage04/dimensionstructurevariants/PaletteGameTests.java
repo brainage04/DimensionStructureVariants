@@ -189,6 +189,26 @@ public final class PaletteGameTests {
                 Blocks.WHEAT.defaultBlockState().setValue(BlockStateProperties.AGE_7, 7));
         assertRemap(
                 helper,
+                "village_end",
+                Biomes.END_HIGHLANDS,
+                Blocks.COMPOSTER
+                        .defaultBlockState()
+                        .setValue(BlockStateProperties.LEVEL_COMPOSTER, 3),
+                Blocks.COMPOSTER
+                        .defaultBlockState()
+                        .setValue(BlockStateProperties.LEVEL_COMPOSTER, 3));
+        assertRemap(
+                helper,
+                "village_end",
+                Biomes.END_HIGHLANDS,
+                Blocks.BARREL
+                        .defaultBlockState()
+                        .setValue(BlockStateProperties.FACING, Direction.UP),
+                Blocks.BARREL
+                        .defaultBlockState()
+                        .setValue(BlockStateProperties.FACING, Direction.UP));
+        assertRemap(
+                helper,
                 "village_nether",
                 Biomes.NETHER_WASTES,
                 Blocks.BARREL.defaultBlockState(),

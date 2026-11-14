@@ -11,6 +11,9 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ChunkGeneratorStructureState;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
@@ -22,7 +25,10 @@ import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.levelgen.structure.placement.RandomSpreadStructurePlacement;
 import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement;
+import net.minecraft.world.level.levelgen.structure.pools.SinglePoolElement;
 import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.material.Fluids;
 
 /** Shared by both loaders: End villages on the islands natural generation gives them. */
@@ -54,13 +60,16 @@ public final class EndVillageGameTests {
      * to the air below or beside it, and once every water block has had its fluid tick, as a
      * neighbour's update gives it in play, no water outside their pieces.
      *
+     * <p>The villages also keep every composter and barrel their pieces' templates place: the
+     * composters are the farmers' workstations, and the palette leaves both blocks as they are.
+     *
      * <p>A GameTest world creates no structure starts of its own ({@code GameTestServer.java:92}
      * turns structures off, which {@code ChunkStatusTasks.java:48} and {@code
      * ChunkGenerator.java:378} check), so the test gives each start to its chunk before the terrain
      * around it generates, as natural generation does, and places the pieces once the chunks are
      * generated.
      */
-    public static void endVillageFarmWaterStaysInItsFarm(GameTestHelper helper) {
+    public static void endVillagesKeepFarmWaterAndWorkstations(GameTestHelper helper) {
         ServerLevel end = helper.getLevel().getServer().getLevel(Level.END);
         helper.assertTrue(end != null, "The End must be loaded");
         Holder<Structure> village =
@@ -84,9 +93,12 @@ public final class EndVillageGameTests {
         List<String> floating = new ArrayList<>();
         int[] columns = new int[1];
         List<String> open = new ArrayList<>();
+        int[] workstations = new int[1];
+        List<String> lost = new ArrayList<>();
         for (StructureStart start : starts) {
             floating.addAll(floatingColumns(end, start, columns));
             open.addAll(openFarmWater(end, start));
+            lost.addAll(lostWorkstations(end, start, workstations));
         }
         System.out.println(
                 "[DSV] End villages: "
@@ -95,7 +107,11 @@ public final class EndVillageGameTests {
                         + columns[0]
                         + " columns under rigid pieces hold air, "
                         + open.size()
-                        + " water blocks open to the air");
+                        + " water blocks open to the air, "
+                        + lost.size()
+                        + " of "
+                        + workstations[0]
+                        + " composters and barrels replaced");
         helper.runAfterDelay(
                 FLOW_TICKS,
                 () -> {
@@ -112,6 +128,13 @@ public final class EndVillageGameTests {
                                     + floating.subList(0, Math.min(8, floating.size())));
                     helper.assertTrue(
                             open.isEmpty(), "Farm water open to the air in End villages: " + open);
+                    helper.assertTrue(
+                            workstations[0] > 0,
+                            "The End villages hold no piece with a composter or a barrel to check");
+                    helper.assertTrue(
+                            lost.isEmpty(),
+                            "End villages must keep their composters and barrels: "
+                                    + lost.subList(0, Math.min(8, lost.size())));
                     helper.assertTrue(
                             flowing.isEmpty(), "Water left End villages' pieces: " + flowing);
                     helper.succeed();
@@ -275,6 +298,35 @@ public final class EndVillageGameTests {
                 }
             }
         }
+    }
+
+    /**
+     * The composters and barrels the village's piece templates place that the placed village no
+     * longer holds; counts every one the templates place in {@code workstations}.
+     */
+    private static List<String> lostWorkstations(
+            ServerLevel level, StructureStart start, int[] workstations) {
+        List<String> lost = new ArrayList<>();
+        for (StructurePiece piece : start.getPieces()) {
+            if (!(piece instanceof PoolElementStructurePiece pool)
+                    || !(pool.getElement() instanceof SinglePoolElement element))
+                continue;
+            StructureTemplate template =
+                    level.getStructureTemplateManager().getOrCreate(element.getTemplateLocation());
+            StructurePlaceSettings settings =
+                    new StructurePlaceSettings().setRotation(pool.getRotation());
+            for (Block block : List.of(Blocks.COMPOSTER, Blocks.BARREL)) {
+                for (StructureTemplate.StructureBlockInfo info :
+                        template.filterBlocks(pool.getPosition(), settings, block)) {
+                    workstations[0]++;
+                    BlockState placed = level.getBlockState(info.pos());
+                    if (!placed.is(block)) {
+                        lost.add(info.pos().toShortString() + " holds " + placed);
+                    }
+                }
+            }
+        }
+        return lost;
     }
 
     /** Water outside every piece, in the village's bounding box and the 16 blocks below it. */

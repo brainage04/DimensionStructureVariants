@@ -20,8 +20,8 @@ public final class DimensionStructureVariantsGameTest {
     }
 
     @GameTest(maxTicks = 400)
-    public void endVillageFarmWaterStaysInItsFarm(GameTestHelper helper) {
-        EndVillageGameTests.endVillageFarmWaterStaysInItsFarm(helper);
+    public void endVillagesKeepFarmWaterAndWorkstations(GameTestHelper helper) {
+        EndVillageGameTests.endVillagesKeepFarmWaterAndWorkstations(helper);
     }
 
     @GameTest

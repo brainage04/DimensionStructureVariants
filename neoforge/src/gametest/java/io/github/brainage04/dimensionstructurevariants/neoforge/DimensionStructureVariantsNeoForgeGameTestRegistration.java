@@ -74,8 +74,8 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 () -> PaletteGameTests::villageGroundIsANaturalPatch);
         event.register(
                 BuiltInRegistries.TEST_FUNCTION.key(),
-                DimensionStructureVariants.of("end_village_farm_water_stays_in_its_farm"),
-                () -> EndVillageGameTests::endVillageFarmWaterStaysInItsFarm);
+                DimensionStructureVariants.of("end_villages_keep_farm_water_and_workstations"),
+                () -> EndVillageGameTests::endVillagesKeepFarmWaterAndWorkstations);
         event.register(
                 BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of(
