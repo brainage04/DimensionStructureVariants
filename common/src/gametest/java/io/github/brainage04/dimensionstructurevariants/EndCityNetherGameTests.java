@@ -1,19 +1,14 @@
 package io.github.brainage04.dimensionstructurevariants;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestHelper;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtUtils;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
@@ -23,6 +18,8 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 
 /**
  * Shared by both loaders: an End city built in the Nether wears the Nether's blocks.
@@ -87,7 +84,6 @@ public final class EndCityNetherGameTests {
                         .lookupOrThrow(Registries.STRUCTURE)
                         .getOrThrow(END_CITY_NETHER);
         var biomes = nether.registryAccess().lookupOrThrow(Registries.BIOME);
-        var blocks = nether.registryAccess().lookupOrThrow(Registries.BLOCK);
         List<ResourceKey<Biome>> netherBiomes =
                 List.of(
                         Biomes.NETHER_WASTES,
@@ -97,11 +93,11 @@ public final class EndCityNetherGameTests {
                         Biomes.BASALT_DELTAS);
         Set<BlockState> templateStates = new LinkedHashSet<>();
         for (String name : TEMPLATES) {
-            templateStates.addAll(templateStates(helper, blocks, name));
+            templateStates.addAll(purpurStates(nether, name));
         }
         helper.assertTrue(
-                templateStates.size() > 10,
-                "The End city templates must hold their blocks, read " + templateStates.size());
+                templateStates.size() > 4,
+                "The End city templates must hold purpur, read " + templateStates);
         List<String> unmapped = new ArrayList<>();
         List<String> purpur = new ArrayList<>();
         for (ResourceKey<Biome> biome : netherBiomes) {
@@ -111,10 +107,7 @@ public final class EndCityNetherGameTests {
                             biomes.getOrThrow(biome));
             helper.assertTrue(palette != null, "end_city_nether has no palette in " + biome);
             for (BlockState state : templateStates) {
-                if (state.isAir() || state.is(Blocks.STRUCTURE_BLOCK)) continue;
-                boolean purpurState = false;
-                for (Block block : PURPUR) purpurState |= state.is(block);
-                if (purpurState && palette.choiceFor(state) == null) {
+                if (palette.choiceFor(state) == null) {
                     unmapped.add(biome.identifier().getPath() + ": " + state);
                 }
             }
@@ -136,23 +129,22 @@ public final class EndCityNetherGameTests {
     }
 
     /**
-     * The block states of one End city template, read from the vanilla jar as the game reads it.
+     * The purpur block states of one End city template, read through the game's template manager,
+     * which loads the vanilla jar's templates on both loaders.
      */
-    private static Set<BlockState> templateStates(
-            GameTestHelper helper, net.minecraft.core.HolderGetter<Block> blocks, String name) {
-        String path = "/data/minecraft/structure/end_city/" + name + ".nbt";
-        CompoundTag root;
-        try (InputStream stream = EndCityNetherGameTests.class.getResourceAsStream(path)) {
-            helper.assertTrue(stream != null, "Missing End city template " + path);
-            root = NbtIo.readCompressed(stream, NbtAccounter.unlimitedHeap());
-        } catch (IOException exception) {
-            throw new AssertionError("Unreadable End city template " + path, exception);
-        }
-        ListTag palette = root.getListOrEmpty("palette");
-        helper.assertTrue(!palette.isEmpty(), "End city template " + name + " has no palette");
+    private static Set<BlockState> purpurStates(ServerLevel level, String name) {
+        StructureTemplate template =
+                level.getStructureTemplateManager()
+                        .get(Identifier.withDefaultNamespace("end_city/" + name))
+                        .orElseThrow(
+                                () -> new AssertionError("Missing End city template " + name));
         Set<BlockState> states = new LinkedHashSet<>();
-        for (int i = 0; i < palette.size(); i++) {
-            states.add(NbtUtils.readBlockState(blocks, palette.getCompoundOrEmpty(i)));
+        for (Block block : PURPUR) {
+            for (StructureTemplate.StructureBlockInfo info :
+                    template.filterBlocks(
+                            BlockPos.ZERO, new StructurePlaceSettings(), block, false)) {
+                states.add(info.state());
+            }
         }
         return states;
     }
