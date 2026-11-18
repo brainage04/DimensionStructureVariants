@@ -135,11 +135,11 @@ public final class EndCityNetherGameTests {
         helper.succeed();
     }
 
-    /** The block states of one End city template, read from the vanilla jar as the game reads it. */
+    /**
+     * The block states of one End city template, read from the vanilla jar as the game reads it.
+     */
     private static Set<BlockState> templateStates(
-            GameTestHelper helper,
-            net.minecraft.core.HolderGetter<Block> blocks,
-            String name) {
+            GameTestHelper helper, net.minecraft.core.HolderGetter<Block> blocks, String name) {
         String path = "/data/minecraft/structure/end_city/" + name + ".nbt";
         CompoundTag root;
         try (InputStream stream = EndCityNetherGameTests.class.getResourceAsStream(path)) {

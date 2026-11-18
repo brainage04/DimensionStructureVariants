@@ -238,7 +238,9 @@ public final class StructurePalettes {
         }
     }
 
-    /** One role's block in the pieces a palette names, so a part of the structure reads as its own. */
+    /**
+     * One role's block in the pieces a palette names, so a part of the structure reads as its own.
+     */
     public record Accent(Set<Identifier> pieces, Map<BlockState, Choice> states) {
         boolean appliesTo(@Nullable Identifier piece) {
             return piece != null && pieces.contains(piece);
@@ -322,8 +324,8 @@ public final class StructurePalettes {
 
     /**
      * One palette as written: role to weighted blocks, where null keeps the source block as it is,
-     * the ground it lays with the feature that grows on it, and the accent it gives one role in
-     * the pieces it names.
+     * the ground it lays with the feature that grows on it, and the accent it gives one role in the
+     * pieces it names.
      */
     private record RawPalette(
             Map<String, Map<String, Integer>> blocks,
@@ -474,11 +476,14 @@ public final class StructurePalettes {
             if (pieces.isEmpty()) {
                 throw new IllegalStateException("Palette " + name + " names no accent piece");
             }
-            accent = new PieceAccent(role, Collections.unmodifiableSet(pieces), weights(name, spec.get("block")));
+            accent =
+                    new PieceAccent(
+                            role,
+                            Collections.unmodifiableSet(pieces),
+                            weights(name, spec.get("block")));
         }
         path.remove(path.size() - 1);
-        return new RawPalette(
-                Collections.unmodifiableMap(blocks), ground, feature, chance, accent);
+        return new RawPalette(Collections.unmodifiableMap(blocks), ground, feature, chance, accent);
     }
 
     /**

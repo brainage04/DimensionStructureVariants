@@ -17,7 +17,6 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.commands.FillBiomeCommand;
-import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
@@ -33,6 +32,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.WallSide;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
@@ -541,7 +541,8 @@ public final class PaletteGameTests {
                             + accentBlock
                             + " against the main "
                             + main);
-            Identifier previous = StructurePalettes.pushPiece(DimensionStructureVariants.of("neccs"));
+            Identifier previous =
+                    StructurePalettes.pushPiece(DimensionStructureVariants.of("neccs"));
             try {
                 helper.assertTrue(
                         palette.remap(brick, BlockPos.ZERO) == main,
