@@ -24,7 +24,7 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemp
 /**
  * Shared by both loaders: an End city built in the Nether wears the Nether's blocks.
  *
- * <p>An End city is nothing but its templates: {@code EndCityPieces} places the twenty below and
+ * <p>An End city is nothing but its templates: {@code EndCityPieces} places the nineteen below and
  * sets no block of its own ({@code EndCityPieces.java:29-442}). A template block the palette does
  * not map is therefore a block that stays vanilla purpur in the Nether, which is what the film
  * showed on the base floor of the Nether End cities.
@@ -51,7 +51,6 @@ public final class EndCityNetherGameTests {
                     "third_roof",
                     "tower_base",
                     "tower_piece",
-                    "tower_floor",
                     "tower_top",
                     "bridge_end",
                     "bridge_piece",

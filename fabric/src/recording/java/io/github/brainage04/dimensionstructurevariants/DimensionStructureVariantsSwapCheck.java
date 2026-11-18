@@ -14,6 +14,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
@@ -92,6 +93,37 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
         // is the bug. The film's Nether sweep and foundation clearing are left out: they only
         // remove blocks, so they cannot hide a block the swap failed to restore.
         BlockState[] before = read(level, box);
+        // The owner's ask: no purpur may remain in a Nether End city. The swap below only compares
+        // the world with itself, so a placement path that skipped the remap would pass it; this
+        // reads the placed city instead.
+        List<String> purpur = new ArrayList<>();
+        BlockPos.MutableBlockPos purpurCursor = new BlockPos.MutableBlockPos();
+        int purpurIndex = 0;
+        for (int y = box.minY(); y <= box.maxY(); y++) {
+            for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                for (int x = box.minX(); x <= box.maxX(); x++) {
+                    // The four purpur blocks vanilla registers (Blocks.java:3625-3643); there is no
+                    // purpur block tag to ask instead.
+                    if (before[purpurIndex].is(Blocks.PURPUR_BLOCK)
+                            || before[purpurIndex].is(Blocks.PURPUR_PILLAR)
+                            || before[purpurIndex].is(Blocks.PURPUR_STAIRS)
+                            || before[purpurIndex].is(Blocks.PURPUR_SLAB)) {
+                        purpur.add(
+                                purpurCursor.set(x, y, z).toShortString()
+                                        + " "
+                                        + before[purpurIndex]);
+                    }
+                    purpurIndex++;
+                }
+            }
+        }
+        if (!purpur.isEmpty()) {
+            throw new AssertionError(
+                    "A Nether End city must hold no purpur, "
+                            + purpur.size()
+                            + " blocks: "
+                            + purpur.subList(0, Math.min(8, purpur.size())));
+        }
         BlockState[] snapshot = read(level, swap);
         for (ChunkPos chunk : chunks) place(level, plain, chunk);
         write(level, swap, snapshot);

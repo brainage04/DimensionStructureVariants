@@ -558,8 +558,9 @@ public final class PaletteGameTests {
     }
 
     /**
-     * The snowy fortress builds of packed ice, ice and snow, and the weaker the block the rarer it
-     * is: snow is the weakest and the rarest, packed ice the strongest and the commonest. Thomas
+     * The snowy fortress builds its walls of packed ice, ice and snow, and the weaker the block the
+     * rarer it is: snow is the weakest and the rarest, packed ice the strongest of the three and
+     * the commonest. Blue ice, the strongest of all, is the accent on the bridge pieces. Thomas
      * asked for the weights on 18 Nov 2026. The counts come from a fortress placed in a snowy
      * plains, not from the palette alone.
      */
