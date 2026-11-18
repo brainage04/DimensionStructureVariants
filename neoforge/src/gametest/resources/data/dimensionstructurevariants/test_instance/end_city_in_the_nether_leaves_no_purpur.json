@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 200,
+  "type": "minecraft:function",
+  "function": "dimensionstructurevariants:end_city_in_the_nether_leaves_no_purpur"
+}

@@ -79,6 +79,21 @@ public final class DimensionStructureVariantsGameTest {
         NaturalGenerationGameTests.theNetherVillageStandsOnItsGeneratorsSurface(helper);
     }
 
+    @GameTest
+    public void accentPiecesWearTheAccentBlock(GameTestHelper helper) {
+        PaletteGameTests.accentPiecesWearTheAccentBlock(helper);
+    }
+
+    @GameTest
+    public void snowyFortressWeightsBlocksByStrength(GameTestHelper helper) {
+        PaletteGameTests.snowyFortressWeightsBlocksByStrength(helper);
+    }
+
+    @GameTest(maxTicks = 200)
+    public void endCityInTheNetherLeavesNoPurpur(GameTestHelper helper) {
+        EndCityNetherGameTests.endCityInTheNetherLeavesNoPurpur(helper);
+    }
+
     @GameTest(maxTicks = 200)
     public void netherVillageFarmsUseSoulSandAndKeepComposters(GameTestHelper helper) {
         NetherVillageGameTests.netherVillageFarmsUseSoulSandAndKeepComposters(helper);

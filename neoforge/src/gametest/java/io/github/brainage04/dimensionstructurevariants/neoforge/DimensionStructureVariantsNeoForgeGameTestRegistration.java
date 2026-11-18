@@ -2,6 +2,7 @@ package io.github.brainage04.dimensionstructurevariants.neoforge;
 
 import io.github.brainage04.dimensionstructurevariants.BiomeRestrictionGameTests;
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariants;
+import io.github.brainage04.dimensionstructurevariants.EndCityNetherGameTests;
 import io.github.brainage04.dimensionstructurevariants.EndVillageGameTests;
 import io.github.brainage04.dimensionstructurevariants.NaturalGenerationGameTests;
 import io.github.brainage04.dimensionstructurevariants.NetherVillageGameTests;
@@ -86,6 +87,18 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 DimensionStructureVariants.of(
                         "the_nether_village_stands_on_its_generators_surface"),
                 () -> NaturalGenerationGameTests::theNetherVillageStandsOnItsGeneratorsSurface);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("accent_pieces_wear_the_accent_block"),
+                () -> PaletteGameTests::accentPiecesWearTheAccentBlock);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("snowy_fortress_weights_blocks_by_strength"),
+                () -> PaletteGameTests::snowyFortressWeightsBlocksByStrength);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("end_city_in_the_nether_leaves_no_purpur"),
+                () -> EndCityNetherGameTests::endCityInTheNetherLeavesNoPurpur);
         event.register(
                 BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of(

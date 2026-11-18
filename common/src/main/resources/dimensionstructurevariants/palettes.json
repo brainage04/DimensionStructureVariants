@@ -253,35 +253,34 @@
       "blocks": {
         "brick": {
           "minecraft:packed_ice": 8,
-          "minecraft:snow_block": 4,
-          "minecraft:blue_ice": 2,
-          "minecraft:ice": 1,
-          "minecraft:powder_snow": 1
+          "minecraft:ice": 3,
+          "minecraft:snow_block": 1
         },
         "brick_stairs": "minecraft:diorite_stairs",
         "brick_slab": "minecraft:diorite_slab",
         "brick_wall": "minecraft:glass_pane",
         "fill": {
-          "minecraft:snow_block": 4,
-          "minecraft:packed_ice": 2,
-          "minecraft:powder_snow": 1
+          "minecraft:packed_ice": 4,
+          "minecraft:snow_block": 1
         },
-        "floor": {
-          "minecraft:snow_block": 2,
-          "minecraft:powder_snow": 1
-        },
+        "floor": "minecraft:snow_block",
         "plant": "minecraft:snow",
         "liquid": "minecraft:water",
         "accent": "minecraft:blue_ice"
+      },
+      "piece_accent": {
+        "role": "brick",
+        "block": "minecraft:blue_ice",
+        "pieces": [
+          "minecraft:nebs",
+          "minecraft:nebc",
+          "minecraft:nebef"
+        ]
       }
     },
     "fortress_mushroom": {
       "blocks": {
-        "brick": {
-          "minecraft:mushroom_stem": 5,
-          "minecraft:brown_mushroom_block": 3,
-          "minecraft:red_mushroom_block": 2
-        },
+        "brick": "minecraft:mushroom_stem",
         "brick_stairs": "minecraft:mud_brick_stairs",
         "brick_slab": "minecraft:mud_brick_slab",
         "brick_wall": "minecraft:iron_bars",
@@ -293,6 +292,15 @@
         },
         "liquid": "minecraft:water",
         "accent": "minecraft:mushroom_stem"
+      },
+      "piece_accent": {
+        "role": "brick",
+        "block": "minecraft:red_mushroom_block",
+        "pieces": [
+          "minecraft:nebs",
+          "minecraft:nebc",
+          "minecraft:nebef"
+        ]
       }
     },
     "fortress_ocean": {

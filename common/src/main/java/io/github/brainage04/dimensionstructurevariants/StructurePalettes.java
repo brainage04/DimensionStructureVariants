@@ -55,6 +55,13 @@ public final class StructurePalettes {
     private static final String DATA = "/" + DimensionStructureVariants.MOD_ID + "/palettes.json";
 
     private static final ThreadLocal<Palette> ACTIVE = new ThreadLocal<>();
+
+    /**
+     * The piece being placed, so a palette can give one role a different block in the pieces it
+     * names. Set around a piece's own placement, and null outside one.
+     */
+    private static final ThreadLocal<Identifier> PIECE = new ThreadLocal<>();
+
     private static final Map<String, Palette> COMPILED = new ConcurrentHashMap<>();
     private static volatile Data data;
 
@@ -130,37 +137,73 @@ public final class StructurePalettes {
         }
     }
 
+    /**
+     * Makes {@code piece} the piece being placed and returns the one the caller must restore, so a
+     * palette can give one role a different block in the pieces it names.
+     */
+    public static @Nullable Identifier pushPiece(@Nullable Identifier piece) {
+        Identifier previous = PIECE.get();
+        if (piece == null) {
+            PIECE.remove();
+        } else {
+            PIECE.set(piece);
+        }
+        return previous;
+    }
+
+    public static void restorePiece(@Nullable Identifier piece) {
+        if (piece == null) {
+            PIECE.remove();
+        } else {
+            PIECE.set(piece);
+        }
+    }
+
     /** The block the active palette puts at {@code pos} in place of {@code state}. */
     public static BlockState remap(BlockState state, BlockPos pos) {
         Palette palette = ACTIVE.get();
         return palette == null ? state : palette.remap(state, pos);
     }
 
-    /** A compiled palette: what it puts in place of each vanilla state, and its ground. */
+    /**
+     * A compiled palette: what it puts in place of each vanilla state, its ground, and the accent
+     * it gives one role in the pieces it names.
+     */
     public static final class Palette {
         private final Map<BlockState, Choice> states;
         private final @Nullable Choice ground;
         private final @Nullable ResourceKey<Feature> groundFeature;
         private final float groundFeatureChance;
+        private final @Nullable Accent accent;
 
         private Palette(
                 Map<BlockState, Choice> states,
                 @Nullable Choice ground,
                 @Nullable ResourceKey<Feature> groundFeature,
-                float groundFeatureChance) {
+                float groundFeatureChance,
+                @Nullable Accent accent) {
             this.states = states;
             this.ground = ground;
             this.groundFeature = groundFeature;
             this.groundFeatureChance = groundFeatureChance;
+            this.accent = accent;
         }
 
         public BlockState remap(BlockState state, BlockPos pos) {
-            Choice choice = states.get(state);
+            Choice choice = choiceFor(state);
             return choice == null ? state : choice.at(pos.getX(), pos.getY(), pos.getZ());
         }
 
-        /** The choice this palette makes for {@code state}, or null when it keeps it. */
+        /**
+         * The choice this palette makes for {@code state} in the piece being placed, or null when
+         * it keeps it. A piece the palette names as an accent piece takes the accent's block for
+         * the accent's role; every other piece takes the palette's own.
+         */
         public @Nullable Choice choiceFor(BlockState state) {
+            if (accent != null && accent.appliesTo(PIECE.get())) {
+                Choice choice = accent.states().get(state);
+                if (choice != null) return choice;
+            }
             return states.get(state);
         }
 
@@ -168,7 +211,15 @@ public final class StructurePalettes {
         public Set<BlockState> targets() {
             Set<BlockState> targets = new LinkedHashSet<>();
             for (Choice choice : states.values()) targets.addAll(choice.states());
+            if (accent != null) {
+                for (Choice choice : accent.states().values()) targets.addAll(choice.states());
+            }
             return targets;
+        }
+
+        /** The accent this palette gives the pieces it names, or null where it gives none. */
+        public @Nullable Accent accent() {
+            return accent;
         }
 
         /** The ground the structure lays around its pieces, or null where it lays none. */
@@ -184,6 +235,13 @@ public final class StructurePalettes {
         /** The chance that a column of ground clear of the pieces grows the feature. */
         public float groundFeatureChance() {
             return groundFeatureChance;
+        }
+    }
+
+    /** One role's block in the pieces a palette names, so a part of the structure reads as its own. */
+    public record Accent(Set<Identifier> pieces, Map<BlockState, Choice> states) {
+        boolean appliesTo(@Nullable Identifier piece) {
+            return piece != null && pieces.contains(piece);
         }
     }
 
@@ -264,13 +322,18 @@ public final class StructurePalettes {
 
     /**
      * One palette as written: role to weighted blocks, where null keeps the source block as it is,
-     * and the ground it lays with the feature that grows on it.
+     * the ground it lays with the feature that grows on it, and the accent it gives one role in
+     * the pieces it names.
      */
     private record RawPalette(
             Map<String, Map<String, Integer>> blocks,
             Map<String, Integer> ground,
             String groundFeature,
-            float groundFeatureChance) {}
+            float groundFeatureChance,
+            @Nullable PieceAccent accent) {}
+
+    /** One role's block in the named pieces, so a part of the structure reads as its own. */
+    private record PieceAccent(String role, Set<Identifier> pieces, Map<String, Integer> block) {}
 
     record Data(
             Map<String, Map<String, String>> roleSets,
@@ -371,12 +434,14 @@ public final class StructurePalettes {
         Map<String, Integer> ground = null;
         String feature = null;
         float chance = 0.0F;
+        PieceAccent accent = null;
         if (object.has("extends")) {
             RawPalette parent = resolvePalette(object.get("extends").getAsString(), raw, path);
             blocks.putAll(parent.blocks());
             ground = parent.ground();
             feature = parent.groundFeature();
             chance = parent.groundFeatureChance();
+            accent = parent.accent();
         }
         if (object.has("blocks")) {
             for (Map.Entry<String, JsonElement> entry :
@@ -395,8 +460,25 @@ public final class StructurePalettes {
                         "Palette " + name + " gives its ground feature the chance " + chance);
             }
         }
+        if (object.has("piece_accent")) {
+            JsonObject spec = object.getAsJsonObject("piece_accent");
+            String role = spec.get("role").getAsString();
+            if (!blocks.containsKey(role)) {
+                throw new IllegalStateException(
+                        "Palette " + name + " gives its accent to the unknown role " + role);
+            }
+            Set<Identifier> pieces = new LinkedHashSet<>();
+            for (JsonElement piece : spec.getAsJsonArray("pieces")) {
+                pieces.add(Identifier.parse(piece.getAsString()));
+            }
+            if (pieces.isEmpty()) {
+                throw new IllegalStateException("Palette " + name + " names no accent piece");
+            }
+            accent = new PieceAccent(role, Collections.unmodifiableSet(pieces), weights(name, spec.get("block")));
+        }
         path.remove(path.size() - 1);
-        return new RawPalette(Collections.unmodifiableMap(blocks), ground, feature, chance);
+        return new RawPalette(
+                Collections.unmodifiableMap(blocks), ground, feature, chance, accent);
     }
 
     /**
@@ -500,11 +582,25 @@ public final class StructurePalettes {
                         ? null
                         : ResourceKey.create(
                                 Registries.FEATURE, Identifier.parse(palette.groundFeature()));
+        Accent accent = null;
+        if (palette.accent() != null) {
+            PieceAccent spec = palette.accent();
+            Map<BlockState, Choice> accentStates = new IdentityHashMap<>();
+            for (Map.Entry<String, String> entry : roles.entrySet()) {
+                if (!entry.getValue().equals(spec.role())) continue;
+                addMappings(accentStates, block(entry.getKey()), spec.block());
+            }
+            if (lava) {
+                accentStates.replaceAll((source, choice) -> withoutWater(choice));
+            }
+            accent = new Accent(spec.pieces(), Collections.unmodifiableMap(accentStates));
+        }
         return new Palette(
                 Collections.unmodifiableMap(states),
                 ground,
                 feature,
-                palette.groundFeatureChance());
+                palette.groundFeatureChance(),
+                accent);
     }
 
     private static Choice withoutWater(Choice choice) {

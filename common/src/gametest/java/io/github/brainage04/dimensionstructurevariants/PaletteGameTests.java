@@ -2,7 +2,9 @@ package io.github.brainage04.dimensionstructurevariants;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.BlockPos;
@@ -14,6 +16,8 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.commands.FillBiomeCommand;
+import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
@@ -29,6 +33,7 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
 import net.minecraft.world.level.block.state.properties.WallSide;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.densityfunction.SamplerContext;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
@@ -433,9 +438,25 @@ public final class PaletteGameTests {
                     Biomes.FROZEN_OCEAN);
 
     /**
-     * Every Overworld fortress palette textures its walls with several blocks, picked from the
-     * position alone, and fills the windows the vanilla fortress fences with a block the eye passes
-     * through.
+     * The Overworld fortress palettes that texture their walls with several blocks, picked from the
+     * position alone. The snowy and mushroom palettes are not among them: they follow the ocean
+     * monument's design, one main block and one accent block in named pieces ({@code
+     * OceanMonumentPieces.java:1417-1419}), which {@link #accentPiecesWearTheAccentBlock} checks.
+     */
+    private static final List<ResourceKey<Biome>> TEXTURED_FORTRESS_BIOMES =
+            List.of(
+                    Biomes.PLAINS,
+                    Biomes.DESERT,
+                    Biomes.BADLANDS,
+                    Biomes.JUNGLE,
+                    Biomes.SWAMP,
+                    Biomes.OCEAN,
+                    Biomes.FROZEN_OCEAN);
+
+    /**
+     * Every textured Overworld fortress palette textures its walls with several blocks, picked from
+     * the position alone, and fills the windows the vanilla fortress fences with a block the eye
+     * passes through.
      */
     public static void fortressWallsAreTexturedAndWindowsSeeThrough(GameTestHelper helper) {
         BlockState brick = Blocks.NETHER_BRICKS.defaultBlockState();
@@ -444,7 +465,7 @@ public final class PaletteGameTests {
                         .defaultBlockState()
                         .setValue(BlockStateProperties.EAST, true)
                         .setValue(BlockStateProperties.WEST, true);
-        for (ResourceKey<Biome> biome : FORTRESS_BIOMES) {
+        for (ResourceKey<Biome> biome : TEXTURED_FORTRESS_BIOMES) {
             StructurePalettes.Palette palette = palette(helper, "fortress_overworld", biome);
             Set<BlockState> walls = new HashSet<>();
             for (BlockPos pos : BlockPos.betweenClosed(0, 64, 0, 15, 67, 15)) {
@@ -463,6 +484,9 @@ public final class PaletteGameTests {
                             + biome.identifier()
                             + " must texture its walls with at least 3 blocks, got "
                             + walls);
+        }
+        for (ResourceKey<Biome> biome : FORTRESS_BIOMES) {
+            StructurePalettes.Palette palette = palette(helper, "fortress_overworld", biome);
             BlockState window = palette.remap(fence, BlockPos.ZERO);
             helper.assertTrue(
                     !(window.getBlock() instanceof WallBlock) && !window.isSolidRender(),
@@ -472,6 +496,233 @@ public final class PaletteGameTests {
                             + window);
         }
         helper.succeed();
+    }
+
+    /**
+     * The snowy and mushroom fortresses follow the ocean monument's design: one main block for the
+     * walls, and one accent block in the pieces the palette names. The monument gives its three
+     * prismarines one role each ({@code OceanMonumentPieces.java:1417-1419}) and spends the accent
+     * on whole pieces, not on a share of every wall ({@code :301-1419}).
+     */
+    public static void accentPiecesWearTheAccentBlock(GameTestHelper helper) {
+        BlockState brick = Blocks.NETHER_BRICKS.defaultBlockState();
+        for (ResourceKey<Biome> biome : List.of(Biomes.SNOWY_PLAINS, Biomes.MUSHROOM_FIELDS)) {
+            StructurePalettes.Palette palette = palette(helper, "fortress_overworld", biome);
+            StructurePalettes.Accent accent = palette.accent();
+            helper.assertTrue(
+                    accent != null,
+                    "fortress_overworld in " + biome.identifier() + " must name an accent");
+            BlockState main = palette.remap(brick, BlockPos.ZERO);
+            BlockState accentBlock = null;
+            for (Identifier piece : accent.pieces()) {
+                Identifier previous = StructurePalettes.pushPiece(piece);
+                try {
+                    BlockState block = palette.remap(brick, BlockPos.ZERO);
+                    if (accentBlock == null) accentBlock = block;
+                    helper.assertTrue(
+                            block == accentBlock,
+                            "fortress_overworld in "
+                                    + biome.identifier()
+                                    + " must give every accent piece the same block, got "
+                                    + block
+                                    + " in "
+                                    + piece
+                                    + " and "
+                                    + accentBlock);
+                } finally {
+                    StructurePalettes.restorePiece(previous);
+                }
+            }
+            helper.assertTrue(
+                    accentBlock != null && accentBlock != main,
+                    "fortress_overworld in "
+                            + biome.identifier()
+                            + " must give its accent pieces a block of their own, got "
+                            + accentBlock
+                            + " against the main "
+                            + main);
+            Identifier previous = StructurePalettes.pushPiece(DimensionStructureVariants.of("neccs"));
+            try {
+                helper.assertTrue(
+                        palette.remap(brick, BlockPos.ZERO) == main,
+                        "fortress_overworld in "
+                                + biome.identifier()
+                                + " must keep the main block in a piece it does not name");
+            } finally {
+                StructurePalettes.restorePiece(previous);
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The snowy fortress builds of packed ice, ice and snow, and the weaker the block the rarer it
+     * is: snow is the weakest and the rarest, packed ice the strongest and the commonest. Thomas
+     * asked for the weights on 18 Nov 2026. The counts come from a fortress placed in a snowy
+     * plains, not from the palette alone.
+     */
+    public static void snowyFortressWeightsBlocksByStrength(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ChunkPos chunk = new ChunkPos(1200, 1200);
+        StructureStart start = fortressStart(helper, level, chunk);
+        BoundingBox box = start.getBoundingBox();
+        List<ChunkPos> chunks = chunks(box);
+        for (ChunkPos each : chunks) {
+            level.setChunkForced(each.x(), each.z(), true);
+            level.getChunk(each.x(), each.z());
+        }
+        fillBiome(helper, level, box, Biomes.SNOWY_PLAINS);
+        for (ChunkPos each : chunks) place(level, start, each);
+        Map<Block, Integer> counts = new LinkedHashMap<>();
+        for (StructurePiece piece : start.getPieces()) {
+            BoundingBox pieceBox = piece.getBoundingBox();
+            for (BlockPos pos :
+                    BlockPos.betweenClosed(
+                            pieceBox.minX(),
+                            pieceBox.minY(),
+                            pieceBox.minZ(),
+                            pieceBox.maxX(),
+                            pieceBox.maxY(),
+                            pieceBox.maxZ())) {
+                BlockState state = level.getBlockState(pos);
+                if (state.is(Blocks.PACKED_ICE)
+                        || state.is(Blocks.ICE)
+                        || state.is(Blocks.SNOW_BLOCK)) {
+                    counts.merge(state.getBlock(), 1, Integer::sum);
+                }
+            }
+        }
+        for (ChunkPos each : chunks) level.setChunkForced(each.x(), each.z(), false);
+        int packed = counts.getOrDefault(Blocks.PACKED_ICE, 0);
+        int ice = counts.getOrDefault(Blocks.ICE, 0);
+        int snow = counts.getOrDefault(Blocks.SNOW_BLOCK, 0);
+        int total = packed + ice + snow;
+        System.out.println(
+                "[DSV] Snowy fortress walls: "
+                        + packed
+                        + " packed ice, "
+                        + ice
+                        + " ice, "
+                        + snow
+                        + " snow of "
+                        + total);
+        helper.assertTrue(total > 100, "The snowy fortress must build walls, got " + counts);
+        helper.assertTrue(
+                packed > ice && ice > snow,
+                "The snowy fortress must use packed ice more than ice and ice more than snow, got "
+                        + counts);
+        helper.assertTrue(
+                snow * 10 < total,
+                "Snow must stay rare in the snowy fortress, got "
+                        + snow
+                        + " of "
+                        + total
+                        + " wall blocks");
+        helper.assertTrue(
+                packed * 2 > total,
+                "Packed ice must dominate the snowy fortress, got "
+                        + packed
+                        + " of "
+                        + total
+                        + " wall blocks");
+        helper.succeed();
+    }
+
+    /** A fortress_overworld start in {@code chunk}, generated as natural generation does. */
+    private static StructureStart fortressStart(
+            GameTestHelper helper, ServerLevel level, ChunkPos chunk) {
+        Holder<Structure> structure =
+                level.registryAccess()
+                        .lookupOrThrow(Registries.STRUCTURE)
+                        .getOrThrow(
+                                ResourceKey.create(
+                                        Registries.STRUCTURE,
+                                        DimensionStructureVariants.of("fortress_overworld")));
+        ChunkGenerator generator = level.getChunkSource().getGenerator();
+        var randomState = level.getChunkSource().randomState();
+        StructureStart start =
+                structure
+                        .value()
+                        .generate(
+                                structure,
+                                level.dimension(),
+                                level.registryAccess(),
+                                generator,
+                                generator.getBiomeSource(),
+                                randomState.createClimateSampler(
+                                        SamplerContext.builder().enableCaches().build()),
+                                randomState,
+                                level.getStructureTemplateManager(),
+                                level.getSeed(),
+                                chunk,
+                                0,
+                                level,
+                                biome -> true);
+        helper.assertTrue(start.isValid(), "fortress_overworld generated no pieces");
+        return start;
+    }
+
+    /**
+     * Fills the biome of {@code box} with {@code biome}, so the palette picks it. The command
+     * refuses a volume above the {@code max_block_modifications} game rule ({@code
+     * FillBiomeCommand.java:127-130}) and rounds each corner down to a quart boundary ({@code
+     * :83-89}), so the box goes in cubes small enough to stay under the limit once rounded.
+     */
+    private static void fillBiome(
+            GameTestHelper helper, ServerLevel level, BoundingBox box, ResourceKey<Biome> biome) {
+        Holder<Biome> holder =
+                level.registryAccess().lookupOrThrow(Registries.BIOME).getOrThrow(biome);
+        int limit = level.getGameRules().get(GameRules.MAX_BLOCK_MODIFICATIONS);
+        int side = 1;
+        while ((side + 3) * (side + 3) * (side + 3) <= limit) side++;
+        side--;
+        for (int x = box.minX(); x <= box.maxX(); x += side) {
+            for (int y = box.minY(); y <= box.maxY(); y += side) {
+                for (int z = box.minZ(); z <= box.maxZ(); z += side) {
+                    var result =
+                            FillBiomeCommand.fill(
+                                    level,
+                                    new BlockPos(x, y, z),
+                                    new BlockPos(
+                                            Math.min(box.maxX(), x + side - 1),
+                                            Math.min(box.maxY(), y + side - 1),
+                                            Math.min(box.maxZ(), z + side - 1)),
+                                    holder);
+                    result.ifRight(
+                            error -> {
+                                if (error.getType() == FillBiomeCommand.ERROR_NO_BIOMES_SET) {
+                                    return;
+                                }
+                                throw new AssertionError("Could not fill the biome", error);
+                            });
+                }
+            }
+        }
+    }
+
+    private static List<ChunkPos> chunks(BoundingBox box) {
+        List<ChunkPos> chunks = new ArrayList<>();
+        ChunkPos.rangeClosed(
+                        ChunkPos.containing(new BlockPos(box.minX(), 0, box.minZ())),
+                        ChunkPos.containing(new BlockPos(box.maxX(), 0, box.maxZ())))
+                .forEach(chunks::add);
+        return chunks;
+    }
+
+    private static void place(ServerLevel level, StructureStart start, ChunkPos chunk) {
+        start.placeInChunk(
+                level,
+                level.structureManager(),
+                level.getChunkSource().getGenerator(),
+                level.getRandom(),
+                new BoundingBox(
+                        chunk.getMinBlockX(),
+                        level.getMinY(),
+                        chunk.getMinBlockZ(),
+                        chunk.getMaxBlockX(),
+                        level.getMaxY() + 1,
+                        chunk.getMaxBlockZ()),
+                chunk);
     }
 
     /**
