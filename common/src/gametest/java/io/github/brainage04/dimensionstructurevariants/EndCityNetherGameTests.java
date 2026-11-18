@@ -136,8 +136,7 @@ public final class EndCityNetherGameTests {
         StructureTemplate template =
                 level.getStructureTemplateManager()
                         .get(Identifier.withDefaultNamespace("end_city/" + name))
-                        .orElseThrow(
-                                () -> new AssertionError("Missing End city template " + name));
+                        .orElseThrow(() -> new AssertionError("Missing End city template " + name));
         Set<BlockState> states = new LinkedHashSet<>();
         for (Block block : PURPUR) {
             for (StructureTemplate.StructureBlockInfo info :
