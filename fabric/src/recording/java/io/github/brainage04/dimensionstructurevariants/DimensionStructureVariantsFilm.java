@@ -992,6 +992,30 @@ public final class DimensionStructureVariantsFilm {
     }
 
     /**
+     * The box the shot swaps in: the structure's own blocks and a margin, from its lowest block up
+     * to 32 above its highest. The box starts at the structure's lowest block, so a piece that
+     * stands on the ground swaps with the rest: an End city's base floor lies at the ground's own
+     * height, and a box starting above it left that floor vanilla purpur in the Nether. The box may
+     * therefore hold the ground's own layer, which the Nether sweep skips; the columns a piece
+     * fills down below it are clearFoundations' work.
+     */
+    static BoundingBox swapBox(
+            ServerLevel level, boolean hasGround, BoundingBox around, int groundY) {
+        int minY =
+                Math.max(
+                        level.getMinY(),
+                        hasGround ? Math.max(groundY, around.minY()) : around.minY() - 4);
+        int maxY = Math.min(level.getMaxY(), around.maxY() + 32);
+        return new BoundingBox(
+                around.minX() - 8,
+                minY,
+                around.minZ() - 8,
+                around.maxX() + 8,
+                maxY,
+                around.maxZ() + 8);
+    }
+
+    /**
      * Rule 1 of the recordings (the feature off, then on): keeps the blocks the mod built for the
      * stage and puts the same pieces in their place as the vanilla structure, so the shot opens on
      * vanilla blocks and switches to the mod's palette halfway. The Nether village's ground patch
@@ -1003,26 +1027,7 @@ public final class DimensionStructureVariantsFilm {
         BoundingBox around =
                 BoundingBox.encapsulatingBoxes(List.of(build.startBox, build.occupied))
                         .orElseThrow();
-        // The box starts at the structure's lowest block, so a piece that stands on the ground
-        // swaps with the rest: an End city's base floor lies at the ground's own height, and a box
-        // starting above it left that floor vanilla purpur in the Nether. The box may therefore
-        // hold the ground's own layer, which the Nether sweep skips; the columns a piece fills
-        // down below it are clearFoundations' work.
-        int minY =
-                Math.max(
-                        level.getMinY(),
-                        stage.hasGround()
-                                ? Math.max(build.groundY, around.minY())
-                                : around.minY() - 4);
-        int maxY = Math.min(level.getMaxY(), around.maxY() + 32);
-        BoundingBox box =
-                new BoundingBox(
-                        around.minX() - 8,
-                        minY,
-                        around.minZ() - 8,
-                        around.maxX() + 8,
-                        maxY,
-                        around.maxZ() + 8);
+        BoundingBox box = swapBox(level, stage.hasGround(), around, build.groundY);
         BlockState[] palette = read(level, box);
         int removal =
                 Block.UPDATE_CLIENTS
