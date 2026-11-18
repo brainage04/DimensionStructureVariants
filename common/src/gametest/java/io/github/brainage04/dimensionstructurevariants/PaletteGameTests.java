@@ -543,8 +543,7 @@ public final class PaletteGameTests {
                             + " against the main "
                             + main);
             Identifier previous =
-                    StructurePalettes.pushPiece(
-                            Identifier.withDefaultNamespace("neccs"));
+                    StructurePalettes.pushPiece(Identifier.withDefaultNamespace("neccs"));
             try {
                 helper.assertTrue(
                         palette.remap(brick, BlockPos.ZERO) == main,
@@ -676,7 +675,10 @@ public final class PaletteGameTests {
         }
         for (ChunkPos each : chunks) level.setChunkForced(each.x(), each.z(), false);
         System.out.println(
-                "[DSV] Snowy fortress accent: blue ice in " + accentIn + ", elsewhere " + accentOut);
+                "[DSV] Snowy fortress accent: blue ice in "
+                        + accentIn
+                        + ", elsewhere "
+                        + accentOut);
         helper.assertTrue(
                 accentOut.isEmpty(),
                 "The accent must stay in the pieces the palette names, found blue ice in "
