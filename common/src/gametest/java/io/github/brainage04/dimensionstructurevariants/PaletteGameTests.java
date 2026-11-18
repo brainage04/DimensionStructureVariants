@@ -503,7 +503,7 @@ public final class PaletteGameTests {
      * The snowy and mushroom fortresses follow the ocean monument's design: one main block for the
      * walls, and one accent block in the pieces the palette names. The monument gives its three
      * prismarines one role each ({@code OceanMonumentPieces.java:1417-1419}) and uses dark
-     * prismarine as trim in nearly every room rather than in a share of every wall.
+     * prismarine as trim in about half its room types rather than in a share of every wall.
      */
     public static void accentPiecesWearTheAccentBlock(GameTestHelper helper) {
         BlockState brick = Blocks.NETHER_BRICKS.defaultBlockState();

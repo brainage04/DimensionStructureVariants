@@ -156,6 +156,54 @@ class StructurePalettesTest {
                 failure.getMessage());
     }
 
+    /**
+     * A piece accent naming a piece the game does not know fails the table, so a misspelled id
+     * cannot quietly leave a part of the structure in the main block.
+     */
+    @Example
+    void aMisspelledAccentPieceFailsTheTable() {
+        IllegalStateException failure =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> StructurePalettes.parse(accentTable("minecraft:nebc")));
+        assertTrue(
+                failure.getMessage().startsWith("Palette stone names the unknown piece "),
+                failure.getMessage());
+    }
+
+    @Example
+    void aRealAccentPiecePassesTheTable() {
+        assertNotNull(StructurePalettes.parse(accentTable("minecraft:nebcr")));
+    }
+
+    private static JsonObject accentTable(String piece) {
+        return JsonParser.parseString(
+                        """
+                        {
+                          "role_sets": {"fortress": {"minecraft:nether_bricks": "wall"}},
+                          "palettes": {
+                            "stone": {
+                              "blocks": {"wall": "minecraft:stone_bricks"},
+                              "piece_accent": {
+                                "role": "wall",
+                                "block": "minecraft:blue_ice",
+                                "pieces": ["%s"]
+                              }
+                            }
+                          },
+                          "structures": {
+                            "fortress_test": {
+                              "roles": "fortress",
+                              "default": "stone",
+                              "biomes": []
+                            }
+                          }
+                        }
+                        """
+                                .formatted(piece))
+                .getAsJsonObject();
+    }
+
     @Example
     void aStructureWithoutADefaultPaletteFailsTheTable() {
         IllegalStateException failure =
