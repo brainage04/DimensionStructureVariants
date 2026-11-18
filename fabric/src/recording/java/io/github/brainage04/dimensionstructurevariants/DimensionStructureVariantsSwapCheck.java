@@ -126,7 +126,9 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
                         + ", "
                         + differing.size()
                         + " blocks differ after the swap"
-                        + (differing.isEmpty() ? "" : ": " + differing.subList(0, Math.min(8, differing.size()))));
+                        + (differing.isEmpty()
+                                ? ""
+                                : ": " + differing.subList(0, Math.min(8, differing.size()))));
         if (!differing.isEmpty()) {
             throw new AssertionError(
                     "The swap must put the palette back, "
@@ -165,7 +167,8 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
                 net.minecraft.world.level.block.Block.UPDATE_CLIENTS
                         | net.minecraft.world.level.block.Block.UPDATE_KNOWN_SHAPE
                         | net.minecraft.world.level.block.Block.UPDATE_SUPPRESS_DROPS
-                        | net.minecraft.world.level.block.Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+                        | net.minecraft.world.level.block.Block
+                                .UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         int index = 0;
         for (int y = box.minY(); y <= box.maxY(); y++) {
