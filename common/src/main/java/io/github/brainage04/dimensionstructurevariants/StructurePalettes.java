@@ -471,7 +471,12 @@ public final class StructurePalettes {
             }
             Set<Identifier> pieces = new LinkedHashSet<>();
             for (JsonElement piece : spec.getAsJsonArray("pieces")) {
-                pieces.add(Identifier.parse(piece.getAsString()));
+                Identifier id = Identifier.parse(piece.getAsString());
+                if (!BuiltInRegistries.STRUCTURE_PIECE.containsKey(id)) {
+                    throw new IllegalStateException(
+                            "Palette " + name + " names the unknown piece " + id);
+                }
+                pieces.add(id);
             }
             if (pieces.isEmpty()) {
                 throw new IllegalStateException("Palette " + name + " names no accent piece");

@@ -1005,8 +1005,9 @@ public final class DimensionStructureVariantsFilm {
                         .orElseThrow();
         // The box starts at the structure's lowest block, so a piece that stands on the ground
         // swaps with the rest: an End city's base floor lies at the ground's own height, and a box
-        // starting above it left that floor vanilla purpur in the Nether. The ground itself stays
-        // out of the box, and the columns a piece fills down below it are clearFoundations' work.
+        // starting above it left that floor vanilla purpur in the Nether. The box may therefore
+        // hold the ground's own layer, which the Nether sweep skips; the columns a piece fills
+        // down below it are clearFoundations' work.
         int minY =
                 Math.max(
                         level.getMinY(),
@@ -1125,6 +1126,14 @@ public final class DimensionStructureVariantsFilm {
         if (bricks == null) return cleared;
         Set<Block> columns = new HashSet<>();
         for (BlockState state : bricks.states()) columns.add(state.getBlock());
+        // A piece the palette gives an accent fills its columns with the accent's block, so those
+        // blocks are the palette's too.
+        StructurePalettes.Accent accent = palette.accent();
+        if (accent != null) {
+            for (StructurePalettes.Choice choice : accent.states().values()) {
+                for (BlockState state : choice.states()) columns.add(state.getBlock());
+            }
+        }
         int ground = stage.ground().top == Blocks.WATER ? build.groundY - 1 : build.groundY;
         int bottom = Math.max(ground, level.getMinY() + 1);
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();

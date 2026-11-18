@@ -93,6 +93,10 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 () -> PaletteGameTests::accentPiecesWearTheAccentBlock);
         event.register(
                 BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("placed_fortress_wears_the_accent_in_its_pieces"),
+                () -> PaletteGameTests::placedFortressWearsTheAccentInItsPieces);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of("snowy_fortress_weights_blocks_by_strength"),
                 () -> PaletteGameTests::snowyFortressWeightsBlocksByStrength);
         event.register(

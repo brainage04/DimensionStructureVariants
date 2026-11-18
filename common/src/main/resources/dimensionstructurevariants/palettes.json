@@ -273,7 +273,7 @@
         "block": "minecraft:blue_ice",
         "pieces": [
           "minecraft:nebs",
-          "minecraft:nebc",
+          "minecraft:nebcr",
           "minecraft:nebef"
         ]
       }
@@ -298,7 +298,7 @@
         "block": "minecraft:red_mushroom_block",
         "pieces": [
           "minecraft:nebs",
-          "minecraft:nebc",
+          "minecraft:nebcr",
           "minecraft:nebef"
         ]
       }

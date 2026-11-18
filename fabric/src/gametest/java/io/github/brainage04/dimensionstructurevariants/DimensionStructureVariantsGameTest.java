@@ -84,6 +84,11 @@ public final class DimensionStructureVariantsGameTest {
         PaletteGameTests.accentPiecesWearTheAccentBlock(helper);
     }
 
+    @GameTest(maxTicks = 200)
+    public void placedFortressWearsTheAccentInItsPieces(GameTestHelper helper) {
+        PaletteGameTests.placedFortressWearsTheAccentInItsPieces(helper);
+    }
+
     @GameTest
     public void snowyFortressWeightsBlocksByStrength(GameTestHelper helper) {
         PaletteGameTests.snowyFortressWeightsBlocksByStrength(helper);

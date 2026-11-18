@@ -11,6 +11,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.SectionPos;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -501,8 +502,8 @@ public final class PaletteGameTests {
     /**
      * The snowy and mushroom fortresses follow the ocean monument's design: one main block for the
      * walls, and one accent block in the pieces the palette names. The monument gives its three
-     * prismarines one role each ({@code OceanMonumentPieces.java:1417-1419}) and spends the accent
-     * on whole pieces, not on a share of every wall ({@code :301-1419}).
+     * prismarines one role each ({@code OceanMonumentPieces.java:1417-1419}) and uses dark
+     * prismarine as trim in nearly every room rather than in a share of every wall.
      */
     public static void accentPiecesWearTheAccentBlock(GameTestHelper helper) {
         BlockState brick = Blocks.NETHER_BRICKS.defaultBlockState();
@@ -542,7 +543,8 @@ public final class PaletteGameTests {
                             + " against the main "
                             + main);
             Identifier previous =
-                    StructurePalettes.pushPiece(DimensionStructureVariants.of("neccs"));
+                    StructurePalettes.pushPiece(
+                            Identifier.withDefaultNamespace("neccs"));
             try {
                 helper.assertTrue(
                         palette.remap(brick, BlockPos.ZERO) == main,
@@ -626,6 +628,64 @@ public final class PaletteGameTests {
                         + " of "
                         + total
                         + " wall blocks");
+        helper.succeed();
+    }
+
+    /**
+     * A placed snowy fortress wears the accent in the pieces the palette names and nowhere else.
+     * The test reads the world, not the palette, so a piece id the game does not know, or a mixin
+     * that names the wrong piece, fails here.
+     */
+    public static void placedFortressWearsTheAccentInItsPieces(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ChunkPos chunk = new ChunkPos(1300, 1300);
+        StructureStart start = fortressStart(helper, level, chunk);
+        BoundingBox box = start.getBoundingBox();
+        List<ChunkPos> chunks = chunks(box);
+        for (ChunkPos each : chunks) {
+            level.setChunkForced(each.x(), each.z(), true);
+            level.getChunk(each.x(), each.z());
+        }
+        fillBiome(helper, level, box, Biomes.SNOWY_PLAINS);
+        for (ChunkPos each : chunks) place(level, start, each);
+        StructurePalettes.Palette palette =
+                palette(helper, "fortress_overworld", Biomes.SNOWY_PLAINS);
+        StructurePalettes.Accent accent = palette.accent();
+        helper.assertTrue(accent != null, "The snowy fortress must name an accent");
+        Set<Identifier> named = accent.pieces();
+        Map<Identifier, Integer> accentIn = new LinkedHashMap<>();
+        Map<Identifier, Integer> accentOut = new LinkedHashMap<>();
+        for (StructurePiece piece : start.getPieces()) {
+            Identifier id = BuiltInRegistries.STRUCTURE_PIECE.getKey(piece.getType());
+            BoundingBox pieceBox = piece.getBoundingBox();
+            for (BlockPos pos :
+                    BlockPos.betweenClosed(
+                            pieceBox.minX(),
+                            pieceBox.minY(),
+                            pieceBox.minZ(),
+                            pieceBox.maxX(),
+                            pieceBox.maxY(),
+                            pieceBox.maxZ())) {
+                if (!level.getBlockState(pos).is(Blocks.BLUE_ICE)) continue;
+                if (named.contains(id)) {
+                    accentIn.merge(id, 1, Integer::sum);
+                } else {
+                    accentOut.merge(id, 1, Integer::sum);
+                }
+            }
+        }
+        for (ChunkPos each : chunks) level.setChunkForced(each.x(), each.z(), false);
+        System.out.println(
+                "[DSV] Snowy fortress accent: blue ice in " + accentIn + ", elsewhere " + accentOut);
+        helper.assertTrue(
+                accentOut.isEmpty(),
+                "The accent must stay in the pieces the palette names, found blue ice in "
+                        + accentOut);
+        for (Identifier id : named) {
+            helper.assertTrue(
+                    accentIn.containsKey(id),
+                    "The accent piece " + id + " must wear the accent, found " + accentIn);
+        }
         helper.succeed();
     }
 
