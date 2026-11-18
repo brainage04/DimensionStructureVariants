@@ -1003,9 +1003,16 @@ public final class DimensionStructureVariantsFilm {
         BoundingBox around =
                 BoundingBox.encapsulatingBoxes(List.of(build.startBox, build.occupied))
                         .orElseThrow();
+        // The box starts at the structure's lowest block, so a piece that stands on the ground
+        // swaps with the rest: an End city's base floor lies at the ground's own height, and a box
+        // starting above it left that floor vanilla purpur in the Nether. The ground itself stays
+        // out of the box, and the columns a piece fills down below it are clearFoundations' work.
         int minY =
                 Math.max(
-                        level.getMinY(), stage.hasGround() ? build.groundY + 1 : around.minY() - 4);
+                        level.getMinY(),
+                        stage.hasGround()
+                                ? Math.max(build.groundY, around.minY())
+                                : around.minY() - 4);
         int maxY = Math.min(level.getMaxY(), around.maxY() + 32);
         BoundingBox box =
                 new BoundingBox(
@@ -1022,8 +1029,11 @@ public final class DimensionStructureVariantsFilm {
                         | Block.UPDATE_SUPPRESS_DROPS
                         | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
         if (stage.dimension() == Dimension.NETHER) {
+            // The box may hold the ground's own layer, where a piece stands on it; the ground
+            // itself is the world's, not the structure's, so the sweep starts above it.
+            int from = stage.hasGround() ? Math.max(box.minY(), build.groundY + 1) : box.minY();
             BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-            for (int y = box.minY(); y <= box.maxY(); y++) {
+            for (int y = from; y <= box.maxY(); y++) {
                 for (int z = box.minZ(); z <= box.maxZ(); z++) {
                     for (int x = box.minX(); x <= box.maxX(); x++) {
                         if (level.getBlockState(cursor.set(x, y, z)).isAir()) continue;
