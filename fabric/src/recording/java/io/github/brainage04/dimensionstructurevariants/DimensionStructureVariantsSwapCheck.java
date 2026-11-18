@@ -28,7 +28,7 @@ import net.minecraft.world.level.levelgen.structure.pieces.PiecesContainer;
  * height. The test places the city, runs the film's swap, and checks that the floor the vanilla
  * re-place wrote into is the palette's again.
  *
- * <p>Runs only when {@code DSV_SWAP_CHECK} is set, so the film's own client test is unaffected.
+ * <p>Runs in the client GameTest lane beside the film, so CI and {@code verify-done} run it.
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class DimensionStructureVariantsSwapCheck implements FabricClientGameTest {
@@ -38,10 +38,6 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
 
     @Override
     public void runTest(ClientGameTestContext context) {
-        if (System.getenv("DSV_SWAP_CHECK") == null) {
-            System.out.println("[DSV] swap check skipped: DSV_SWAP_CHECK is not set");
-            return;
-        }
         Properties properties = ClientGameTestServers.flatServerProperties();
         properties.setProperty("max-tick-time", "-1");
         ClientGameTestServers.withDedicatedServer(
@@ -91,9 +87,10 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
                 new StructureStart(
                         vanilla, start.getChunkPos(), 0, new PiecesContainer(start.getPieces()));
         BoundingBox swap = DimensionStructureVariantsFilm.swapBox(level, true, box, groundY);
-        // The film's swap, step for step: snapshot the box, put the vanilla pieces in, then put
-        // the snapshot back over the box. Anything the vanilla re-place wrote outside the box
-        // stays vanilla, which is the bug.
+        // The film's swap over the box: snapshot it, put the vanilla pieces in, then put the
+        // snapshot back. Anything the vanilla re-place wrote outside the box stays vanilla, which
+        // is the bug. The film's Nether sweep and foundation clearing are left out: they only
+        // remove blocks, so they cannot hide a block the swap failed to restore.
         BlockState[] before = read(level, box);
         BlockState[] snapshot = read(level, swap);
         for (ChunkPos chunk : chunks) place(level, plain, chunk);
