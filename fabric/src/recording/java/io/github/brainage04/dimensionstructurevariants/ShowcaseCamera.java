@@ -104,7 +104,7 @@ public final class ShowcaseCamera {
         if (pausedNanos != 0L && startNanos != 0L) startNanos += System.nanoTime() - pausedNanos;
         pausedNanos = 0L;
         running = true;
-        stillStartNanos = 0L;
+        stillStartNanos = System.nanoTime();
         longestStillNanos = 0L;
         stillRepeats = 0L;
         longestStillRepeats = 0L;
