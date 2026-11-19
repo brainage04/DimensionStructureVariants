@@ -1394,7 +1394,8 @@ public final class DimensionStructureVariantsFilm {
     /** The camera, the region the pop-in check watches and the distances for the stage. */
     private static Prepared plan(Build build, Stage stage, double halfFov) {
         ServerLevel level = build.level;
-        ShowcaseCamera.Orbit orbit = planOrbit(level, stage, build.occupied, build.groundY, halfFov);
+        ShowcaseCamera.Orbit orbit =
+                planOrbit(level, stage, build.occupied, build.groundY, halfFov);
         ShowcaseCamera.Pose[] samples = new ShowcaseCamera.Pose[201];
         for (int i = 0; i < samples.length; i++) {
             samples[i] = orbit.at(i / (double) (samples.length - 1));
@@ -2019,9 +2020,9 @@ public final class DimensionStructureVariantsFilm {
 
     /**
      * Far enough out that the whole structure is in the frame at both ends of the shot: the top of
-     * a tall structure has to stay inside the vertical field of view, whose half is {@code
-     * halfFov} degrees, seen from {@link ShowcaseCamera#PITCH_START} degrees above the centre at
-     * the start and from level at the end.
+     * a tall structure has to stay inside the vertical field of view, whose half is {@code halfFov}
+     * degrees, seen from {@link ShowcaseCamera#PITCH_START} degrees above the centre at the start
+     * and from level at the end.
      */
     private static double startRadius(double half, double up, double halfFov) {
         // The top sits atan(tan p - up / r) below the horizon, so it is p - that above the view
@@ -2030,10 +2031,7 @@ public final class DimensionStructureVariantsFilm {
         // when r >= up / tan(halfFov).
         double pitch = Math.toRadians(ShowcaseCamera.PITCH_START);
         double fov = Math.toRadians(halfFov);
-        double tall =
-                Math.max(
-                        up / (Math.tan(pitch) - Math.tan(pitch - fov)),
-                        up / Math.tan(fov));
+        double tall = Math.max(up / (Math.tan(pitch) - Math.tan(pitch - fov)), up / Math.tan(fov));
         return Math.max(
                 16.0D,
                 Math.max(Math.max(half + REQUIRED_CLEARANCE, tall), 1.25D * Math.hypot(half, up)));
