@@ -26,8 +26,8 @@ import net.minecraft.world.level.levelgen.structure.pieces.PiecesContainer;
 /**
  * Reproduces A-1402: an End city in the Nether kept vanilla purpur on its base floor, because the
  * film's swap box started one block above the ground and the base floor stands at the ground's own
- * height. The test places the city, runs the film's swap, and checks that the floor the vanilla
- * re-place wrote into is the palette's again.
+ * height. The test places the city, checks it holds no purpur, runs the film's swap, and checks
+ * that the floor the vanilla re-place wrote into is the palette's again.
  *
  * <p>Runs in the client GameTest lane beside the film, so CI and {@code verify-done} run it.
  */

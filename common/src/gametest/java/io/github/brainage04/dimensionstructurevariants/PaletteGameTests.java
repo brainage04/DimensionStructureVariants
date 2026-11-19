@@ -560,9 +560,10 @@ public final class PaletteGameTests {
     /**
      * The snowy fortress builds its walls of packed ice, ice and snow, and the weaker the block the
      * rarer it is: snow is the weakest and the rarest, packed ice the strongest of the three and
-     * the commonest. Blue ice, the strongest of all, is the accent on the bridge pieces. Thomas
-     * asked for the weights on 18 Nov 2026. The counts come from a fortress placed in a snowy
-     * plains, not from the palette alone.
+     * the commonest. Blue ice, the strongest of all, is the accent on the bridge pieces. The order
+     * is Thomas's, from 18 Nov 2026, not vanilla's hardness: vanilla gives packed ice and ice the
+     * same hardness, 0.5 ({@code Blocks.java:2076,3121}), and blue ice 2.8 ({@code :4202}). The
+     * counts come from a fortress placed in a snowy plains, not from the palette alone.
      */
     public static void snowyFortressWeightsBlocksByStrength(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
