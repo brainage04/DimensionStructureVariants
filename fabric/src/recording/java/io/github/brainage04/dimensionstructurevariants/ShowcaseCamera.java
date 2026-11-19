@@ -27,11 +27,14 @@ public final class ShowcaseCamera {
     /** Full turns around the structure in one shot: one, so a turn takes the shot's 4 seconds. */
     public static final int REVOLUTIONS = 1;
 
-    /** Degrees below the horizon the camera looks at the centre when a shot starts. */
-    public static final double PITCH_START = 30.0D;
+    /**
+     * Degrees below the horizon the camera looks at the centre when a shot starts: steep enough
+     * that every structure is seen from above, its paths and the blocks around it in view.
+     */
+    public static final double PITCH_START = 60.0D;
 
-    /** Degrees above the horizon the camera looks at the centre when a shot ends. */
-    public static final double PITCH_END = -30.0D;
+    /** Degrees the camera looks at the centre when a shot ends: level, never from underneath. */
+    public static final double PITCH_END = 0.0D;
 
     private static Orbit orbit;
     private static double heldProgress;

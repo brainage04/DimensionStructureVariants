@@ -2012,11 +2012,12 @@ public final class DimensionStructureVariantsFilm {
 
     /** Far enough out that the whole structure is in the frame at the start. */
     private static double startRadius(double half, double up) {
-        // The top of a tall structure, seen from 30 degrees above its centre, has to stay inside
-        // the vertical field of view (35 degrees either side at the default 70; 33 to spare).
-        double tall =
-                (0.5D * up + Math.sin(Math.toRadians(60.0D)) * up / Math.tan(Math.toRadians(33.0D)))
-                        * Math.cos(Math.toRadians(30.0D));
+        // The top of a tall structure, seen from PITCH_START degrees above its centre, has to stay
+        // inside the vertical field of view (35 degrees either side at the default 70; 33 to
+        // spare). The top sits atan(tan p - up / r) below the horizon, so it is p - that above the
+        // view axis, and it fits when r >= up / (tan p - tan(p - 33)).
+        double pitch = Math.toRadians(ShowcaseCamera.PITCH_START);
+        double tall = up / (Math.tan(pitch) - Math.tan(pitch - Math.toRadians(33.0D)));
         return Math.max(
                 16.0D,
                 Math.max(Math.max(half + REQUIRED_CLEARANCE, tall), 1.25D * Math.hypot(half, up)));
