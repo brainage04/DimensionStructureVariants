@@ -8,10 +8,10 @@ Each stage prints four markers: `STAGE_START`/`STAGE_END <ms> <id>` around the v
 the game stand still while the server swaps the blocks and the client builds them; the cut drops
 that pause, so the two halves' audio are not contiguous in the capture and a hard join clicks.
 
-The join is a crossfade of JOIN seconds: the vanilla half's audio keeps its last JOIN seconds and
-the palette half's audio starts JOIN seconds before its picture, so the two overlap and the clip
-keeps the length of its two halves. The vanilla half's picture loses those JOIN seconds, which are
-frames of the pose the camera stopped on, so nothing moves in them. A stage's first and last
+The picture joins the halves on the pose the camera stops on: the vanilla half ends on that pose's
+first frame and the palette half starts on its last, so the blocks and the caption change on one
+frame and the camera carries on. The audio crossfades over JOIN seconds across the same join, so
+the two halves' sound overlaps instead of meeting at a fade to silence. A stage's first and last
 JOIN seconds fade, so a cut between stages does not jump.
 
 The capture is variable frame rate, so a frame is found by its own timestamp, not by n / rate.
