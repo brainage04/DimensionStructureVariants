@@ -117,10 +117,6 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     # and drops the rest: the blocks and the caption change on the join and the camera carries on
     # from the pose it stopped on.
     off_picture = SOURCE_TIMES[off_stop]
-    # The palette half starts on the frame the palette arrives on: the held pose's frames are one
-    # picture until the swapped blocks reach the client, and the first frame that differs from the
-    # pose's first one is that arrival. The blocks and the caption change on the join, and the
-    # camera carries on from the pose it stopped on.
     on_begin = SOURCE_TIMES[on_start]
     off_end = at(e1) + TRAIL
     finish = at(e2) + TRAIL
