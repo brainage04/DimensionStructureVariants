@@ -63,20 +63,69 @@ def at(ms):
     return max(0.0, ms / 1000.0 - epoch)
 
 
+def still_frames():
+    """Per frame n, the mean difference between frame n and frame n + 1 in the world region.
+
+    The camera stops on one pose while the palette goes in, so the frames of that pose differ by
+    nothing. The cut joins the halves on that pose: the vanilla half ends on its first frame and
+    the palette half starts on its last, so the camera carries on without a still.
+    """
+    out = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(video_path),
+         "-vf", "crop=1100:1080:0:0,scale=275:270,format=gray,"
+                "tblend=all_mode=difference,signalstats,metadata=print:file=-",
+         "-f", "null", "-"], check=True, capture_output=True, text=True).stdout
+    values = {}
+    current = 0
+    for line in out.splitlines():
+        m = re.match(r"frame:(\d+)\s", line)
+        if m:
+            current = int(m.group(1))
+        elif "YAVG=" in line:
+            values[current] = float(line.split("=")[1])
+    return values
+
+
+STILL = 0.05
+steps = still_frames()
+
+
+def frame_at(seconds):
+    return bisect.bisect_left(SOURCE_TIMES, seconds)
+
+
+def held_pose(start_ms, end_ms, stage):
+    """The first and last frame of the pose the camera stops on between two markers."""
+    first = frame_at(at(start_ms))
+    last = frame_at(at(end_ms))
+    stills = [f for f in range(first, last) if steps.get(f, 99.0) < STILL]
+    if not stills:
+        raise SystemExit(f"{stage}: the camera never stops between {start_ms} and {end_ms}")
+    return stills[0], stills[-1]
+
+
 graph = []
 parts = []
 shots = []
 position = 0.0
 for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     begin = max(0.0, at(s1) - LEAD)
+    off_stop, on_start = held_pose(e1, s2, stage)
+    # The vanilla half ends on the held pose's first frame, which still shows the vanilla blocks;
+    # the palette half starts on the held pose's last frame, the same pose with the palette and its
+    # caption. The held pose's own frames are one picture, so the cut keeps its first and its last
+    # and drops the rest: the blocks and the caption change on the join and the camera carries on
+    # from the pose it stopped on.
+    off_picture = SOURCE_TIMES[off_stop]
+    # The palette half starts on the frame the palette arrives on: the held pose's frames are one
+    # picture until the swapped blocks reach the client, and the first frame that differs from the
+    # pose's first one is that arrival. The blocks and the caption change on the join, and the
+    # camera carries on from the pose it stopped on.
+    on_begin = SOURCE_TIMES[on_start]
     off_end = at(e1) + TRAIL
-    on_begin = max(0.0, at(s2) - LEAD)
     finish = at(e2) + TRAIL
-    # The vanilla half's picture stops JOIN seconds early; its audio does not, so the two halves'
-    # audio overlap by exactly the time the picture loses.
-    off_picture = off_end - JOIN
-    if off_picture <= begin:
-        raise SystemExit(f"{stage}: the vanilla half is shorter than the {JOIN} s join")
+    if off_picture <= begin or on_begin >= finish:
+        raise SystemExit(f"{stage}: the held pose {off_stop}..{on_start} leaves no half")
     off_len = off_picture - begin
     on_len = finish - on_begin
     length = off_len + on_len
