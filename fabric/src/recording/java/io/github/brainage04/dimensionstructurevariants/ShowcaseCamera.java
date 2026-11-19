@@ -43,6 +43,7 @@ public final class ShowcaseCamera {
     private static double startProgress;
     private static double lastProgress;
     private static long startNanos;
+    private static long pausedNanos;
     private static long lastFrameNanos;
     private static long longestFrameGapNanos;
     private static long stillStartNanos;
@@ -60,6 +61,7 @@ public final class ShowcaseCamera {
         heldProgress = progress;
         lastProgress = progress;
         running = false;
+        pausedNanos = 0L;
     }
 
     /**
@@ -74,6 +76,7 @@ public final class ShowcaseCamera {
         // The clock starts at the first frame the shot draws, so that frame shows the pose the cut
         // joins the shot's halves on and no time is counted for the call itself.
         startNanos = 0L;
+        pausedNanos = 0L;
         stillStartNanos = 0L;
         longestStillNanos = 0L;
         stillRepeats = 0L;
@@ -88,7 +91,25 @@ public final class ShowcaseCamera {
      */
     public static double pause() {
         hold(orbit, lastProgress);
+        pausedNanos = System.nanoTime();
         return lastProgress;
+    }
+
+    /**
+     * Carries a paused shot on from where it stopped, with the pause's own time left out of the
+     * shot's clock, so the first frame after it shows the next pose of the orbit rather than the
+     * one the camera stopped on. Client thread only.
+     */
+    public static void resume() {
+        if (pausedNanos != 0L && startNanos != 0L) startNanos += System.nanoTime() - pausedNanos;
+        pausedNanos = 0L;
+        running = true;
+        stillStartNanos = 0L;
+        longestStillNanos = 0L;
+        stillRepeats = 0L;
+        longestStillRepeats = 0L;
+        repeats = 0L;
+        pictures = 0L;
     }
 
     /** The progress (0 to 1) of the pose the last frame showed; client thread only. */

@@ -2642,7 +2642,7 @@ public final class DimensionStructureVariantsFilm {
         context.runOnClient(
                 client -> {
                     client.level.tickRateManager().setFrozen(false);
-                    ShowcaseCamera.run(prepared.orbit(), held[0]);
+                    ShowcaseCamera.resume();
                     ShowcaseCamera.takeLongestFrameGap();
                 });
         server.runOnServer(minecraftServer -> minecraftServer.tickRateManager().setFrozen(false));
