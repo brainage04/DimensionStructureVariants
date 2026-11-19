@@ -33,7 +33,7 @@ meta = json.loads(meta_path.read_text())
 # line it draws), at a tenth of the size.
 RATE = float(meta.get("fps", 30))
 SCREEN = meta.get("xvfbScreen", "1920x1080x24").split("x")
-WIDTH, HEIGHT = int(SCREEN[0]), int(SCREEN[1])
+HEIGHT = int(SCREEN[1])
 edges = [int(m.group(1)) for m in re.finditer(r"caption panel left edge (\d+) px", log)]
 if not edges:
     raise SystemExit("the log has no caption panel left edge")

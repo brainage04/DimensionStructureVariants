@@ -2666,6 +2666,12 @@ public final class DimensionStructureVariantsFilm {
         waitForServerLight(context, server, stage);
         BitSet built = settle(context, stage, prepared);
         context.runOnClient(client -> StageCaptionPanel.switchOn(PALETTE_ON));
+        // The palette half's status line can be longer than the off one, which would move the panel
+        // left; the cut tool takes the smallest edge it is given.
+        System.out.println(
+                "[DSV] caption panel left edge "
+                        + context.computeOnClient(client -> StageCaptionPanel.screenLeft())
+                        + " px");
         // Frames of the held pose with the palette and its caption, for the cut to join on.
         context.waitTicks(6);
         System.out.println(
@@ -2766,9 +2772,10 @@ public final class DimensionStructureVariantsFilm {
 
         /**
          * Records the tick that just ended and returns the camera's progress, read in the same
-         * client task as the frame counters: a client task makes the client wait for the test
-         * thread before its next frame, so the shot takes one client task a tick instead of two,
-         * and three on the ticks that also check the sections.
+         * client task as the frame counters: the test thread blocks until the client has run the
+         * task (Fabric's {@code ThreadingImpl.runTaskOnOtherThread} waits on {@code
+         * TEST_SEMAPHORE}), so the shot takes one client task a tick instead of two, and three on
+         * the ticks that also check the sections.
          */
         double afterWait(
                 ClientGameTestContext context, TestDedicatedServerContext server, int tick) {
