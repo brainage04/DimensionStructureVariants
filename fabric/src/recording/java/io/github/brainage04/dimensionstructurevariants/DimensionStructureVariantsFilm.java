@@ -97,11 +97,10 @@ import net.minecraft.world.phys.AABB;
  *
  * <p>Every shot runs the Overworld clock from noon to midnight with Night Vision on the camera
  * player, and circles the structure once per shot at a fixed distance, descending from looking 60
- * degrees down at the centre to looking level at it. The first half shows the vanilla
- * blocks; halfway the camera and the game stop off camera while the palette goes in, and the second
- * half carries on from the same pose. {@code STAGE_START} and {@code STAGE_END} with a wall-clock
- * time mark each half (the second one's id ends in {@code /on}), and the delivered video is cut to
- * them.
+ * degrees down at the centre to looking level at it. The first half shows the vanilla blocks;
+ * halfway the camera and the game stop off camera while the palette goes in, and the second half
+ * carries on from the same pose. {@code STAGE_START} and {@code STAGE_END} with a wall-clock time
+ * mark each half (the second one's id ends in {@code /on}), and the delivered video is cut to them.
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class DimensionStructureVariantsFilm {
