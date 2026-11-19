@@ -2506,15 +2506,18 @@ public final class DimensionStructureVariantsFilm {
         int busyTicks = 0;
         int poppedTicks = 0;
         StringBuilder problems = new StringBuilder();
-        int switchTick = ShowcaseCamera.SHOT_TICKS / 2;
+        boolean switched = false;
         // The shot ends when the camera finishes its turn, on its own clock: a fixed 80 ticks would
         // stop it short when the shot's first frame came after its first tick, and leave it
         // standing at the end of its turn when slow ticks made the 80 ticks longer than 4 seconds.
+        // The swap follows the same clock: a fixed tick would come after the turn had ended on a
+        // host whose ticks outran the camera, and the stage would film no palette half at all.
         for (int tick = 1; tick <= ShowcaseCamera.SHOT_TICKS + LATE_TICKS; tick++) {
             timing.beforeWait();
             context.waitTick();
             double shown = timing.afterWait(context, server, tick);
-            if (tick == switchTick) {
+            if (!switched && shown >= 0.5D) {
+                switched = true;
                 baseline = switchPalette(context, server, stage, prepared, timing);
                 continue;
             }
