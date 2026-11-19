@@ -18,6 +18,7 @@ A frame is found by its own timestamp, not by n / rate, so a capture whose frame
 cuts on the right frames.
 """
 import bisect
+import math
 import json
 import re
 import subprocess
@@ -101,6 +102,11 @@ def frame_at(seconds):
     return bisect.bisect_left(SOURCE_TIMES, seconds)
 
 
+def snap(seconds):
+    """The nearest frame boundary of the film's rate."""
+    return round(seconds * RATE) / RATE
+
+
 def held_pose(start_ms, end_ms, stage):
     """The first and last frame of the pose the camera stops on between two markers."""
     first = frame_at(at(start_ms))
@@ -111,7 +117,12 @@ def held_pose(start_ms, end_ms, stage):
     return stills[0], stills[-1]
 
 
-graph = []
+graph = [
+    # The capture's own frames are irregular (a slow tick leaves a longer one), so the picture is
+    # resampled to the film's rate before it is trimmed: every trim then holds exactly the frames
+    # its length says, and the sidecar's seconds are the picture's own.
+    f"[0:v]fps={RATE:.0f},setpts=PTS-STARTPTS[cfr]"
+]
 parts = []
 shots = []
 position = 0.0
@@ -133,12 +144,22 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
         raise SystemExit(f"{stage}: the held pose {off_stop}..{on_start} leaves no half")
     if finish - on_begin < 2.0 * JOIN:
         raise SystemExit(f"{stage}: the palette half is shorter than two {JOIN} s fades")
-    off_len = off_picture - begin
-    on_len = finish - on_begin
+    # Every trim is snapped to a frame boundary before it is cut, so a half holds exactly the
+    # frames its length says and 23 stages of rounding cannot drift the sidecar from the picture.
+    begin = snap(begin)
+    off_picture = snap(off_picture)
+    on_begin = snap(on_begin)
+    finish = snap(finish)
+    off_frames = round((off_picture - begin) * RATE)
+    on_frames = round((finish - on_begin) * RATE)
+    if off_frames < 1 or on_frames < 1:
+        raise SystemExit(f"{stage}: a half holds no frame")
+    off_len = off_frames / RATE
+    on_len = on_frames / RATE
     length = off_len + on_len
     graph.append(
-        f"[0:v]trim=start={begin:.6f}:end={off_picture:.6f},setpts=PTS-STARTPTS[v{index}a];"
-        f"[0:v]trim=start={on_begin:.6f}:end={finish:.6f},setpts=PTS-STARTPTS[v{index}b];"
+        f"[cfr]trim=start={begin:.6f}:end={off_picture:.6f},setpts=PTS-STARTPTS[v{index}a];"
+        f"[cfr]trim=start={on_begin:.6f}:end={finish:.6f},setpts=PTS-STARTPTS[v{index}b];"
         f"[v{index}a][v{index}b]concat=n=2:v=1:a=0[v{index}]")
     graph.append(
         f"[0:a]atrim=start={begin:.6f}:end={off_end:.6f},asetpts=PTS-STARTPTS[a{index}a];"
@@ -162,9 +183,10 @@ subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),
     "-filter_complex", ";".join(graph), "-map", "[vout]", "-map", "[aout]",
     "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-    # The trims are exact, so the concat's own timestamps are kept: resampling to a constant rate
-    # would round each stage to a frame boundary and drift the sidecar from the picture.
-    "-c:a", "aac", "-b:a", "192k", "-fps_mode", "passthrough", str(out_path),
+    # A constant rate, so the film plays at the rate the sidecar counts in. The capture's own
+    # frames are irregular (a slow tick leaves a longer one), and keeping them would stretch the
+    # picture away from the trims the sidecar records.
+    "-c:a", "aac", "-b:a", "192k", "-r", f"{RATE:.0f}", str(out_path),
 ], check=True)
 
 
