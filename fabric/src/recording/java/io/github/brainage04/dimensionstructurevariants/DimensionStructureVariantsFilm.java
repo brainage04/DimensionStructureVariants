@@ -2479,12 +2479,11 @@ public final class DimensionStructureVariantsFilm {
         for (int tick = 1; tick <= ShowcaseCamera.SHOT_TICKS + LATE_TICKS; tick++) {
             timing.beforeWait();
             context.waitTick();
-            timing.afterWait(context, server, tick);
+            double shown = timing.afterWait(context, server, tick);
             if (tick == switchTick) {
                 baseline = switchPalette(context, server, stage, prepared, timing);
                 continue;
             }
-            double shown = context.computeOnClient(client -> ShowcaseCamera.progress());
             if (shown >= 1.0D) break;
             if (tick % CHECK_INTERVAL != 0) continue;
             ShowcaseCamera.Pose pose = orbit.at(shown);
@@ -2722,7 +2721,13 @@ public final class DimensionStructureVariantsFilm {
             if (returned == 0L) returned = waitCalled;
         }
 
-        void afterWait(ClientGameTestContext context, TestDedicatedServerContext server, int tick) {
+        /**
+         * Records the tick that just ended and returns the camera's progress, read in the same
+         * client task as the frame counters: every client task makes the client wait for the test
+         * thread before its next frame, so the shot takes one round trip a tick, not two.
+         */
+        double afterWait(
+                ClientGameTestContext context, TestDedicatedServerContext server, int tick) {
             long now = System.nanoTime();
             double wall = (now - returned) / 1.0E6D;
             double work = (waitCalled - returned) / 1.0E6D;
@@ -2737,16 +2742,17 @@ public final class DimensionStructureVariantsFilm {
                                                     .getTickTimesNanos()[
                                                     minecraftServer.getTickCount() % 100]
                                             / 1.0E6D);
-            long[] client =
+            double[] client =
                     context.computeOnClient(
                             c ->
-                                    new long[] {
+                                    new double[] {
                                         ShowcaseCamera.frames(),
-                                        ShowcaseCamera.takeLongestFrameGap()
+                                        ShowcaseCamera.takeLongestFrameGap(),
+                                        ShowcaseCamera.progress()
                                     });
-            long drawn = frames < 0L ? -1L : client[0] - frames;
+            long drawn = frames < 0L ? -1L : (long) client[0] - frames;
             if (drawn > 0L) drawnTotal += drawn;
-            frames = client[0];
+            frames = (long) client[0];
             double gap = client[1] / 1.0E6D;
             ticks++;
             shotSeconds += wall / 1000.0D;
@@ -2772,6 +2778,7 @@ public final class DimensionStructureVariantsFilm {
                                 drawn,
                                 gap));
             }
+            return client[2];
         }
 
         /** The JVM's time in collector pauses; G1's concurrent cycles run beside the threads. */
