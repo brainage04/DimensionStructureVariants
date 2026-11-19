@@ -28,6 +28,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
+import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
@@ -739,10 +740,27 @@ public final class DimensionStructureVariantsFilm {
             Stage stage,
             List<BlockPos> endStages) {
         long began = System.currentTimeMillis();
-        // The vertical field of view is the client's own option, so the framing is solved for the
-        // one this run draws with; 2 degrees are kept clear of its edge.
+        // The vertical field of view the client draws is its fov option times the camera entity's
+        // modifier (Camera.java:227, AbstractClientPlayer.java:92-96: a flying player's is 1.1), so
+        // the framing is solved for that; 2 degrees are kept clear of its edge.
         double halfFov =
-                context.computeOnClient(client -> client.options.fov().get() / 2.0D) - 2.0D;
+                context.computeOnClient(
+                                client ->
+                                        client.options.fov().get()
+                                                * (client.getCameraEntity()
+                                                                instanceof
+                                                                AbstractClientPlayer player
+                                                        ? player.getFieldOfViewModifier(
+                                                                client.options
+                                                                        .getCameraType()
+                                                                        .isFirstPerson(),
+                                                                client.options
+                                                                        .fovEffectScale()
+                                                                        .get()
+                                                                        .floatValue())
+                                                        : 1.0F)
+                                                / 2.0D)
+                        - 2.0D;
         Build build = new Build();
         // Nothing moves from the moment the structure exists until the shot, except while natural
         // spawning and the spawners run.

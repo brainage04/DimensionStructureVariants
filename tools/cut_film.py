@@ -27,12 +27,14 @@ from pathlib import Path
 log_path, video_path, meta_path, out_path, sidecar_path = map(Path, sys.argv[1:6])
 log = log_path.read_text(errors="replace")
 meta = json.loads(meta_path.read_text())
-# The capture's own frame rate and size, from the recorder's metadata: the world region the still
-# detection reads is the picture left of the caption panel and the performance overlay.
+# The capture's own frame rate and size, from the recorder's metadata. The still detection reads the
+# picture left of the caption panel and the performance overlay, which take the right 820 columns of
+# a 1920-wide capture, at a tenth of the size.
 RATE = float(meta.get("fps", 30))
 SCREEN = meta.get("xvfbScreen", "1920x1080x24").split("x")
 WIDTH, HEIGHT = int(SCREEN[0]), int(SCREEN[1])
-WORLD = f"crop={WIDTH - 820}:{HEIGHT}:0:0,scale=275:270,format=gray"
+PANELS = 820
+WORLD = f"crop={WIDTH - PANELS}:{HEIGHT}:0:0,scale=275:270,format=gray"
 LEAD = 0.10
 TRAIL = 0.12
 JOIN = 0.15
@@ -160,7 +162,9 @@ subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),
     "-filter_complex", ";".join(graph), "-map", "[vout]", "-map", "[aout]",
     "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-    "-c:a", "aac", "-b:a", "192k", "-r", f"{RATE:.0f}", str(out_path),
+    # The trims are exact, so the concat's own timestamps are kept: resampling to a constant rate
+    # would round each stage to a frame boundary and drift the sidecar from the picture.
+    "-c:a", "aac", "-b:a", "192k", "-fps_mode", "passthrough", str(out_path),
 ], check=True)
 
 
