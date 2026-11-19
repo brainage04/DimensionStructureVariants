@@ -739,6 +739,10 @@ public final class DimensionStructureVariantsFilm {
             Stage stage,
             List<BlockPos> endStages) {
         long began = System.currentTimeMillis();
+        // The vertical field of view is the client's own option, so the framing is solved for the
+        // one this run draws with; 2 degrees are kept clear of its edge.
+        double halfFov =
+                context.computeOnClient(client -> client.options.fov().get() / 2.0D) - 2.0D;
         Build build = new Build();
         // Nothing moves from the moment the structure exists until the shot, except while natural
         // spawning and the spawners run.
@@ -777,7 +781,7 @@ public final class DimensionStructureVariantsFilm {
                 minecraftServer -> {
                     fillBiome(
                             build.level, chunkRange(build.startBox, 1), stage.biome(), stage.id());
-                    place(build, stage);
+                    place(build, stage, halfFov);
                 });
         if (!stage.hasGround()) {
             // The camera's floor follows the End's real terrain out to the widest circle tried.
@@ -790,7 +794,8 @@ public final class DimensionStructureVariantsFilm {
                                                                             occupied.getXSpan(),
                                                                             occupied.getZSpan())
                                                                     / 2.0D,
-                                                            occupied.getYSpan() / 2.0D)
+                                                            occupied.getYSpan() / 2.0D,
+                                                            halfFov)
                                                     + ORBIT_ROUNDS * 6.0D)
                             + 16;
             int centreX = (occupied.minX() + occupied.maxX()) / 2;
@@ -809,7 +814,7 @@ public final class DimensionStructureVariantsFilm {
         }
 
         Prepared[] plan = new Prepared[1];
-        server.runOnServer(minecraftServer -> plan[0] = plan(build, stage));
+        server.runOnServer(minecraftServer -> plan[0] = plan(build, stage, halfFov));
         Prepared prepared = plan[0];
 
         // The ground and the biome around the stage: in the Overworld everything the camera can
@@ -1279,7 +1284,7 @@ public final class DimensionStructureVariantsFilm {
      * only, so without the registration the game would not know the structure is there: the
      * fortress's own monster spawns (its {@code spawn_overrides}, by piece) need it.
      */
-    private static void place(Build build, Stage stage) {
+    private static void place(Build build, Stage stage, double halfFov) {
         ServerLevel level = build.level;
         BoundingBox box = build.startBox;
         // What the world's own features left on the ground goes before the structure is built, so
@@ -1287,7 +1292,10 @@ public final class DimensionStructureVariantsFilm {
         int features =
                 stage.hasGround()
                         ? clearStrayFeatures(
-                                level, build.pieces, groundHeight(level, chunkRange(box, 1)))
+                                level,
+                                build.pieces,
+                                groundHeight(level, chunkRange(box, 1)),
+                                halfFov)
                         : 0;
         ChunkPos.rangeClosed(
                         ChunkPos.containing(new BlockPos(box.minX(), 0, box.minZ())),
@@ -1384,9 +1392,9 @@ public final class DimensionStructureVariantsFilm {
     }
 
     /** The camera, the region the pop-in check watches and the distances for the stage. */
-    private static Prepared plan(Build build, Stage stage) {
+    private static Prepared plan(Build build, Stage stage, double halfFov) {
         ServerLevel level = build.level;
-        ShowcaseCamera.Orbit orbit = planOrbit(level, stage, build.occupied, build.groundY);
+        ShowcaseCamera.Orbit orbit = planOrbit(level, stage, build.occupied, build.groundY, halfFov);
         ShowcaseCamera.Pose[] samples = new ShowcaseCamera.Pose[201];
         for (int i = 0; i < samples.length; i++) {
             samples[i] = orbit.at(i / (double) (samples.length - 1));
@@ -1966,13 +1974,13 @@ public final class DimensionStructureVariantsFilm {
      * top.
      */
     private static ShowcaseCamera.Orbit planOrbit(
-            ServerLevel level, Stage stage, BoundingBox box, int groundY) {
+            ServerLevel level, Stage stage, BoundingBox box, int groundY, double halfFov) {
         double centreX = (box.minX() + box.maxX() + 1) / 2.0D;
         double centreZ = (box.minZ() + box.maxZ() + 1) / 2.0D;
         double centreY = (box.minY() + box.maxY() + 1) / 2.0D;
         double ceiling = level.getMaxY() - 2.0D;
         double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
-        double base = startRadius(framed[0], framed[1]);
+        double base = startRadius(framed[0], framed[1], halfFov);
         Solids solids =
                 new Solids(
                         level,
@@ -2009,14 +2017,23 @@ public final class DimensionStructureVariantsFilm {
         throw new AssertionError("Could not keep the camera clear of " + stage.id() + " " + box);
     }
 
-    /** Far enough out that the whole structure is in the frame at the start. */
-    private static double startRadius(double half, double up) {
-        // The top of a tall structure, seen from PITCH_START degrees above its centre, has to stay
-        // inside the vertical field of view (35 degrees either side at the default 70; 33 to
-        // spare). The top sits atan(tan p - up / r) below the horizon, so it is p - that above the
-        // view axis, and it fits when r >= up / (tan p - tan(p - 33)).
+    /**
+     * Far enough out that the whole structure is in the frame at both ends of the shot: the top of
+     * a tall structure has to stay inside the vertical field of view, whose half is {@code
+     * halfFov} degrees, seen from {@link ShowcaseCamera#PITCH_START} degrees above the centre at
+     * the start and from level at the end.
+     */
+    private static double startRadius(double half, double up, double halfFov) {
+        // The top sits atan(tan p - up / r) below the horizon, so it is p - that above the view
+        // axis at the start, and it fits when r >= up / (tan p - tan(p - halfFov)). At the end the
+        // camera is level with the centre, so the top is atan(up / r) above the axis and it fits
+        // when r >= up / tan(halfFov).
         double pitch = Math.toRadians(ShowcaseCamera.PITCH_START);
-        double tall = up / (Math.tan(pitch) - Math.tan(pitch - Math.toRadians(33.0D)));
+        double fov = Math.toRadians(halfFov);
+        double tall =
+                Math.max(
+                        up / (Math.tan(pitch) - Math.tan(pitch - fov)),
+                        up / Math.tan(fov));
         return Math.max(
                 16.0D,
                 Math.max(Math.max(half + REQUIRED_CLEARANCE, tall), 1.25D * Math.hypot(half, up)));
@@ -2077,7 +2094,8 @@ public final class DimensionStructureVariantsFilm {
      * on the bare bedrock, a stray plant, in the foreground of the shot. Only a stage with a ground
      * of its own is swept; the End's real terrain is left alone.
      */
-    private static int clearStrayFeatures(ServerLevel level, BoundingBox pieces, int groundY) {
+    private static int clearStrayFeatures(
+            ServerLevel level, BoundingBox pieces, int groundY, double halfFov) {
         double centreX = (pieces.minX() + pieces.maxX() + 1) / 2.0D;
         double centreZ = (pieces.minZ() + pieces.maxZ() + 1) / 2.0D;
         int reach =
@@ -2088,7 +2106,8 @@ public final class DimensionStructureVariantsFilm {
                                                                         pieces.getXSpan(),
                                                                         pieces.getZSpan())
                                                                 / 2.0D,
-                                                        pieces.getYSpan() / 2.0D)
+                                                        pieces.getYSpan() / 2.0D,
+                                                        halfFov)
                                                 + ORBIT_ROUNDS * 6.0D)
                         + 16;
         int fromX = (int) Math.floor(centreX - reach);

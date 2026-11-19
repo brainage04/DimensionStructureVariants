@@ -51,11 +51,13 @@ Stages that stand on a ground of their own have the blocks that stand on that gr
 structure's footprint swept before the shot, so a mushroom on the bare bedrock cannot appear in the
 foreground.
 
-The cut is taken from the caption panel, not the log's clock: every clip opens on the frame after its
-caption's last change and width animation, and a clip whose first frame matches another stage's caption
-fails the cut. Each clip opens and closes with a 0.15 s audio fade, and the finished film is normalised
-to about -20 LUFS with a -1.5 dBFS ceiling, so the Nether drone and mob sounds are audible and no cut
-jumps.
+`tools/cut_film.py` cuts the recording to its shots from the `STAGE_START`/`STAGE_END` markers, one
+clip per stage. A stage's two halves are joined on the pose the camera stops on while the palette goes
+in: the vanilla half ends on that pose's first frame and the palette half starts on its last, so the
+blocks and the caption change on one frame and the camera carries on. The audio crossfades over 0.15 s
+across that join, and each clip opens and closes with a 0.15 s fade, so no cut jumps. The finished film
+is normalised to about -20 LUFS with a -1.5 dBFS ceiling, so the Nether drone and mob sounds are
+audible.
 
 `DSV_STAGES` (comma separated stage ids such as `fortress_overworld/desert`, or variant ids) films only those stages.
 

@@ -104,7 +104,9 @@ public final class ShowcaseCamera {
         if (pausedNanos != 0L && startNanos != 0L) startNanos += System.nanoTime() - pausedNanos;
         pausedNanos = 0L;
         running = true;
-        stillStartNanos = System.nanoTime();
+        // The still clock starts at the first frame after the resume, as it does at a shot's first
+        // frame: the pause's own tail is not a still the film shows.
+        stillStartNanos = 0L;
         longestStillNanos = 0L;
         stillRepeats = 0L;
         longestStillRepeats = 0L;
@@ -145,6 +147,9 @@ public final class ShowcaseCamera {
                 progress = startProgress;
             } else {
                 progress = progressAt(startProgress, now - startNanos);
+                // A resumed shot's first frame starts the run of stills, as a shot's first frame
+                // does: the pause's own tail is not a still the film shows.
+                if (stillStartNanos == 0L) stillStartNanos = now;
                 // The picture stands still while the pose stays where it was: the frames of a
                 // stall, which the film shows as a repeated image.
                 if (progress != lastProgress) {

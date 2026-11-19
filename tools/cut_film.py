@@ -14,7 +14,8 @@ frame and the camera carries on. The audio crossfades over JOIN seconds across t
 the two halves' sound overlaps instead of meeting at a fade to silence. A stage's first and last
 JOIN seconds fade, so a cut between stages does not jump.
 
-The capture is variable frame rate, so a frame is found by its own timestamp, not by n / rate.
+A frame is found by its own timestamp, not by n / rate, so a capture whose frame times drift still
+cuts on the right frames.
 """
 import bisect
 import json
@@ -26,7 +27,12 @@ from pathlib import Path
 log_path, video_path, meta_path, out_path, sidecar_path = map(Path, sys.argv[1:6])
 log = log_path.read_text(errors="replace")
 meta = json.loads(meta_path.read_text())
-RATE = 30.0
+# The capture's own frame rate and size, from the recorder's metadata: the world region the still
+# detection reads is the picture left of the caption panel and the performance overlay.
+RATE = float(meta.get("fps", 30))
+SCREEN = meta.get("xvfbScreen", "1920x1080x24").split("x")
+WIDTH, HEIGHT = int(SCREEN[0]), int(SCREEN[1])
+WORLD = f"crop={WIDTH - 820}:{HEIGHT}:0:0,scale=275:270,format=gray"
 LEAD = 0.10
 TRAIL = 0.12
 JOIN = 0.15
@@ -72,8 +78,7 @@ def still_frames():
     """
     out = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", str(video_path),
-         "-vf", "crop=1100:1080:0:0,scale=275:270,format=gray,"
-                "tblend=all_mode=difference,signalstats,metadata=print:file=-",
+         "-vf", f"{WORLD},tblend=all_mode=difference,signalstats,metadata=print:file=-",
          "-f", "null", "-"], check=True, capture_output=True, text=True).stdout
     values = {}
     current = 0
@@ -118,10 +123,14 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     # from the pose it stopped on.
     off_picture = SOURCE_TIMES[off_stop]
     on_begin = SOURCE_TIMES[on_start]
-    off_end = at(e1) + TRAIL
+    # The vanilla half's audio runs JOIN seconds past its picture, so the crossfade's midpoint sits
+    # on the join and the audio is exactly as long as the picture.
+    off_end = off_picture + JOIN
     finish = at(e2) + TRAIL
     if off_picture <= begin or on_begin >= finish:
         raise SystemExit(f"{stage}: the held pose {off_stop}..{on_start} leaves no half")
+    if finish - on_begin < 2.0 * JOIN:
+        raise SystemExit(f"{stage}: the palette half is shorter than two {JOIN} s fades")
     off_len = off_picture - begin
     on_len = finish - on_begin
     length = off_len + on_len
