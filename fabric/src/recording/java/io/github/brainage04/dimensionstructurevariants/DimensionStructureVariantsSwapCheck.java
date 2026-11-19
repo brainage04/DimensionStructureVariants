@@ -1,5 +1,6 @@
 package io.github.brainage04.dimensionstructurevariants;
 
+import io.github.brainage04.minecraftmodconventions.ClientGameTestRecordingSession;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestServers;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,14 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
 
     @Override
     public void runTest(ClientGameTestContext context) {
+        // withDedicatedServer starts a recording session, and the film's is the one a recording run
+        // has: a second start throws (ClientGameTestRecordingSession.start). The check runs in the
+        // plain client lane, where no session is enabled.
+        if (ClientGameTestRecordingSession.isEnabled()) {
+            System.out.println(
+                    "[DSV] swap check skipped: the film owns this run's recording session");
+            return;
+        }
         Properties properties = ClientGameTestServers.flatServerProperties();
         properties.setProperty("max-tick-time", "-1");
         ClientGameTestServers.withDedicatedServer(
