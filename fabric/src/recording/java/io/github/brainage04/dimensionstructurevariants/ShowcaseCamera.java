@@ -216,7 +216,7 @@ public final class ShowcaseCamera {
     /**
      * A circle around {@code (centreX, centreY, centreZ)} at a fixed {@code radius}, flown {@link
      * #REVOLUTIONS} time per shot while the camera descends from looking {@link #PITCH_START}
-     * degrees down at the centre to looking {@link #PITCH_END} degrees up at it. The height stays
+     * degrees down at the centre to looking level at it. The height stays
      * between {@code floorY} and {@code ceilingY}; where the floor stops the descent the camera
      * keeps circling on it and the final angle is smaller.
      */

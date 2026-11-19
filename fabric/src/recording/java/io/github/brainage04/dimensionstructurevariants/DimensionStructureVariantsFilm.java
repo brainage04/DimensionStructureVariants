@@ -96,8 +96,8 @@ import net.minecraft.world.phys.AABB;
  * until a whole pass builds no new section; the filmed pass must then build and lose none.
  *
  * <p>Every shot runs the Overworld clock from noon to midnight with Night Vision on the camera
- * player, and circles the structure once per shot at a fixed distance, descending from looking 30
- * degrees down at the centre to looking 30 degrees up at it. The first half shows the vanilla
+ * player, and circles the structure once per shot at a fixed distance, descending from looking 60
+ * degrees down at the centre to looking level at it. The first half shows the vanilla
  * blocks; halfway the camera and the game stop off camera while the palette goes in, and the second
  * half carries on from the same pose. {@code STAGE_START} and {@code STAGE_END} with a wall-clock
  * time mark each half (the second one's id ends in {@code /on}), and the delivered video is cut to
@@ -1960,7 +1960,7 @@ public final class DimensionStructureVariantsFilm {
      * The circle around the structure's centre: the smallest radius, from far enough out that the
      * whole structure is in the frame, from which the camera keeps {@link #REQUIRED_CLEARANCE} from
      * every block for the whole shot (the ground aside, which only bounds the descent). The camera
-     * stays on that radius, looking 30 degrees down at the centre at the start and 30 degrees up at
+     * stays on that radius, looking 60 degrees down at the centre at the start and level at it at
      * the end if the ground allows it; otherwise the descent stops {@link #FLOOR_ABOVE_GROUND}
      * blocks above the ground. The End's islands are not flat: there the floor is the highest block
      * (chorus plants included) on the circle and within the clearance of it, with the clearance on
