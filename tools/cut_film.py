@@ -29,13 +29,16 @@ log_path, video_path, meta_path, out_path, sidecar_path = map(Path, sys.argv[1:6
 log = log_path.read_text(errors="replace")
 meta = json.loads(meta_path.read_text())
 # The capture's own frame rate and size, from the recorder's metadata. The still detection reads the
-# picture left of the caption panel and the performance overlay, which take the right 820 columns of
-# a 1920-wide capture, at a tenth of the size.
+# picture left of the caption panel, whose left edge the film logs (its width follows the longest
+# line it draws), at a tenth of the size.
 RATE = float(meta.get("fps", 30))
 SCREEN = meta.get("xvfbScreen", "1920x1080x24").split("x")
 WIDTH, HEIGHT = int(SCREEN[0]), int(SCREEN[1])
-PANELS = 820
-WORLD = f"crop={WIDTH - PANELS}:{HEIGHT}:0:0,scale=275:270,format=gray"
+edges = [int(m.group(1)) for m in re.finditer(r"caption panel left edge (\d+) px", log)]
+if not edges:
+    raise SystemExit("the log has no caption panel left edge")
+WORLD_END = min(edges)
+WORLD = f"crop={WORLD_END}:{HEIGHT}:0:0,scale=275:270,format=gray"
 LEAD = 0.10
 TRAIL = 0.12
 JOIN = 0.15
@@ -136,8 +139,8 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     # from the pose it stopped on.
     off_picture = SOURCE_TIMES[off_stop]
     on_begin = SOURCE_TIMES[on_start]
-    # The vanilla half's audio runs JOIN seconds past its picture, so the crossfade's midpoint sits
-    # on the join and the audio is exactly as long as the picture.
+    # The vanilla half's audio runs JOIN seconds past its picture, so the crossfade starts on the
+    # join and the audio is exactly as long as the picture.
     off_end = off_picture + JOIN
     finish = at(e2) + TRAIL
     if off_picture <= begin or on_begin >= finish:

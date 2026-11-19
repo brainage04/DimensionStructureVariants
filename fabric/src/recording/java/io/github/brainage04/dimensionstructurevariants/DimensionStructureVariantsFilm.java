@@ -2474,6 +2474,12 @@ public final class DimensionStructureVariantsFilm {
         // The caption and the still camera are on screen before the shot starts, so the cut never
         // falls on a frame without the caption.
         context.waitTicks(6);
+        // The cut's still detection reads the world left of the caption panel, so it needs the
+        // panel's own left edge: the panel's width follows the longest line it draws.
+        System.out.println(
+                "[DSV] caption panel left edge "
+                        + context.computeOnClient(client -> StageCaptionPanel.screenLeft())
+                        + " px");
         if (stage.dimension() == Dimension.NETHER) assertNetherFog(context);
 
         // Noon to midnight over the shot: the clock runs at that rate and the client follows it
@@ -2760,8 +2766,9 @@ public final class DimensionStructureVariantsFilm {
 
         /**
          * Records the tick that just ended and returns the camera's progress, read in the same
-         * client task as the frame counters: every client task makes the client wait for the test
-         * thread before its next frame, so the shot takes one round trip a tick, not two.
+         * client task as the frame counters: a client task makes the client wait for the test
+         * thread before its next frame, so the shot takes one client task a tick instead of two,
+         * and three on the ticks that also check the sections.
          */
         double afterWait(
                 ClientGameTestContext context, TestDedicatedServerContext server, int tick) {

@@ -57,6 +57,33 @@ final class StageCaptionPanel {
         on = true;
     }
 
+    /**
+     * The panel's left edge in screen pixels, for the cut tool's still detection: the panel and the
+     * performance overlay sit right of it, so the world region ends there. The panel is drawn at
+     * {@code guiScaledWidth - panelWidth - SCREEN_MARGIN} GUI pixels, and the window's GUI scale
+     * turns that into screen pixels.
+     */
+    static int screenLeft() {
+        Minecraft client = Minecraft.getInstance();
+        Font font = client.font;
+        int width = 0;
+        for (String row : rows(font)) width = Math.max(width, font.width(row));
+        int guiLeft =
+                client.getWindow().getGuiScaledWidth() - (width + PADDING * 2) - SCREEN_MARGIN;
+        return guiLeft * client.getWindow().getGuiScale();
+    }
+
+    /** The panel's lines, in the order it draws them. */
+    private static List<String> rows(Font font) {
+        List<String> rows = new ArrayList<>();
+        if (heading != null) {
+            rows.add(heading);
+            for (String row : wrap(font, String.join(", ", biomes))) rows.add(row);
+        }
+        if (status != null) rows.add(status);
+        return rows;
+    }
+
     static void clear() {
         heading = null;
         biomes = List.of();
@@ -68,18 +95,11 @@ final class StageCaptionPanel {
         String line = status;
         if (line == null) return;
         Font font = Minecraft.getInstance().font;
-        List<String> rows = new ArrayList<>();
+        List<String> rows = rows(font);
         List<Integer> colors = new ArrayList<>();
-        if (heading != null) {
-            rows.add(heading);
-            colors.add(LIST_COLOR);
-            for (String row : wrap(font, String.join(", ", biomes))) {
-                rows.add(row);
-                colors.add(LIST_COLOR);
-            }
+        for (int i = 0; i < rows.size(); i++) {
+            colors.add(i == rows.size() - 1 ? (on ? ON_COLOR : OFF_COLOR) : LIST_COLOR);
         }
-        rows.add(line);
-        colors.add(on ? ON_COLOR : OFF_COLOR);
         int width = 0;
         for (String row : rows) width = Math.max(width, font.width(row));
         int panelWidth = width + PADDING * 2;
