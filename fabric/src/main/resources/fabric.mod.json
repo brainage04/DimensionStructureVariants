@@ -9,7 +9,8 @@
 	],
 	"contact": {
 		"homepage": "https://github.com/brainage04/DimensionStructureVariants",
-		"sources": "https://github.com/brainage04/DimensionStructureVariants"
+		"sources": "https://github.com/brainage04/DimensionStructureVariants",
+		"issues": "https://github.com/brainage04/DimensionStructureVariants/issues"
 	},
 	"license": "MIT",
 	"icon": "assets/dimensionstructurevariants/icon.png",
