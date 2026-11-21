@@ -145,6 +145,16 @@ public final class DimensionStructureVariantsFilm {
     /** How far above the ground's surface the camera's descent stops. */
     private static final double FLOOR_ABOVE_GROUND = 2.0D;
 
+    /**
+     * Blocks of open sky the camera keeps over it. A camera below a block shows that block's
+     * underside in the top of the frame even while it looks down, which reads as filming from
+     * underneath, so the camera's lowest point stays this far above the structure's top.
+     */
+    private static final int SKY_CLEARANCE = 3;
+
+    /** The film's picture is 16:9, so the frame is wider than it is tall. */
+    private static final double FILM_ASPECT = 16.0D / 9.0D;
+
     /** Chunks loaded and fed to the GameTest server in one task, so no task blocks for long. */
     private static final int CHUNK_BATCH = 96;
 
@@ -1418,6 +1428,8 @@ public final class DimensionStructureVariantsFilm {
         for (int i = 0; i < samples.length; i++) {
             samples[i] = orbit.at(i / (double) (samples.length - 1));
         }
+        String blocked = blockedSky(level, build.occupied, samples, halfFov, stage.id());
+        if (blocked != null) PROBLEMS.add(blocked);
         ChunkRange padded = build.padded;
         int lowestSection =
                 SectionPos.blockToSectionCoord(
@@ -1993,6 +2005,12 @@ public final class DimensionStructureVariantsFilm {
      * blocks above the ground. The End's islands are not flat: there the floor is the highest block
      * (chorus plants included) on the circle and within the clearance of it, with the clearance on
      * top.
+     *
+     * <p>The floor is also never below the structure's top plus {@link #SKY_CLEARANCE}: a camera
+     * under a roof shows the roof's underside in the top of the frame even while it looks down,
+     * which reads as filming from underneath. The radius then grows until the whole structure still
+     * fits the frame from that height, since the camera ends level above the structure and the
+     * structure sits below the axis.
      */
     private static ShowcaseCamera.Orbit planOrbit(
             ServerLevel level, Stage stage, BoundingBox box, int groundY, double halfFov) {
@@ -2036,6 +2054,78 @@ public final class DimensionStructureVariantsFilm {
             if (clear(orbit, solids)) return orbit;
         }
         throw new AssertionError("Could not keep the camera clear of " + stage.id() + " " + box);
+    }
+
+    /**
+     * The first sampled point of the orbit that has a block over the camera inside the frame, or
+     * null when every point sees only sky above its axis. A block above the camera shows its
+     * underside in the top of the frame even while the camera looks down, which reads as filming
+     * from underneath, so the shot must keep the sky over the camera for its whole turn.
+     *
+     * <p>The block need not be straight up: the camera orbits outside the structure, so the roof
+     * that shows is the far edge of an overhang, in front of the camera and above it. Every block
+     * of the structure's box with air over it is tested, against the frame's own edges.
+     */
+    private static String blockedSky(
+            ServerLevel level,
+            BoundingBox box,
+            ShowcaseCamera.Pose[] samples,
+            double halfFov,
+            String stage) {
+        double lowest = Double.MAX_VALUE;
+        for (ShowcaseCamera.Pose pose : samples) lowest = Math.min(lowest, pose.y());
+        // Every block with air over it, above the camera's lowest point: the faces it can see.
+        List<int[]> faces = new ArrayList<>();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int x = box.minX(); x <= box.maxX(); x++) {
+            for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                for (int y = box.maxY(); y >= box.minY(); y--) {
+                    if (level.getBlockState(cursor.set(x, y, z)).isAir()) continue;
+                    if (y + 1 > lowest) faces.add(new int[] {x, z, y + 1});
+                }
+            }
+        }
+        if (faces.isEmpty()) return null;
+        // The frame's horizontal half-angle, from its vertical one and the film's 16:9 picture.
+        double horizontal =
+                Math.toDegrees(Math.atan(Math.tan(Math.toRadians(halfFov)) * FILM_ASPECT));
+        for (ShowcaseCamera.Pose pose : samples) {
+            double yaw = Math.toRadians(pose.yaw() + 90.0D);
+            double cos = Math.cos(yaw);
+            double sin = Math.sin(yaw);
+            for (int[] face : faces) {
+                if (face[2] <= pose.y()) continue;
+                double dx = face[0] + 0.5D - pose.x();
+                double dz = face[1] + 0.5D - pose.z();
+                double distance = Math.hypot(dx, dz);
+                if (distance < 1.0D) continue;
+                double off =
+                        Math.toDegrees(
+                                Math.acos(
+                                        Math.max(
+                                                -1.0D,
+                                                Math.min(
+                                                        1.0D,
+                                                        (dx * cos + dz * sin) / distance))));
+                if (off > horizontal) continue;
+                double above = Math.toDegrees(Math.atan2(face[2] - pose.y(), distance));
+                if (above + pose.pitch() > halfFov) continue;
+                return String.format(
+                        Locale.ROOT,
+                        "%s: the camera at (%.1f, %.1f, %.1f) looking %.1f down has the block at"
+                                + " %d %d %d over it, %.1f degrees above its axis",
+                        stage,
+                        pose.x(),
+                        pose.y(),
+                        pose.z(),
+                        pose.pitch(),
+                        face[0],
+                        face[2] - 1,
+                        face[1],
+                        above + pose.pitch());
+            }
+        }
+        return null;
     }
 
     /**
