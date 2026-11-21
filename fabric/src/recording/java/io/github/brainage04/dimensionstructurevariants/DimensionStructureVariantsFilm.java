@@ -152,9 +152,6 @@ public final class DimensionStructureVariantsFilm {
      */
     private static final int SKY_CLEARANCE = 3;
 
-    /** Points of the orbit the framing check tests, so a pose between two ticks is covered too. */
-    private static final int FRAME_SAMPLES = 200;
-
     /** The film's picture is 16:9, so the frame is wider than it is tall. */
     private static final double FILM_ASPECT = 16.0D / 9.0D;
 
@@ -815,27 +812,18 @@ public final class DimensionStructureVariantsFilm {
                     place(build, stage, halfFov);
                 });
         if (!stage.hasGround()) {
-            // The camera's floor follows the End's real terrain out to the widest circle tried. The
-            // search starts at the radius the level end needs, which a tall structure seen from
-            // above its own top makes wide, so the reach is taken from the box's own span.
+            // The camera's floor follows the End's real terrain out to the widest circle tried.
             BoundingBox occupied = build.occupied;
-            double levelRadius =
-                    Math.max(occupied.getXSpan(), occupied.getZSpan()) / 2.0D
-                            + (occupied.maxY() + 1.0D + SKY_CLEARANCE - occupied.minY())
-                                    / Math.tan(Math.toRadians(halfFov));
             int reach =
                     (int)
                                     Math.ceil(
-                                            Math.max(
-                                                            startRadius(
-                                                                    Math.max(
-                                                                                    occupied
-                                                                                            .getXSpan(),
+                                            startRadius(
+                                                            Math.max(
+                                                                            occupied.getXSpan(),
                                                                             occupied.getZSpan())
-                                                                            / 2.0D,
-                                                                    occupied.getYSpan() / 2.0D,
-                                                                    halfFov),
-                                                            levelRadius)
+                                                                    / 2.0D,
+                                                            occupied.getYSpan() / 2.0D,
+                                                            halfFov)
                                                     + ORBIT_ROUNDS * 6.0D)
                             + 16;
             int centreX = (occupied.minX() + occupied.maxX()) / 2;
@@ -2020,9 +2008,8 @@ public final class DimensionStructureVariantsFilm {
      *
      * <p>The floor is also never below the structure's top plus {@link #SKY_CLEARANCE}: a camera
      * under a roof shows the roof's underside in the top of the frame even while it looks down,
-     * which reads as filming from underneath. The radius then grows until the whole structure still
-     * fits the frame from that height, since the camera ends level above the structure and the
-     * structure sits below the axis.
+     * which reads as filming from underneath. The whole structure then sits below the camera for
+     * the whole shot, so the camera sees it from above at every point of the orbit.
      */
     private static ShowcaseCamera.Orbit planOrbit(
             ServerLevel level, Stage stage, BoundingBox box, int groundY, double halfFov) {
@@ -2044,12 +2031,6 @@ public final class DimensionStructureVariantsFilm {
                                 (int) Math.ceil(centreX + framed[0]),
                                 (int) Math.ceil(centreY + framed[1]),
                                 (int) Math.ceil(centreZ + framed[0])));
-        // The camera ends level above the structure, so the structure's lowest block has to fit
-        // under the frame's bottom edge from there. That alone sets a radius, and the search starts
-        // at it: a tall structure seen from above its own top needs a wide circle.
-        double levelRadius =
-                framed[0] + (sky - box.minY()) / Math.tan(Math.toRadians(halfFov));
-        double start = Math.max(base, Math.ceil(levelRadius / 6.0D) * 6.0D);
         int[] terrain =
                 stage.hasGround()
                         ? null
@@ -2058,9 +2039,9 @@ public final class DimensionStructureVariantsFilm {
                                 box,
                                 centreX,
                                 centreZ,
-                                (int) Math.ceil(start + ORBIT_ROUNDS * 6.0D) + 8);
+                                (int) Math.ceil(base + ORBIT_ROUNDS * 6.0D) + 8);
         for (int round = 0; round < ORBIT_ROUNDS; round++) {
-            double radius = start + round * 6.0D;
+            double radius = base + round * 6.0D;
             double floor =
                     terrain == null
                             ? Math.max(groundY + 1 + FLOOR_ABOVE_GROUND, sky)
@@ -2072,31 +2053,9 @@ public final class DimensionStructureVariantsFilm {
             ShowcaseCamera.Orbit orbit =
                     new ShowcaseCamera.Orbit(
                             centreX, centreY, centreZ, radius, floor, ceiling, 0.0D);
-            if (frames(orbit, box, framed[0], halfFov) && clear(orbit, solids)) return orbit;
+            if (clear(orbit, solids)) return orbit;
         }
         throw new AssertionError("Could not keep the camera clear of " + stage.id() + " " + box);
-    }
-
-    /**
-     * Whether the whole structure stays inside the vertical field of view for the whole shot. The
-     * camera's floor is the sky over the structure, so the descent ends above the structure's top
-     * and the structure sits below the axis: the radius has to be wide enough that the structure's
-     * lowest block still fits under the frame's bottom edge, and its top under the top edge at the
-     * start. The near edge of the structure is the worst case, so the angles are taken from there.
-     */
-    private static boolean frames(
-            ShowcaseCamera.Orbit orbit, BoundingBox box, double half, double halfFov) {
-        double near = Math.max(1.0D, orbit.radius() - half);
-        double top = box.maxY() + 1.0D;
-        double bottom = box.minY();
-        for (int i = 0; i <= FRAME_SAMPLES; i++) {
-            ShowcaseCamera.Pose pose = orbit.at(i / (double) FRAME_SAMPLES);
-            double above = Math.toDegrees(Math.atan2(top - pose.y(), near));
-            double below = Math.toDegrees(Math.atan2(pose.y() - bottom, near));
-            if (above + pose.pitch() > halfFov) return false;
-            if (below - pose.pitch() > halfFov) return false;
-        }
-        return true;
     }
 
     /**
