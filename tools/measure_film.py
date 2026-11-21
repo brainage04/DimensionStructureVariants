@@ -63,7 +63,9 @@ def rms_envelope():
 
 
 steps = differences()
-frames = max(steps) + 1
+# tblend writes one difference per frame after the first, so the film has one more frame than
+# there are differences.
+frames = len(steps) + 1
 medians = []
 for shot in shots:
     a = int(round(shot["video_start_s"] * RATE))
@@ -101,7 +103,7 @@ def run_at(frame, limit):
 
 
 start_still = run_at(0, 0.05 * medians[0])
-end_still = run_at(frames - 2, 0.05 * medians[-1])
+end_still = run_at(frames - 1, 0.05 * medians[-1])
 
 # Frame hashes in the world region, so a repeated picture is named as one.
 hashes = subprocess.run(
