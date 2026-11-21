@@ -47,3 +47,4 @@ replay_*.log
 
 .codex
 __pycache__/
+.gametest.lock

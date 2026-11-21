@@ -225,9 +225,9 @@ public final class ShowcaseCamera {
     /**
      * A circle around {@code (centreX, centreY, centreZ)} at a fixed {@code radius}, flown {@link
      * #REVOLUTIONS} time per shot while the camera descends from looking {@link #PITCH_START}
-     * degrees down to looking level. The height stays between {@code floorY} and {@code
-     * ceilingY}; where the floor stops the descent the camera keeps circling on it and looks level
-     * from there, so the structure sits below the axis rather than the camera tilting down at it.
+     * degrees down to looking level. The height stays between {@code floorY} and {@code ceilingY};
+     * where the floor stops the descent the camera keeps circling on it and looks level from there,
+     * so the structure sits below the axis rather than the camera tilting down at it.
      */
     public record Orbit(
             double centreX,
@@ -237,7 +237,9 @@ public final class ShowcaseCamera {
             double floorY,
             double ceilingY,
             double startAngle) {
-        /** Degrees below the horizon the shot plans to look at {@code progress}: 60 down to level. */
+        /**
+         * Degrees below the horizon the shot plans to look at {@code progress}: 60 down to level.
+         */
         public double plannedPitch(double progress) {
             return PITCH_START + (PITCH_END - PITCH_START) * progress;
         }
@@ -271,7 +273,9 @@ public final class ShowcaseCamera {
             return Math.toDegrees(Math.atan2(centreY - height(1.0D), radius));
         }
 
-        /** Degrees below the horizon the camera looks at the end: 0 unless the ground stopped it. */
+        /**
+         * Degrees below the horizon the camera looks at the end: 0 unless the ground stopped it.
+         */
         public double finalPitch() {
             return at(1.0D).pitch();
         }
