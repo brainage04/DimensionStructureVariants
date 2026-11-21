@@ -50,7 +50,7 @@ The pinned workflow never asks GitHub whether the repository is public. A privat
 
 ## What the Modrinth project says
 
-The Fabric job refreshes the project on every release. The body is `README.md`. The title, licence and contact links come from `fabric/src/main/resources/fabric.mod.json`, and a link that is missing falls back to the GitHub repository URL. The summary is the GitHub repository description, then `.modrinth/project.json`, then the `fabric.mod.json` description. `.modrinth/project.json` sets the primary category `worldgen` and no additional category, and can also override the slug and the side support. The icon is `common/src/main/resources/assets/dimensionstructurevariants/icon.png`.
+The Fabric job refreshes the project on every release. The body is `README.md`. The title, licence and contact links come from `fabric/src/main/resources/fabric.mod.json`, and a link that is missing falls back to the GitHub repository URL, with `/issues` or `/wiki` appended for those two. The summary is the GitHub repository description, then `.modrinth/project.json`, then the `fabric.mod.json` description. `.modrinth/project.json` sets the primary category `worldgen` and no additional category, and can also override the slug and the side support. The icon is `common/src/main/resources/assets/dimensionstructurevariants/icon.png`.
 
 Version dependencies come from the `depends`, `recommends`, `suggests`, `conflicts` and `breaks` blocks of `fabric.mod.json`, with each mod id read as a Modrinth slug. `minecraft`, `java` and `fabricloader` are dropped, which leaves `fabric-api` as the only one listed. To change one, add a `dependency_overrides` entry to `.modrinth/project.json` with `project_id`, `project_slug` or `dependency_type`, or drop it with `skip`.
 
