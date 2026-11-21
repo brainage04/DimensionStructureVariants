@@ -815,18 +815,27 @@ public final class DimensionStructureVariantsFilm {
                     place(build, stage, halfFov);
                 });
         if (!stage.hasGround()) {
-            // The camera's floor follows the End's real terrain out to the widest circle tried.
+            // The camera's floor follows the End's real terrain out to the widest circle tried. The
+            // search starts at the radius the level end needs, which a tall structure seen from
+            // above its own top makes wide, so the reach is taken from the box's own span.
             BoundingBox occupied = build.occupied;
+            double levelRadius =
+                    Math.max(occupied.getXSpan(), occupied.getZSpan()) / 2.0D
+                            + (occupied.maxY() + 1.0D + SKY_CLEARANCE - occupied.minY())
+                                    / Math.tan(Math.toRadians(halfFov));
             int reach =
                     (int)
                                     Math.ceil(
-                                            startRadius(
-                                                            Math.max(
-                                                                            occupied.getXSpan(),
+                                            Math.max(
+                                                            startRadius(
+                                                                    Math.max(
+                                                                                    occupied
+                                                                                            .getXSpan(),
                                                                             occupied.getZSpan())
-                                                                    / 2.0D,
-                                                            occupied.getYSpan() / 2.0D,
-                                                            halfFov)
+                                                                            / 2.0D,
+                                                                    occupied.getYSpan() / 2.0D,
+                                                                    halfFov),
+                                                            levelRadius)
                                                     + ORBIT_ROUNDS * 6.0D)
                             + 16;
             int centreX = (occupied.minX() + occupied.maxX()) / 2;
