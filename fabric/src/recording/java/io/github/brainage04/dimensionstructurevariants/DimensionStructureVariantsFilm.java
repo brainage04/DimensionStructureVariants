@@ -2035,6 +2035,12 @@ public final class DimensionStructureVariantsFilm {
                                 (int) Math.ceil(centreX + framed[0]),
                                 (int) Math.ceil(centreY + framed[1]),
                                 (int) Math.ceil(centreZ + framed[0])));
+        // The camera ends level above the structure, so the structure's lowest block has to fit
+        // under the frame's bottom edge from there. That alone sets a radius, and the search starts
+        // at it: a tall structure seen from above its own top needs a wide circle.
+        double levelRadius =
+                framed[0] + (sky - box.minY()) / Math.tan(Math.toRadians(halfFov));
+        double start = Math.max(base, Math.ceil(levelRadius / 6.0D) * 6.0D);
         int[] terrain =
                 stage.hasGround()
                         ? null
@@ -2043,9 +2049,9 @@ public final class DimensionStructureVariantsFilm {
                                 box,
                                 centreX,
                                 centreZ,
-                                (int) Math.ceil(base + ORBIT_ROUNDS * 6.0D) + 8);
+                                (int) Math.ceil(start + ORBIT_ROUNDS * 6.0D) + 8);
         for (int round = 0; round < ORBIT_ROUNDS; round++) {
-            double radius = base + round * 6.0D;
+            double radius = start + round * 6.0D;
             double floor =
                     terrain == null
                             ? Math.max(groundY + 1 + FLOOR_ABOVE_GROUND, sky)
