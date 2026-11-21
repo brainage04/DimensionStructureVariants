@@ -152,6 +152,9 @@ public final class DimensionStructureVariantsFilm {
      */
     private static final int SKY_CLEARANCE = 3;
 
+    /** Points of the orbit the framing check tests, so a pose between two ticks is covered too. */
+    private static final int FRAME_SAMPLES = 200;
+
     /** The film's picture is 16:9, so the frame is wider than it is tall. */
     private static final double FILM_ASPECT = 16.0D / 9.0D;
 
@@ -2018,6 +2021,7 @@ public final class DimensionStructureVariantsFilm {
         double centreZ = (box.minZ() + box.maxZ() + 1) / 2.0D;
         double centreY = (box.minY() + box.maxY() + 1) / 2.0D;
         double ceiling = level.getMaxY() - 2.0D;
+        double sky = box.maxY() + 1.0D + SKY_CLEARANCE;
         double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
         double base = startRadius(framed[0], framed[1], halfFov);
         Solids solids =
@@ -2044,16 +2048,40 @@ public final class DimensionStructureVariantsFilm {
             double radius = base + round * 6.0D;
             double floor =
                     terrain == null
-                            ? groundY + 1 + FLOOR_ABOVE_GROUND
+                            ? Math.max(groundY + 1 + FLOOR_ABOVE_GROUND, sky)
                             : Math.max(
-                                    level.getMinY() + FLOOR_ABOVE_GROUND,
-                                    ringTop(terrain, radius) + REQUIRED_CLEARANCE + 0.5D);
+                                    Math.max(
+                                            level.getMinY() + FLOOR_ABOVE_GROUND,
+                                            ringTop(terrain, radius) + REQUIRED_CLEARANCE + 0.5D),
+                                    sky);
             ShowcaseCamera.Orbit orbit =
                     new ShowcaseCamera.Orbit(
                             centreX, centreY, centreZ, radius, floor, ceiling, 0.0D);
-            if (clear(orbit, solids)) return orbit;
+            if (frames(orbit, box, framed[0], halfFov) && clear(orbit, solids)) return orbit;
         }
         throw new AssertionError("Could not keep the camera clear of " + stage.id() + " " + box);
+    }
+
+    /**
+     * Whether the whole structure stays inside the vertical field of view for the whole shot. The
+     * camera's floor is the sky over the structure, so the descent ends above the structure's top
+     * and the structure sits below the axis: the radius has to be wide enough that the structure's
+     * lowest block still fits under the frame's bottom edge, and its top under the top edge at the
+     * start. The near edge of the structure is the worst case, so the angles are taken from there.
+     */
+    private static boolean frames(
+            ShowcaseCamera.Orbit orbit, BoundingBox box, double half, double halfFov) {
+        double near = Math.max(1.0D, orbit.radius() - half);
+        double top = box.maxY() + 1.0D;
+        double bottom = box.minY();
+        for (int i = 0; i <= FRAME_SAMPLES; i++) {
+            ShowcaseCamera.Pose pose = orbit.at(i / (double) FRAME_SAMPLES);
+            double above = Math.toDegrees(Math.atan2(top - pose.y(), near));
+            double below = Math.toDegrees(Math.atan2(pose.y() - bottom, near));
+            if (above + pose.pitch() > halfFov) return false;
+            if (below - pose.pitch() > halfFov) return false;
+        }
+        return true;
     }
 
     /**
