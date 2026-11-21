@@ -163,8 +163,7 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     # The first and last frame of the shot that move: the frames outside them are the held pose the
     # camera waits on, and a cut on one of those shows a still picture. A frame moves when it
     # differs from the one before it. The frame after the first has to move too, or the film opens
-    # on a still; the last needs no such check, because the frame after it in the film is the next
-    # stage's first.
+    # on a still, and the frame before the last, or the film ends on one.
     # The search starts at the previous stage's last frame, so a stage that opens on a still cannot
     # take the frame before it, which belongs to the stage before.
     floor = 0 if index == 0 else frame_at(at(stages[index - 1][4]))
@@ -174,7 +173,7 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
         None)
     last = next(
         (f for f in range(frame_at(at(e2) + TRAIL), frame_at(at(s2)), -1)
-         if not still(f, boundary)),
+         if not still(f, boundary) and not still(f - 1, boundary)),
         None)
     if begin is None or last is None or last <= begin:
         raise SystemExit(f"{stage}: no moving frames between its markers")
