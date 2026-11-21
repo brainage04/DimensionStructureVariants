@@ -82,7 +82,7 @@ Version dependencies come from the `depends`, `recommends`, `suggests`, `conflic
 
 ## Release notes
 
-The Modrinth version changelog is the same annotated tag notes the GitHub release uses, because the workflow passes the same release body to every destination.
+The Modrinth version changelog is the same release body the GitHub release uses, because the workflow passes that body to every destination.
 
 ## Running the tasks locally
 
