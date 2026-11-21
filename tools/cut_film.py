@@ -59,8 +59,17 @@ LEAD = 0.10
 TRAIL = 0.12
 JOIN = 0.15
 # A frame is still when it differs from the one before it by less than this share of the stage's
-# median difference: the rule the film is reviewed by.
+# own motion: the rule the film is reviewed by, which measures against the stage's median
+# difference. The reference here is the stage's upper quartile instead, because a capture the
+# client drew slowly repeats slots, and on such a capture half the frames are repeats and the
+# median is a still's own difference.
 STILL_SHARE = 0.05
+MOTION_QUANTILE = 0.75
+# The frame a stage is cut on has to move like the stage does, not merely clear the still
+# threshold: a capture the client drew slowly repeats slots, and a cut on a repeat shows a still
+# picture even though the frame before it moved. A repeat is a tenth of the stage's motion or less;
+# the shot's own first frames are slower than the rest, so the share stays well under a quarter.
+BOUNDARY_SHARE = 0.10
 PALETTE_HALF = "/on"
 
 starts = [(int(m.group(1)), m.group(2)) for m in re.finditer(r"STAGE_START (\d+) (\S+)", log)]
@@ -124,14 +133,18 @@ def still(frame, limit):
     return STEPS.get(frame - 1, 0.0) < limit
 
 
-def held_pose(start_ms, end_ms, stage, limit):
-    """The first and last frame of the pose the camera stops on between two markers."""
+def held_pose(start_ms, end_ms, stage):
+    """The frames the two halves meet on: the vanilla half's last and the palette half's first.
+
+    The markers say where each half ends and starts, and the camera is held on one pose between
+    them, so the join is that pose with the blocks and the caption changed. The frames between the
+    markers are not a still stretch: the client draws the structure again as it rebuilds it.
+    """
     first = frame_at(at(start_ms))
     last = frame_at(at(end_ms))
-    stills = [f for f in range(first, last) if still(f, limit)]
-    if not stills:
-        raise SystemExit(f"{stage}: the camera never stops between {start_ms} and {end_ms}")
-    return stills[0], stills[-1]
+    if last <= first:
+        raise SystemExit(f"{stage}: the palette half starts before the vanilla half ends")
+    return first, last
 
 
 graph = [f"[0:v]{CFR}[cfr]"]
@@ -143,27 +156,30 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
             + list(range(frame_at(at(s2)), frame_at(at(e2)) + 1)) if f in STEPS]
     if not span:
         raise SystemExit(f"{stage}: no frames between its markers")
-    limit = STILL_SHARE * statistics.median(span)
+    span.sort()
+    motion = span[int(MOTION_QUANTILE * (len(span) - 1))]
+    limit = STILL_SHARE * motion
+    boundary = BOUNDARY_SHARE * motion
     # The first and last frame of the shot that move: the frames outside them are the held pose the
     # camera waits on, and a cut on one of those shows a still picture. A frame moves when it
-    # differs from the one before it, so the first frame of the shot moves when it differs from the
-    # held pose, and the last when it differs from the frame before it. The frame after the first
-    # and the frame before the last have to move too, or the cut lands next to a still.
+    # differs from the one before it. The frame after the first has to move too, or the film opens
+    # on a still; the last needs no such check, because the frame after it in the film is the next
+    # stage's first.
     # The search starts at the previous stage's last frame, so a stage that opens on a still cannot
     # take the frame before it, which belongs to the stage before.
     floor = 0 if index == 0 else frame_at(at(stages[index - 1][4]))
     begin = next(
         (f for f in range(max(floor, frame_at(at(s1) - LEAD)), frame_at(at(e1)))
-         if not still(f, limit) and not still(f + 1, limit)),
+         if not still(f, boundary) and not still(f + 1, boundary)),
         None)
     last = next(
         (f for f in range(frame_at(at(e2) + TRAIL), frame_at(at(s2)), -1)
-         if not still(f, limit) and not still(f - 1, limit)),
+         if not still(f, boundary)),
         None)
     if begin is None or last is None or last <= begin:
         raise SystemExit(f"{stage}: no moving frames between its markers")
     finish = last + 1
-    off_stop, on_start = held_pose(e1, s2, stage, limit)
+    off_stop, on_start = held_pose(e1, s2, stage)
 
     # The vanilla half ends on the held pose's first frame, which still shows the vanilla blocks;
     # the palette half starts on the held pose's last frame, the same pose with the palette and its
