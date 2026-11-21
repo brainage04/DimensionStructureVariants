@@ -80,8 +80,12 @@ Version dependencies come from the `depends`, `recommends`, `suggests`, `conflic
 
 `fabric.mod.json` sets `environment` to `*` and declares no client entrypoint, so the project is marked server-side only. The NeoForge version lists no dependencies at all, because this repository has no `.modrinth/neoforge-dependencies.json` for the NeoForge job to read.
 
+## Release notes
+
+The Modrinth version changelog is the same annotated tag notes the GitHub release uses, because the workflow passes the same release body to every destination.
+
 ## Running the tasks locally
 
-`./gradlew :fabric:publishModrinth -PpublishModrinth=true -PmodPublishingDryRun=true` runs the same tasks without writing to Modrinth. The dry run logs what each step would do and writes no remote state.
+`./gradlew :fabric:publishModrinth -PpublishModrinth=true -PmodPublishingDryRun=true` runs the publish tasks without writing to Modrinth. It does not run the project or icon sync, and the dry run logs what each step would do instead of sending it.
 
 To cut the tag, follow `docs/RELEASE.md`.
