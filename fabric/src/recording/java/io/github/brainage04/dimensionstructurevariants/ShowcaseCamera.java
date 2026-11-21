@@ -28,12 +28,16 @@ public final class ShowcaseCamera {
     public static final int REVOLUTIONS = 1;
 
     /**
-     * Degrees below the horizon the camera looks at the centre when a shot starts: steep enough
-     * that every structure is seen from above, its paths and the blocks around it in view.
+     * Degrees below the horizon the camera looks when a shot starts: steep enough that every
+     * structure is seen from above, its paths and the blocks around it in view.
      */
     public static final double PITCH_START = 60.0D;
 
-    /** Degrees the camera looks at the centre when a shot ends: level, never from underneath. */
+    /**
+     * Degrees below the horizon the camera looks when a shot ends: level, never from underneath.
+     * Where the ground stops the descent the camera looks level from above the centre, so the
+     * structure sits below the axis rather than the camera tilting down at it.
+     */
     public static final double PITCH_END = 0.0D;
 
     private static Orbit orbit;
