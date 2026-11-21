@@ -46,3 +46,4 @@ replay_*.log
 .env
 
 .codex
+__pycache__/
