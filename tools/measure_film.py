@@ -76,19 +76,21 @@ for shot in shots:
 cuts = []
 for i in range(len(shots) - 1):
     cut = int(round(shots[i]["video_end_s"] * RATE))
-    median = min(medians[i], medians[i + 1])
-    limit = 0.05 * median
-    lo = cut
-    while lo - 1 in steps and steps[lo - 1] < limit:
-        lo -= 1
-    hi = cut
-    while hi in steps and steps[hi] < limit:
-        hi += 1
+    # The review measures the still run on each side of the cut, against that side's own stage
+    # median, and adds them: a cut that lands on a moving frame still counts the stills either side.
+    left = 0.05 * medians[i]
+    right = 0.05 * medians[i + 1]
+    before = 0
+    while cut - 1 - before in steps and steps[cut - 1 - before] < left:
+        before += 1
+    after = 0
+    while cut + after in steps and steps[cut + after] < right:
+        after += 1
     cuts.append({
         "cut_s": shots[i]["video_end_s"],
-        "still_ms": round((hi - lo) * 1000.0 / RATE),
-        "stage_median": round(median, 1),
-        "frames": [lo, hi],
+        "still_ms": round((before + after) * 1000.0 / RATE),
+        "stage_median": round(min(medians[i], medians[i + 1]), 1),
+        "frames": [cut - before, cut + after],
     })
 
 # The film's own ends: a still there is a still the viewer sees.
