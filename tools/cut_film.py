@@ -149,8 +149,11 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     # differs from the one before it, so the first frame of the shot moves when it differs from the
     # held pose, and the last when it differs from the frame before it. The frame after the first
     # and the frame before the last have to move too, or the cut lands next to a still.
+    # The search starts at the previous stage's last frame, so a stage that opens on a still cannot
+    # take the frame before it, which belongs to the stage before.
+    floor = 0 if index == 0 else frame_at(at(stages[index - 1][4]))
     begin = next(
-        (f for f in range(frame_at(max(0.0, at(s1) - LEAD)), frame_at(at(e1)))
+        (f for f in range(max(floor, frame_at(at(s1) - LEAD)), frame_at(at(e1)))
          if not still(f, limit) and not still(f + 1, limit)),
         None)
     last = next(
