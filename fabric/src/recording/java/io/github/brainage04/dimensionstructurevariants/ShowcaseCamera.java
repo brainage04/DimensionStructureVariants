@@ -221,9 +221,9 @@ public final class ShowcaseCamera {
     /**
      * A circle around {@code (centreX, centreY, centreZ)} at a fixed {@code radius}, flown {@link
      * #REVOLUTIONS} time per shot while the camera descends from looking {@link #PITCH_START}
-     * degrees down at the centre to looking level at it. The height stays between {@code floorY}
-     * and {@code ceilingY}; where the floor stops the descent the camera keeps circling on it and
-     * the final angle is smaller.
+     * degrees down to looking level. The height stays between {@code floorY} and {@code
+     * ceilingY}; where the floor stops the descent the camera keeps circling on it and looks level
+     * from there, so the structure sits below the axis rather than the camera tilting down at it.
      */
     public record Orbit(
             double centreX,
@@ -233,9 +233,13 @@ public final class ShowcaseCamera {
             double floorY,
             double ceilingY,
             double startAngle) {
+        /** Degrees below the horizon the shot plans to look at {@code progress}: 60 down to level. */
+        public double plannedPitch(double progress) {
+            return PITCH_START + (PITCH_END - PITCH_START) * progress;
+        }
+
         public double height(double progress) {
-            double pitch = Math.toRadians(PITCH_START + (PITCH_END - PITCH_START) * progress);
-            double y = centreY + radius * Math.tan(pitch);
+            double y = centreY + radius * Math.tan(Math.toRadians(plannedPitch(progress)));
             return Math.max(floorY, Math.min(ceilingY, y));
         }
 
@@ -248,13 +252,24 @@ public final class ShowcaseCamera {
             double dy = centreY - y;
             double dz = centreZ - z;
             float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
-            float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+            // The camera looks at the centre, but never steeper than the shot's own descent and
+            // never up. Where the ceiling stops the climb the camera is nearer the centre than
+            // planned, so it looks at the centre, shallower than planned. Where the ground stops
+            // the descent the camera is above the centre and the angle to it is steeper than
+            // planned, so the camera looks level instead and the structure sits below the axis.
+            double toCentre = -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+            float pitch = (float) Math.max(0.0D, Math.min(plannedPitch(progress), toCentre));
             return new Pose(x, y, z, yaw, pitch);
         }
 
         /** Degrees the camera looks up at the centre at the end (negative: still looking down). */
         public double finalUpAngle() {
             return Math.toDegrees(Math.atan2(centreY - height(1.0D), radius));
+        }
+
+        /** Degrees below the horizon the camera looks at the end: 0 unless the ground stopped it. */
+        public double finalPitch() {
+            return at(1.0D).pitch();
         }
     }
 }

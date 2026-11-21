@@ -11,16 +11,26 @@ that pause, so the two halves' audio are not contiguous in the capture and a har
 The picture joins the halves on the pose the camera stops on: the vanilla half ends on that pose's
 first frame and the palette half starts on its last, so the blocks and the caption change on one
 frame and the camera carries on. The audio crossfades over JOIN seconds across the same join, so
-the two halves' sound overlaps instead of meeting at a fade to silence. A stage's first and last
-JOIN seconds fade, so a cut between stages does not jump.
+the two halves' sound overlaps instead of meeting at a fade to silence.
 
-A frame is found by its own timestamp, not by n / rate, so a capture whose frame times drift still
-cuts on the right frames.
+A stage's outer edges are trimmed to the frames that move. The camera is held still before a shot
+starts and after it ends, so the frames the markers sit in do not move, and a cut on them shows a
+still picture. The trim takes the first and last frame of the stage whose neighbours move too, by
+at least a twentieth of the stage's own median difference: the rule the film is reviewed by. Two
+frames in a row have to move because a stage opens on the camera leaving the pose it was held on,
+and the held pose follows it.
+
+Consecutive stages crossfade their audio over JOIN seconds as well, each stage's sound running JOIN
+seconds past its picture into the next stage's, so the Nether drone carries through a stage cut
+instead of fading to silence and back. The picture still cuts hard, and the film's audio is exactly
+as long as its picture.
+
+The capture is resampled to the film's rate before anything is measured or cut, so the frames the
+still detection counts are the frames the film shows.
 """
-import bisect
-import math
 import json
 import re
+import statistics
 import subprocess
 import sys
 from pathlib import Path
@@ -39,9 +49,17 @@ if not edges:
     raise SystemExit("the log has no caption panel left edge")
 WORLD_END = min(edges)
 WORLD = f"crop={WORLD_END}:{HEIGHT}:0:0,scale=275:270,format=gray"
+# The capture's own frames are irregular (a slow tick leaves a longer one), so the picture is
+# resampled to the film's rate first: every trim then holds exactly the frames its length says,
+# and the still detection counts the frames the film shows.
+CFR = f"fps={RATE:.0f},setpts=PTS-STARTPTS"
+# How far outside a stage's markers the trim looks for the stage's first and last moving frame: the
+# camera is held still for a few ticks either side, so the search has to reach past them.
 LEAD = 0.10
 TRAIL = 0.12
 JOIN = 0.15
+# A frame is still when it differs from the next by less than this share of the stage's median.
+STILL_SHARE = 0.05
 PALETTE_HALF = "/on"
 
 starts = [(int(m.group(1)), m.group(2)) for m in re.finditer(r"STAGE_START (\d+) (\S+)", log)]
@@ -61,18 +79,14 @@ for m in re.finditer(r"\[DSV\] SUMMARY (.*)", log):
     summary[fields[0]] = fields
 
 epoch = float(meta["boundaries"]["selectedStartEpochSeconds"])
-probe = subprocess.run(
-    ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
-     "stream=time_base:packet=pts", "-of", "json", str(video_path)],
-    check=True, capture_output=True, text=True).stdout
-probed = json.loads(probe)
-num, den = (int(x) for x in probed["streams"][0]["time_base"].split("/"))
-pts = sorted(int(p["pts"]) for p in probed["packets"])
-SOURCE_TIMES = [(p - pts[0]) * num / den for p in pts]
 
 
 def at(ms):
     return max(0.0, ms / 1000.0 - epoch)
+
+
+def frame_at(seconds):
+    return int(round(seconds * RATE))
 
 
 def still_frames():
@@ -84,7 +98,7 @@ def still_frames():
     """
     out = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", str(video_path),
-         "-vf", f"{WORLD},tblend=all_mode=difference,signalstats,metadata=print:file=-",
+         "-vf", f"{CFR},{WORLD},tblend=all_mode=difference,signalstats,metadata=print:file=-",
          "-f", "null", "-"], check=True, capture_output=True, text=True).stdout
     values = {}
     current = 0
@@ -97,88 +111,100 @@ def still_frames():
     return values
 
 
-STILL = 0.05
-steps = still_frames()
+STEPS = still_frames()
 
 
-def frame_at(seconds):
-    return bisect.bisect_left(SOURCE_TIMES, seconds)
+def moving(frame, still):
+    return STEPS.get(frame, 99.0) >= still
 
 
-def snap(seconds):
-    """The nearest frame boundary of the film's rate."""
-    return round(seconds * RATE) / RATE
-
-
-def held_pose(start_ms, end_ms, stage):
+def held_pose(start_ms, end_ms, stage, still):
     """The first and last frame of the pose the camera stops on between two markers."""
     first = frame_at(at(start_ms))
     last = frame_at(at(end_ms))
-    stills = [f for f in range(first, last) if steps.get(f, 99.0) < STILL]
+    stills = [f for f in range(first, last) if not moving(f, still)]
     if not stills:
         raise SystemExit(f"{stage}: the camera never stops between {start_ms} and {end_ms}")
     return stills[0], stills[-1]
 
 
-graph = [
-    # The capture's own frames are irregular (a slow tick leaves a longer one), so the picture is
-    # resampled to the film's rate before it is trimmed: every trim then holds exactly the frames
-    # its length says, and the sidecar's seconds are the picture's own.
-    f"[0:v]fps={RATE:.0f},setpts=PTS-STARTPTS[cfr]"
-]
+graph = [f"[0:v]{CFR}[cfr]"]
 parts = []
-shots = []
 position = 0.0
 for index, (stage, s1, e1, s2, e2) in enumerate(stages):
-    begin = max(0.0, at(s1) - LEAD)
-    off_stop, on_start = held_pose(e1, s2, stage)
+    # The stage's own motion, from the frames of its two halves and not the held pose between them.
+    span = [STEPS[f] for f in list(range(frame_at(at(s1)), frame_at(at(e1)) + 1))
+            + list(range(frame_at(at(s2)), frame_at(at(e2)) + 1)) if f in STEPS]
+    if not span:
+        raise SystemExit(f"{stage}: no frames between its markers")
+    still = STILL_SHARE * statistics.median(span)
+    # The first frame of the shot's motion and the last: the frames outside them are the held pose
+    # the camera waits on, and a cut on them shows a still picture. A frame counts as moving only
+    # when the two frames either side of it move as well, because the shot opens on the structure
+    # appearing and closes on it going, and each of those is one frame that changes everything
+    # between two still ones.
+    begin = next(
+        (f for f in range(frame_at(max(0.0, at(s1) - LEAD)), frame_at(at(e1)))
+         if moving(f, still) and moving(f + 1, still) and moving(f + 2, still)),
+        None)
+    last = next(
+        (f for f in range(frame_at(at(e2) + TRAIL), frame_at(at(s2)), -1)
+         if moving(f - 2, still) and moving(f - 1, still) and moving(f, still)),
+        None)
+    if begin is None or last is None or last <= begin:
+        raise SystemExit(f"{stage}: no moving frames between its markers")
+    finish = last + 1
+    off_stop, on_start = held_pose(e1, s2, stage, still)
     # The vanilla half ends on the held pose's first frame, which still shows the vanilla blocks;
     # the palette half starts on the held pose's last frame, the same pose with the palette and its
     # caption. The held pose's own frames are one picture, so the cut keeps its first and its last
     # and drops the rest: the blocks and the caption change on the join and the camera carries on
     # from the pose it stopped on.
-    off_picture = SOURCE_TIMES[off_stop]
-    on_begin = SOURCE_TIMES[on_start]
+    off_frames = off_stop - begin
+    on_frames = finish - on_start
+    if off_frames < 1 or on_frames < 1:
+        raise SystemExit(f"{stage}: a half holds no frame")
+    begin_s = begin / RATE
+    off_picture = off_stop / RATE
+    on_begin = on_start / RATE
+    finish_s = finish / RATE
     # The vanilla half's audio runs JOIN seconds past its picture, so the crossfade starts on the
     # join and the audio is exactly as long as the picture.
     off_end = off_picture + JOIN
-    finish = at(e2) + TRAIL
-    if off_picture <= begin or on_begin >= finish:
-        raise SystemExit(f"{stage}: the held pose {off_stop}..{on_start} leaves no half")
-    if finish - on_begin < 2.0 * JOIN:
+    if finish_s - on_begin < 2.0 * JOIN:
         raise SystemExit(f"{stage}: the palette half is shorter than two {JOIN} s fades")
-    # Every trim is snapped to a frame boundary before it is cut, so a half holds exactly the
-    # frames its length says and 23 stages of rounding cannot drift the sidecar from the picture.
-    begin = snap(begin)
-    off_picture = snap(off_picture)
-    on_begin = snap(on_begin)
-    finish = snap(finish)
-    off_frames = round((off_picture - begin) * RATE)
-    on_frames = round((finish - on_begin) * RATE)
-    if off_frames < 1 or on_frames < 1:
-        raise SystemExit(f"{stage}: a half holds no frame")
     off_len = off_frames / RATE
     on_len = on_frames / RATE
     length = off_len + on_len
+    # The picture is trimmed by frame index, not by time: a trim on a timestamp can take or drop
+    # the frame that sits exactly on its boundary, which is the frame the still detection chose.
     graph.append(
-        f"[cfr]trim=start={begin:.6f}:end={off_picture:.6f},setpts=PTS-STARTPTS[v{index}a];"
-        f"[cfr]trim=start={on_begin:.6f}:end={finish:.6f},setpts=PTS-STARTPTS[v{index}b];"
+        f"[cfr]trim=start_frame={begin}:end_frame={off_stop},setpts=PTS-STARTPTS[v{index}a];"
+        f"[cfr]trim=start_frame={on_start}:end_frame={finish},setpts=PTS-STARTPTS[v{index}b];"
         f"[v{index}a][v{index}b]concat=n=2:v=1:a=0[v{index}]")
     graph.append(
-        f"[0:a]atrim=start={begin:.6f}:end={off_end:.6f},asetpts=PTS-STARTPTS[a{index}a];"
-        f"[0:a]atrim=start={on_begin:.6f}:end={finish:.6f},asetpts=PTS-STARTPTS[a{index}b];"
+        f"[0:a]atrim=start={begin_s:.6f}:end={off_end:.6f},asetpts=PTS-STARTPTS[a{index}a];"
+        f"[0:a]atrim=start={on_begin:.6f}:end={finish_s:.6f},asetpts=PTS-STARTPTS[a{index}b];"
         f"[a{index}a][a{index}b]acrossfade=d={JOIN}:c1=tri:c2=tri[a{index}]")
-    parts.append((stage, length, off_len))
+    parts.append((stage, length, off_len, finish_s))
     position += length
 
-# Stage boundaries: a short fade on each side, so a cut between stages does not jump.
-faded = []
-for index, (stage, length, off_len) in enumerate(parts):
-    graph.append(
-        f"[a{index}]afade=t=in:st=0:d={JOIN},"
-        f"afade=t=out:st={length - JOIN:.6f}:d={JOIN}[f{index}]")
-    faded.append(f"[f{index}]")
-graph.append("".join(faded) + f"concat=n={len(faded)}:v=0:a=1[aout]")
+# Stage boundaries: each stage's sound runs JOIN seconds past its picture, into the next stage's,
+# and the two crossfade there. The picture cuts hard; the sound carries the drone through the cut
+# instead of fading it to silence and back. The last stage's sound ends with its picture, so the
+# film's audio is exactly as long as its picture.
+for index, (stage, length, off_len, finish_s) in enumerate(parts):
+    if index == len(parts) - 1:
+        graph.append(f"[a{index}]anull[e{index}]")
+    else:
+        graph.append(
+            f"[0:a]atrim=start={finish_s:.6f}:end={finish_s + JOIN:.6f},asetpts=PTS-STARTPTS"
+            f"[t{index}];[a{index}][t{index}]concat=n=2:v=0:a=1[e{index}]")
+chain = "[e0]"
+for index in range(1, len(parts)):
+    graph.append(f"{chain}[e{index}]acrossfade=d={JOIN}:c1=tri:c2=tri[c{index}]")
+    chain = f"[c{index}]"
+graph.append(f"{chain}afade=t=in:st=0:d={JOIN},afade=t=out:st={position - JOIN:.6f}:d={JOIN}[aout]")
 graph.append("".join(f"[v{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=0[vout]")
 
 print("encoding...", flush=True)
@@ -186,9 +212,7 @@ subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),
     "-filter_complex", ";".join(graph), "-map", "[vout]", "-map", "[aout]",
     "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
-    # A constant rate, so the film plays at the rate the sidecar counts in. The capture's own
-    # frames are irregular (a slow tick leaves a longer one), and keeping them would stretch the
-    # picture away from the trims the sidecar records.
+    # A constant rate, so the film plays at the rate the sidecar counts in.
     "-c:a", "aac", "-b:a", "192k", "-r", f"{RATE:.0f}", str(out_path),
 ], check=True)
 
@@ -223,7 +247,7 @@ if before_i != float("-inf"):
 
 entries = []
 position = 0.0
-for stage, length, off_len in parts:
+for stage, length, off_len, finish_s in parts:
     fields = summary.get(stage, [])
     shot = {
         "stage": stage,
@@ -235,9 +259,10 @@ for stage, length, off_len in parts:
         shot.update({
             "title": fields[1],
             "subtitle": fields[2],
-            "camera": " | ".join(fields[4:7]),
-            "mobs_at_start": fields[7].removeprefix("mobs at start "),
-            "mobs_at_end": fields[8].removeprefix("mobs at end "),
+            "camera": " | ".join(fields[4:8]),
+            "final_pitch_deg": float(fields[7].removeprefix("final pitch ")),
+            "mobs_at_start": fields[8].removeprefix("mobs at start "),
+            "mobs_at_end": fields[9].removeprefix("mobs at end "),
         })
     entries.append(shot)
     print(f"{len(entries):2d} {position:7.2f}s {length:5.2f}s {stage}")

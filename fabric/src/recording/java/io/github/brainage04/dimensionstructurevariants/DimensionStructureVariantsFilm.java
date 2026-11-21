@@ -1452,7 +1452,8 @@ public final class DimensionStructureVariantsFilm {
                 String.format(
                         Locale.ROOT,
                         "[DSV] %s camera: centre=(%.1f, %.1f, %.1f) radius %.1f, height"
-                                + " %.1f -> %.1f, final up angle %.1f, render %d, view %d",
+                                + " %.1f -> %.1f, final up angle %.1f, final pitch %.1f, render %d,"
+                                + " view %d",
                         stage.id(),
                         orbit.centreX(),
                         orbit.centreY(),
@@ -1461,6 +1462,7 @@ public final class DimensionStructureVariantsFilm {
                         orbit.height(0.0D),
                         orbit.height(1.0D),
                         orbit.finalUpAngle(),
+                        orbit.finalPitch(),
                         renderDistance,
                         viewDistance));
         return new Prepared(
@@ -2603,8 +2605,8 @@ public final class DimensionStructureVariantsFilm {
                         + String.format(
                                 Locale.ROOT,
                                 "%s | %s | %s | start %d end %d | radius %.1f | height %.1f"
-                                        + " -> %.1f | final up angle %.1f | mobs at start %s | mobs"
-                                        + " at end %s",
+                                        + " -> %.1f | final up angle %.1f | final pitch %.1f |"
+                                        + " mobs at start %s | mobs at end %s",
                                 stage.id(),
                                 stage.title(),
                                 stage.subtitle(),
@@ -2614,6 +2616,7 @@ public final class DimensionStructureVariantsFilm {
                                 orbit.height(0.0D),
                                 orbit.height(1.0D),
                                 orbit.finalUpAngle(),
+                                orbit.finalPitch(),
                                 before,
                                 after));
         if (poppedTicks > 0) {
