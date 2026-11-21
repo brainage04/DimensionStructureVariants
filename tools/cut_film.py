@@ -114,15 +114,20 @@ def still_frames():
 STEPS = still_frames()
 
 
-def moving(frame, still):
-    return STEPS.get(frame, 99.0) >= still
+def still(frame, limit):
+    """Whether frame {@code frame} repeats the one before it, by the film's own rule.
+
+    A frame with no measured difference, which is the film's first frame and anything past its
+    last, counts as still: nothing shows it moving.
+    """
+    return STEPS.get(frame - 1, 0.0) < limit
 
 
-def held_pose(start_ms, end_ms, stage, still):
+def held_pose(start_ms, end_ms, stage, limit):
     """The first and last frame of the pose the camera stops on between two markers."""
     first = frame_at(at(start_ms))
     last = frame_at(at(end_ms))
-    stills = [f for f in range(first, last) if not moving(f, still)]
+    stills = [f for f in range(first, last) if still(f, limit)]
     if not stills:
         raise SystemExit(f"{stage}: the camera never stops between {start_ms} and {end_ms}")
     return stills[0], stills[-1]
@@ -137,24 +142,25 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
             + list(range(frame_at(at(s2)), frame_at(at(e2)) + 1)) if f in STEPS]
     if not span:
         raise SystemExit(f"{stage}: no frames between its markers")
-    still = STILL_SHARE * statistics.median(span)
-    # The first frame of the shot's motion and the last: the frames outside them are the held pose
-    # the camera waits on, and a cut on them shows a still picture. A frame counts as moving only
-    # when the two frames either side of it move as well, because the shot opens on the structure
-    # appearing and closes on it going, and each of those is one frame that changes everything
-    # between two still ones.
+    limit = STILL_SHARE * statistics.median(span)
+    # The first and last frame of the shot that move: the frames outside them are the held pose the
+    # camera waits on, and a cut on one of those shows a still picture. A frame moves when it
+    # differs from the one before it, so the first frame of the shot moves when it differs from the
+    # held pose, and the last when it differs from the frame before it. The frame after the first
+    # and the frame before the last have to move too, or the cut lands next to a still.
     begin = next(
         (f for f in range(frame_at(max(0.0, at(s1) - LEAD)), frame_at(at(e1)))
-         if moving(f, still) and moving(f + 1, still) and moving(f + 2, still)),
+         if not still(f, limit) and not still(f + 1, limit)),
         None)
     last = next(
         (f for f in range(frame_at(at(e2) + TRAIL), frame_at(at(s2)), -1)
-         if moving(f - 2, still) and moving(f - 1, still) and moving(f, still)),
+         if not still(f, limit) and not still(f - 1, limit)),
         None)
     if begin is None or last is None or last <= begin:
         raise SystemExit(f"{stage}: no moving frames between its markers")
     finish = last + 1
-    off_stop, on_start = held_pose(e1, s2, stage, still)
+    off_stop, on_start = held_pose(e1, s2, stage, limit)
+
     # The vanilla half ends on the held pose's first frame, which still shows the vanilla blocks;
     # the palette half starts on the held pose's last frame, the same pose with the palette and its
     # caption. The held pose's own frames are one picture, so the cut keeps its first and its last
