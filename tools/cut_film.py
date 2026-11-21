@@ -58,7 +58,8 @@ CFR = f"fps={RATE:.0f},setpts=PTS-STARTPTS"
 LEAD = 0.10
 TRAIL = 0.12
 JOIN = 0.15
-# A frame is still when it differs from the next by less than this share of the stage's median.
+# A frame is still when it differs from the one before it by less than this share of the stage's
+# median difference: the rule the film is reviewed by.
 STILL_SHARE = 0.05
 PALETTE_HALF = "/on"
 
