@@ -2047,8 +2047,9 @@ public final class DimensionStructureVariantsFilm {
     private static double startRadius(double half, double up, double halfFov) {
         // The top sits atan(tan p - up / r) below the horizon, so it is p - that above the view
         // axis at the start, and it fits when r >= up / (tan p - tan(p - halfFov)). At the end the
-        // camera is level with the centre, so the top is atan(up / r) above the axis and it fits
-        // when r >= up / tan(halfFov).
+        // camera looks level, so the top is atan(up / r) above the axis and it fits when r >=
+        // up / tan(halfFov). A stage the ground stops ends above the centre, which puts the top
+        // lower in the frame than that, so the same radius still holds it.
         double pitch = Math.toRadians(ShowcaseCamera.PITCH_START);
         double fov = Math.toRadians(halfFov);
         double tall = Math.max(up / (Math.tan(pitch) - Math.tan(pitch - fov)), up / Math.tan(fov));
