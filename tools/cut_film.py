@@ -15,10 +15,10 @@ the two halves' sound overlaps instead of meeting at a fade to silence.
 
 A stage's outer edges are trimmed to the frames that move. The camera is held still before a shot
 starts and after it ends, so the frames the markers sit in do not move, and a cut on them shows a
-still picture. The trim takes the first and last frame of the stage whose neighbours move too, by
-at least a twentieth of the stage's own median difference: the rule the film is reviewed by. Two
-frames in a row have to move because a stage opens on the camera leaving the pose it was held on,
-and the held pose follows it.
+still picture. A frame moves when it differs from the one before it by at least a twentieth of the
+stage's own median difference, which is the rule the film is reviewed by. The trim takes the first
+and last frame of the stage that move, and the frame after the first and the frame before the last
+have to move too, so the cut never lands next to a still.
 
 Consecutive stages crossfade their audio over JOIN seconds as well, each stage's sound running JOIN
 seconds past its picture into the next stage's, so the Nether drone carries through a stage cut
