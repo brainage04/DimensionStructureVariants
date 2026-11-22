@@ -225,9 +225,10 @@ public final class ShowcaseCamera {
     /**
      * A circle around {@code (centreX, centreY, centreZ)} at a fixed {@code radius}, flown {@link
      * #REVOLUTIONS} time per shot while the camera descends from looking {@link #PITCH_START}
-     * degrees down to looking level. The height stays between {@code floorY} and {@code ceilingY};
-     * where the floor stops the descent the camera keeps circling on it and looks level from there,
-     * so the structure sits below the axis rather than the camera tilting down at it.
+     * degrees down to looking level. The height stays between {@code floorY} and {@code ceilingY},
+     * the floor winning where the two cross; where the floor stops the descent the camera keeps
+     * circling on it and looks level from there, so the structure sits below the axis rather than
+     * the camera tilting down at it.
      */
     public record Orbit(
             double centreX,

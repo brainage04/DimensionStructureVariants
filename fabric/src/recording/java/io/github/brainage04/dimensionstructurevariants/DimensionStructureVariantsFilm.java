@@ -145,15 +145,15 @@ public final class DimensionStructureVariantsFilm {
     /** How far above the ground's surface the camera's descent stops. */
     private static final double FLOOR_ABOVE_GROUND = 2.0D;
 
+    /** Blocks past the structure the sky check looks, so the ground under its edge is covered. */
+    private static final int SKY_SCAN_MARGIN = 16;
+
     /**
      * Blocks of open sky the camera keeps over it. A camera below a block shows that block's
      * underside in the top of the frame even while it looks down, which reads as filming from
      * underneath, so the camera's lowest point stays this far above the structure's top.
      */
     private static final int SKY_CLEARANCE = 3;
-
-    /** The film's picture is 16:9, so the frame is wider than it is tall. */
-    private static final double FILM_ASPECT = 16.0D / 9.0D;
 
     /** Chunks loaded and fed to the GameTest server in one task, so no task blocks for long. */
     private static final int CHUNK_BATCH = 96;
@@ -753,6 +753,13 @@ public final class DimensionStructureVariantsFilm {
         // The vertical field of view the client draws is its fov option times the camera entity's
         // modifier (Camera.java:227, AbstractClientPlayer.java:92-96: a flying player's is 1.1), so
         // the framing is solved for that; 2 degrees are kept clear of its edge.
+        // The picture's aspect, which the client's projection uses (Camera.java:183-185), so the
+        // frame's horizontal half-angle follows the window the film is drawn in.
+        double aspect =
+                context.computeOnClient(
+                        client ->
+                                client.getWindow().getWidth()
+                                        / (double) client.getWindow().getHeight());
         double halfFov =
                 context.computeOnClient(
                                 client ->
@@ -842,7 +849,7 @@ public final class DimensionStructureVariantsFilm {
         }
 
         Prepared[] plan = new Prepared[1];
-        server.runOnServer(minecraftServer -> plan[0] = plan(build, stage, halfFov));
+        server.runOnServer(minecraftServer -> plan[0] = plan(build, stage, halfFov, aspect));
         Prepared prepared = plan[0];
 
         // The ground and the biome around the stage: in the Overworld everything the camera can
@@ -1420,7 +1427,7 @@ public final class DimensionStructureVariantsFilm {
     }
 
     /** The camera, the region the pop-in check watches and the distances for the stage. */
-    private static Prepared plan(Build build, Stage stage, double halfFov) {
+    private static Prepared plan(Build build, Stage stage, double halfFov, double aspect) {
         ServerLevel level = build.level;
         ShowcaseCamera.Orbit orbit =
                 planOrbit(level, stage, build.occupied, build.groundY, halfFov);
@@ -1428,7 +1435,7 @@ public final class DimensionStructureVariantsFilm {
         for (int i = 0; i < samples.length; i++) {
             samples[i] = orbit.at(i / (double) (samples.length - 1));
         }
-        String blocked = blockedSky(level, build.occupied, samples, halfFov, stage.id());
+        String blocked = blockedSky(level, build.occupied, samples, halfFov, aspect, stage.id());
         if (blocked != null) PROBLEMS.add(blocked);
         ChunkRange padded = build.padded;
         int lowestSection =
@@ -2017,7 +2024,9 @@ public final class DimensionStructureVariantsFilm {
         double centreZ = (box.minZ() + box.maxZ() + 1) / 2.0D;
         double centreY = (box.minY() + box.maxY() + 1) / 2.0D;
         double ceiling = level.getMaxY() - 2.0D;
-        double sky = box.maxY() + 1.0D + SKY_CLEARANCE;
+        // A structure whose top is within SKY_CLEARANCE of the world's top cannot have the sky over
+        // it: the camera goes as high as the world allows and the sky check reports the stage.
+        double sky = Math.min(ceiling, box.maxY() + 1.0D + SKY_CLEARANCE);
         double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
         double base = startRadius(framed[0], framed[1], halfFov);
         Solids solids =
@@ -2065,64 +2074,68 @@ public final class DimensionStructureVariantsFilm {
      * from underneath, so the shot must keep the sky over the camera for its whole turn.
      *
      * <p>The block need not be straight up: the camera orbits outside the structure, so the roof
-     * that shows is the far edge of an overhang, in front of the camera and above it. Every block
-     * of the structure's box with air over it is tested, against the frame's own edges.
+     * that shows is the far edge of an overhang, in front of the camera and above it. The scan
+     * reads the world's own surface heightmap, not the structure's box the floor is planned from,
+     * so it catches a block the floor does not know about: the ground, the End's terrain, a stray
+     * feature, the Nether's roof, or the structure itself where the ceiling clamp stops the floor
+     * short.
      */
     private static String blockedSky(
             ServerLevel level,
             BoundingBox box,
             ShowcaseCamera.Pose[] samples,
             double halfFov,
+            double aspect,
             String stage) {
-        double lowest = Double.MAX_VALUE;
-        for (ShowcaseCamera.Pose pose : samples) lowest = Math.min(lowest, pose.y());
-        // Every block with air over it, above the camera's lowest point: the faces it can see.
-        List<int[]> faces = new ArrayList<>();
-        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-        for (int x = box.minX(); x <= box.maxX(); x++) {
-            for (int z = box.minZ(); z <= box.maxZ(); z++) {
-                for (int y = box.maxY(); y >= box.minY(); y--) {
-                    if (level.getBlockState(cursor.set(x, y, z)).isAir()) continue;
-                    if (y + 1 > lowest) faces.add(new int[] {x, z, y + 1});
-                }
-            }
-        }
-        if (faces.isEmpty()) return null;
-        // The frame's horizontal half-angle, from its vertical one and the film's 16:9 picture.
-        double horizontal =
-                Math.toDegrees(Math.atan(Math.tan(Math.toRadians(halfFov)) * FILM_ASPECT));
+        // The frame's horizontal half-angle, from its vertical one and the picture's own aspect.
+        double horizontal = Math.toDegrees(Math.atan(Math.tan(Math.toRadians(halfFov)) * aspect));
+        // The columns the shot can show: the structure's own footprint and the ground just past it.
+        int fromX = box.minX() - SKY_SCAN_MARGIN;
+        int toX = box.maxX() + SKY_SCAN_MARGIN;
+        int fromZ = box.minZ() - SKY_SCAN_MARGIN;
+        int toZ = box.maxZ() + SKY_SCAN_MARGIN;
         for (ShowcaseCamera.Pose pose : samples) {
             double yaw = Math.toRadians(pose.yaw() + 90.0D);
             double cos = Math.cos(yaw);
             double sin = Math.sin(yaw);
-            for (int[] face : faces) {
-                if (face[2] <= pose.y()) continue;
-                double dx = face[0] + 0.5D - pose.x();
-                double dz = face[1] + 0.5D - pose.z();
-                double distance = Math.hypot(dx, dz);
-                if (distance < 1.0D) continue;
-                double off =
-                        Math.toDegrees(
-                                Math.acos(
-                                        Math.max(
-                                                -1.0D,
-                                                Math.min(1.0D, (dx * cos + dz * sin) / distance))));
-                if (off > horizontal) continue;
-                double above = Math.toDegrees(Math.atan2(face[2] - pose.y(), distance));
-                if (above + pose.pitch() > halfFov) continue;
-                return String.format(
-                        Locale.ROOT,
-                        "%s: the camera at (%.1f, %.1f, %.1f) looking %.1f down has the block at"
-                                + " %d %d %d over it, %.1f degrees above its axis",
-                        stage,
-                        pose.x(),
-                        pose.y(),
-                        pose.z(),
-                        pose.pitch(),
-                        face[0],
-                        face[2] - 1,
-                        face[1],
-                        above + pose.pitch());
+            for (int x = fromX; x <= toX; x++) {
+                for (int z = fromZ; z <= toZ; z++) {
+                    double dx = x + 0.5D - pose.x();
+                    double dz = z + 0.5D - pose.z();
+                    double distance = Math.hypot(dx, dz);
+                    if (distance < 1.0D) continue;
+                    double off =
+                            Math.toDegrees(
+                                    Math.acos(
+                                            Math.max(
+                                                    -1.0D,
+                                                    Math.min(
+                                                            1.0D,
+                                                            (dx * cos + dz * sin) / distance))));
+                    if (off > horizontal) continue;
+                    int top =
+                            level.getHeight(
+                                    net.minecraft.world.level.levelgen.Heightmap.Types
+                                            .WORLD_SURFACE,
+                                    x,
+                                    z);
+                    if (top <= pose.y()) continue;
+                    double above = Math.toDegrees(Math.atan2(top - pose.y(), distance));
+                    if (above + pose.pitch() > halfFov) continue;
+                    return String.format(
+                            Locale.ROOT,
+                            "%s: the camera at (%.1f, %.1f, %.1f) looking %.1f down has the block"
+                                    + " at %d %d %d over it, %.1f degrees above its axis",
+                            stage,
+                            pose.x(),
+                            pose.y(),
+                            pose.z(),
+                            pose.pitch(),
+                            x,
+                            top - 1,
+                            z,
+                            above + pose.pitch());
+                }
             }
         }
         return null;
