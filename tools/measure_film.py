@@ -152,10 +152,30 @@ for i in range(len(shots) - 1):
         "dip_db": round(stage_median - dip(at), 1) if stage_median is not None and dip(at) is not None else None,
     })
 
+# The palette join: the camera stops on one pose while the palette goes in, and the cut joins the
+# halves on that pose. A join that shows the pose for more than a frame is a halt the viewer sees,
+# which is what the review measures at each join.
+join_stills = []
+for i, shot in enumerate(shots):
+    at = int(round(shot["palette_at_s"] * RATE))
+    limit = 0.05 * medians[i]
+    lo = at
+    while lo - 1 in steps and steps[lo - 1] < limit:
+        lo -= 1
+    hi = at
+    while hi in steps and steps[hi] < limit:
+        hi += 1
+    join_stills.append({
+        "join_s": shot["palette_at_s"],
+        "still_ms": round((hi - lo) * 1000.0 / RATE),
+        "frames": [lo, hi],
+    })
+
 result = {
     "film": str(film),
     "frames": frames,
     "stage_cuts": cuts,
+    "palette_joins": join_stills,
     "film_start_still_ms": start_still,
     "film_end_still_ms": end_still,
     "repeated_frame_pairs": len(repeats),
