@@ -104,7 +104,7 @@ def still_frames():
 
     The camera stops on one pose while the palette goes in, so the frames of that pose differ by
     nothing. The cut joins the halves on that pose: the vanilla half ends on its first frame and
-    the palette half starts on its last, so the camera carries on without a still.
+    the palette half starts on the first frame after it, so the camera carries on without a still.
     """
     out = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", str(video_path),
