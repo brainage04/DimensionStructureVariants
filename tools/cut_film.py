@@ -179,6 +179,10 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
         raise SystemExit(f"{stage}: no moving frames between its markers")
     finish = last + 1
     off_stop, on_start = held_pose(e1, s2, stage)
+    # The camera resumes a few ticks after the marker, so the palette half opens on the held pose
+    # again. Start the half on the pose's last frame, or the film shows that still.
+    while on_start + 1 < finish and still(on_start + 1, boundary):
+        on_start += 1
 
     # The vanilla half ends on the held pose's first frame, which still shows the vanilla blocks;
     # the palette half starts on the held pose's last frame, the same pose with the palette and its
