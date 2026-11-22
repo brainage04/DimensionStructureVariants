@@ -53,12 +53,13 @@ foreground.
 
 `tools/cut_film.py` cuts the recording to its shots from the `STAGE_START`/`STAGE_END` markers, one
 clip per stage. A stage's two halves are joined on the pose the camera stops on while the palette goes
-in: the vanilla half ends on that pose's first frame and the palette half starts on its last, so the
-blocks and the caption change on one frame and the camera carries on. The audio crossfades over 0.15 s
-across that join. A stage's outer edges are trimmed to the frames that move, so a cut between two
-stages never shows the held pose the camera waits on, and consecutive stages crossfade their audio
-over 0.15 s as well, so the Nether drone carries through a stage cut. The finished film is normalised
-to about -20 LUFS with a -1.5 dBFS ceiling, so the Nether drone and mob sounds are audible.
+in: the vanilla half ends on that pose's first frame and the palette half starts on the first frame
+after it, so the blocks and the caption change on one frame and the camera carries on. The audio
+crossfades over 0.15 s across that join. A stage's outer edges are trimmed to the frames that move,
+so a cut between two stages never shows the held pose the camera waits on, and consecutive stages
+crossfade their audio over 0.15 s as well, so the Nether drone carries through a stage cut. The
+finished film is normalised to about -20 LUFS with a -1.5 dBFS ceiling, so the Nether drone and mob
+sounds are audible.
 
 `DSV_STAGES` (comma separated stage ids such as `fortress_overworld/desert`, or variant ids) films only those stages.
 

@@ -159,16 +159,18 @@ join_stills = []
 for i, shot in enumerate(shots):
     at = int(round(shot["palette_at_s"] * RATE))
     limit = 0.05 * medians[i]
-    lo = at
-    while lo - 1 in steps and steps[lo - 1] < limit:
-        lo -= 1
-    hi = at
-    while hi in steps and steps[hi] < limit:
-        hi += 1
+    # Each side of the join is measured on its own, as the stage cuts are: a still run that ends on
+    # the vanilla side is not reached by a walk that starts at the join frame.
+    before = 0
+    while at - 1 - before in steps and steps[at - 1 - before] < limit:
+        before += 1
+    after = 0
+    while at + after in steps and steps[at + after] < limit:
+        after += 1
     join_stills.append({
         "join_s": shot["palette_at_s"],
-        "still_ms": round((hi - lo) * 1000.0 / RATE),
-        "frames": [lo, hi],
+        "still_ms": round((before + after) * 1000.0 / RATE),
+        "frames": [at - before, at + after],
     })
 
 result = {

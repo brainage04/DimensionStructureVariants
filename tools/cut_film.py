@@ -9,9 +9,9 @@ the game stand still while the server swaps the blocks and the client builds the
 that pause, so the two halves' audio are not contiguous in the capture and a hard join clicks.
 
 The picture joins the halves on the pose the camera stops on: the vanilla half ends on that pose's
-first frame and the palette half starts on its last, so the blocks and the caption change on one
-frame and the camera carries on. The audio crossfades over JOIN seconds across the same join, so
-the two halves' sound overlaps instead of meeting at a fade to silence.
+first frame and the palette half starts on the first frame after it, so the blocks and the caption
+change on one frame and the camera carries on. The audio crossfades over JOIN seconds across the same
+join, so the two halves' sound overlaps instead of meeting at a fade to silence.
 
 A stage's outer edges are trimmed to the frames that move. The camera is held still before a shot
 starts and after it ends, so the frames the markers sit in do not move, and a cut on them shows a
@@ -180,15 +180,17 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     finish = last + 1
     off_stop, on_start = held_pose(e1, s2, stage)
     # The camera resumes a few ticks after the marker, so the palette half opens on the held pose
-    # again. Start the half on the pose's last frame, or the film shows that still.
-    while on_start + 1 < finish and still(on_start + 1, boundary):
+    # again. Start the half on the first frame after that still run, or the film shows the pose
+    # twice. The run is measured by the still rule the film is reviewed by, not the boundary rule,
+    # so a slow first frame of the shot is kept.
+    while on_start + 1 < finish and still(on_start + 1, limit):
         on_start += 1
 
     # The vanilla half ends on the held pose's first frame, which still shows the vanilla blocks;
-    # the palette half starts on the held pose's last frame, the same pose with the palette and its
-    # caption. The held pose's own frames are one picture, so the cut keeps its first and its last
-    # and drops the rest: the blocks and the caption change on the join and the camera carries on
-    # from the pose it stopped on.
+    # the palette half starts on the first frame after the pose, the same pose with the palette and
+    # its caption. The held pose's own frames are one picture, so the cut keeps its first and drops
+    # the rest: the blocks and the caption change on the join and the camera carries on from the
+    # pose it stopped on.
     off_frames = off_stop - begin
     on_frames = finish - on_start
     if off_frames < 1 or on_frames < 1:
@@ -201,7 +203,9 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     # join and the audio is exactly as long as the picture.
     off_end = off_picture + JOIN
     if finish_s - on_begin < 2.0 * JOIN:
-        raise SystemExit(f"{stage}: the palette half is shorter than two {JOIN} s fades")
+        raise SystemExit(
+                f"{stage}: the palette half is {finish_s - on_begin:.2f} s, shorter than two"
+                        + f" {JOIN} s fades")
     off_len = off_frames / RATE
     on_len = on_frames / RATE
     length = off_len + on_len
