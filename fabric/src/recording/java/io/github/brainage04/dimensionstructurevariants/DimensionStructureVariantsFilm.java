@@ -2025,7 +2025,7 @@ public final class DimensionStructureVariantsFilm {
         double centreY = (box.minY() + box.maxY() + 1) / 2.0D;
         double ceiling = level.getMaxY() - 2.0D;
         // A structure whose top is within SKY_CLEARANCE of the world's top cannot have the sky over
-        // it: the camera goes as high as the world allows, which is still above the structure.
+        // it: the camera goes as high as the world allows, and the sky check reports the stage.
         double sky = Math.min(ceiling, box.maxY() + 1.0D + SKY_CLEARANCE);
         double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
         double base = startRadius(framed[0], framed[1], halfFov);
@@ -2115,7 +2115,7 @@ public final class DimensionStructureVariantsFilm {
             }
         }
         for (ShowcaseCamera.Pose pose : samples) {
-            // The frame's top edge is halfFov - pitch below the horizon; a block above the camera
+            // The frame's top edge is halfFov - pitch above the horizon; a block above the camera
             // is inside the frame only within that angle, so nothing further out can show.
             double edge = halfFov - pose.pitch();
             if (edge <= 0.0D) continue;
@@ -2135,8 +2135,12 @@ public final class DimensionStructureVariantsFilm {
                     double dx = x + 0.5D - pose.x();
                     double dz = z + 0.5D - pose.z();
                     double distance = Math.hypot(dx, dz);
-                    if (distance < 1.0D || distance > reach) continue;
-                    if ((dx * cos + dz * sin) / distance < cosHorizontal) continue;
+                    if (distance > reach) continue;
+                    // A block straight over the camera is the worst case, so the column under the
+                    // camera is tested too: only its direction is undefined, and it is over the
+                    // camera whatever the yaw.
+                    if (distance >= 1.0D && (dx * cos + dz * sin) / distance < cosHorizontal)
+                        continue;
                     double above = Math.toDegrees(Math.atan2(top - pose.y(), distance));
                     if (above + pose.pitch() > halfFov) continue;
                     return String.format(
