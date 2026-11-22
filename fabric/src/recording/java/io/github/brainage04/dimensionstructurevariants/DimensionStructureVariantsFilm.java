@@ -2025,7 +2025,7 @@ public final class DimensionStructureVariantsFilm {
         double centreY = (box.minY() + box.maxY() + 1) / 2.0D;
         double ceiling = level.getMaxY() - 2.0D;
         // A structure whose top is within SKY_CLEARANCE of the world's top cannot have the sky over
-        // it: the camera goes as high as the world allows and the sky check reports the stage.
+        // it: the camera goes as high as the world allows, which is still above the structure.
         double sky = Math.min(ceiling, box.maxY() + 1.0D + SKY_CLEARANCE);
         double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
         double base = startRadius(framed[0], framed[1], halfFov);
@@ -2089,37 +2089,54 @@ public final class DimensionStructureVariantsFilm {
             String stage) {
         // The frame's horizontal half-angle, from its vertical one and the picture's own aspect.
         double horizontal = Math.toDegrees(Math.atan(Math.tan(Math.toRadians(halfFov)) * aspect));
-        // The columns the shot can show: the structure's own footprint and the ground just past it.
-        int fromX = box.minX() - SKY_SCAN_MARGIN;
-        int toX = box.maxX() + SKY_SCAN_MARGIN;
-        int fromZ = box.minZ() - SKY_SCAN_MARGIN;
-        int toZ = box.maxZ() + SKY_SCAN_MARGIN;
+        double cosHorizontal = Math.cos(Math.toRadians(horizontal));
+        // The columns the shot can show: the structure's footprint, the ground just past it, and
+        // the camera's own column, which the orbit puts outside the footprint. A block over the
+        // camera's head is the one that fills the top of the frame.
+        int fromX = box.minX();
+        int toX = box.maxX();
+        int fromZ = box.minZ();
+        int toZ = box.maxZ();
         for (ShowcaseCamera.Pose pose : samples) {
+            fromX = Math.min(fromX, (int) Math.floor(pose.x()) - SKY_SCAN_MARGIN);
+            toX = Math.max(toX, (int) Math.ceil(pose.x()) + SKY_SCAN_MARGIN);
+            fromZ = Math.min(fromZ, (int) Math.floor(pose.z()) - SKY_SCAN_MARGIN);
+            toZ = Math.max(toZ, (int) Math.ceil(pose.z()) + SKY_SCAN_MARGIN);
+        }
+        int width = toX - fromX + 1;
+        int depth = toZ - fromZ + 1;
+        int[] tops = new int[width * depth];
+        int highest = Integer.MIN_VALUE;
+        for (int x = fromX; x <= toX; x++) {
+            for (int z = fromZ; z <= toZ; z++) {
+                int top = columnTop(level, x, z);
+                tops[(x - fromX) * depth + (z - fromZ)] = top;
+                highest = Math.max(highest, top);
+            }
+        }
+        for (ShowcaseCamera.Pose pose : samples) {
+            // The frame's top edge is halfFov - pitch below the horizon; a block above the camera
+            // is inside the frame only within that angle, so nothing further out can show.
+            double edge = halfFov - pose.pitch();
+            if (edge <= 0.0D) continue;
+            double reach = (highest - pose.y()) / Math.tan(Math.toRadians(edge));
+            if (reach < 1.0D) continue;
             double yaw = Math.toRadians(pose.yaw() + 90.0D);
             double cos = Math.cos(yaw);
             double sin = Math.sin(yaw);
-            for (int x = fromX; x <= toX; x++) {
-                for (int z = fromZ; z <= toZ; z++) {
+            int poseFromX = Math.max(fromX, (int) Math.floor(pose.x() - reach));
+            int poseToX = Math.min(toX, (int) Math.ceil(pose.x() + reach));
+            int poseFromZ = Math.max(fromZ, (int) Math.floor(pose.z() - reach));
+            int poseToZ = Math.min(toZ, (int) Math.ceil(pose.z() + reach));
+            for (int x = poseFromX; x <= poseToX; x++) {
+                for (int z = poseFromZ; z <= poseToZ; z++) {
+                    int top = tops[(x - fromX) * depth + (z - fromZ)];
+                    if (top <= pose.y()) continue;
                     double dx = x + 0.5D - pose.x();
                     double dz = z + 0.5D - pose.z();
                     double distance = Math.hypot(dx, dz);
-                    if (distance < 1.0D) continue;
-                    double off =
-                            Math.toDegrees(
-                                    Math.acos(
-                                            Math.max(
-                                                    -1.0D,
-                                                    Math.min(
-                                                            1.0D,
-                                                            (dx * cos + dz * sin) / distance))));
-                    if (off > horizontal) continue;
-                    int top =
-                            level.getHeight(
-                                    net.minecraft.world.level.levelgen.Heightmap.Types
-                                            .WORLD_SURFACE,
-                                    x,
-                                    z);
-                    if (top <= pose.y()) continue;
+                    if (distance < 1.0D || distance > reach) continue;
+                    if ((dx * cos + dz * sin) / distance < cosHorizontal) continue;
                     double above = Math.toDegrees(Math.atan2(top - pose.y(), distance));
                     if (above + pose.pitch() > halfFov) continue;
                     return String.format(
@@ -2139,6 +2156,18 @@ public final class DimensionStructureVariantsFilm {
             }
         }
         return null;
+    }
+
+    /**
+     * The first air block over a column, from the world's own surface heightmap. An unloaded column
+     * reads the world's floor and would pass the sky check silently, so the chunk is loaded first:
+     * the scan reaches past the chunks the stage loaded.
+     */
+    private static int columnTop(ServerLevel level, int x, int z) {
+        if (!level.hasChunk(SectionPos.blockToSectionCoord(x), SectionPos.blockToSectionCoord(z)))
+            level.getChunk(x >> 4, z >> 4);
+        return level.getHeight(
+                net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, x, z);
     }
 
     /**
