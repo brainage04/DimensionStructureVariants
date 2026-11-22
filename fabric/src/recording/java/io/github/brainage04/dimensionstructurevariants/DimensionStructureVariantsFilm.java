@@ -2106,9 +2106,7 @@ public final class DimensionStructureVariantsFilm {
                                 Math.acos(
                                         Math.max(
                                                 -1.0D,
-                                                Math.min(
-                                                        1.0D,
-                                                        (dx * cos + dz * sin) / distance))));
+                                                Math.min(1.0D, (dx * cos + dz * sin) / distance))));
                 if (off > horizontal) continue;
                 double above = Math.toDegrees(Math.atan2(face[2] - pose.y(), distance));
                 if (above + pose.pitch() > halfFov) continue;
