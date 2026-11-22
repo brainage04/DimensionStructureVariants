@@ -2027,6 +2027,7 @@ public final class DimensionStructureVariantsFilm {
         // A structure whose top is within SKY_CLEARANCE of the world's top cannot have the sky over
         // it: the camera goes as high as the world allows and the sky check reports the stage.
         double sky = Math.min(ceiling, box.maxY() + 1.0D + SKY_CLEARANCE);
+        if ("take12".equals(System.getenv("DSV_ORBIT"))) sky = Double.NEGATIVE_INFINITY;
         double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
         double base = startRadius(framed[0], framed[1], halfFov);
         Solids solids =
