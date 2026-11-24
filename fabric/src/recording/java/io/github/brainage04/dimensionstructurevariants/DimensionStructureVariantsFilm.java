@@ -1204,24 +1204,54 @@ public final class DimensionStructureVariantsFilm {
                         | Block.UPDATE_KNOWN_SHAPE
                         | Block.UPDATE_SUPPRESS_DROPS
                         | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
-        BoundingBox box = swap.box();
+        int changed = writeBack(level, swap.box(), swap.palette());
+        for (Map.Entry<BlockPos, BlockState> entry : swap.foundations().entrySet()) {
+            if (level.getBlockState(entry.getKey()) == entry.getValue()) continue;
+            level.setBlock(entry.getKey(), entry.getValue(), flags);
+            changed++;
+        }
+        return changed;
+    }
+
+    /**
+     * Writes {@code states} (x fastest, then z, then y, as {@link #read} returns them) over {@code
+     * box} and returns how many blocks differed. The fluids the vanilla half left in the box go
+     * first: a lava source set beside a water block that is still there turns into obsidian the
+     * moment it is set ({@code LiquidBlock.shouldSpreadLiquid}, called from {@code
+     * LiquidBlock.onPlace}), and the vanilla village's farm channels are water where the Nether
+     * village's are lava, so writing them in one pass left each channel obsidian but its last
+     * cell.
+     */
+    static int writeBack(ServerLevel level, BoundingBox box, BlockState[] states) {
+        int flags =
+                Block.UPDATE_CLIENTS
+                        | Block.UPDATE_KNOWN_SHAPE
+                        | Block.UPDATE_SUPPRESS_DROPS
+                        | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        BlockState air = Blocks.AIR.defaultBlockState();
         int index = 0;
         int changed = 0;
         for (int y = box.minY(); y <= box.maxY(); y++) {
             for (int z = box.minZ(); z <= box.maxZ(); z++) {
                 for (int x = box.minX(); x <= box.maxX(); x++) {
-                    BlockState wanted = swap.palette()[index++];
-                    if (level.getBlockState(cursor.set(x, y, z)) == wanted) continue;
-                    level.setBlock(cursor, wanted, flags);
+                    BlockState wanted = states[index++];
+                    BlockState current = level.getBlockState(cursor.set(x, y, z));
+                    if (current == wanted) continue;
                     changed++;
+                    if (!current.getFluidState().isEmpty()) level.setBlock(cursor, air, flags);
                 }
             }
         }
-        for (Map.Entry<BlockPos, BlockState> entry : swap.foundations().entrySet()) {
-            if (level.getBlockState(entry.getKey()) == entry.getValue()) continue;
-            level.setBlock(entry.getKey(), entry.getValue(), flags);
-            changed++;
+        index = 0;
+        for (int y = box.minY(); y <= box.maxY(); y++) {
+            for (int z = box.minZ(); z <= box.maxZ(); z++) {
+                for (int x = box.minX(); x <= box.maxX(); x++) {
+                    BlockState wanted = states[index++];
+                    if (level.getBlockState(cursor.set(x, y, z)) == wanted) continue;
+                    level.setBlock(cursor, wanted, flags);
+                }
+            }
         }
         return changed;
     }

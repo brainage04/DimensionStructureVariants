@@ -113,7 +113,7 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
                 new StructureStart(
                         vanilla, start.getChunkPos(), 0, new PiecesContainer(start.getPieces()));
         for (ChunkPos chunk : chunks) place(level, plain, chunk);
-        write(level, swap, snapshot);
+        DimensionStructureVariantsFilm.writeBack(level, swap, snapshot);
         BlockState[] after = read(level, swap);
         int obsidian = count(after, Blocks.OBSIDIAN);
         int cobblestone = count(after, Blocks.COBBLESTONE);
@@ -235,7 +235,7 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
         }
         BlockState[] snapshot = read(level, swap);
         for (ChunkPos chunk : chunks) place(level, plain, chunk);
-        write(level, swap, snapshot);
+        DimensionStructureVariantsFilm.writeBack(level, swap, snapshot);
         BlockState[] after = read(level, box);
         List<String> differing = new ArrayList<>();
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
@@ -297,27 +297,6 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
                         0,
                         level,
                         biome -> true);
-    }
-
-    /** Puts {@code states} back over {@code box}, as the film's second half does. */
-    private static void write(ServerLevel level, BoundingBox box, BlockState[] states) {
-        int flags =
-                net.minecraft.world.level.block.Block.UPDATE_CLIENTS
-                        | net.minecraft.world.level.block.Block.UPDATE_KNOWN_SHAPE
-                        | net.minecraft.world.level.block.Block.UPDATE_SUPPRESS_DROPS
-                        | net.minecraft.world.level.block.Block
-                                .UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
-        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-        int index = 0;
-        for (int y = box.minY(); y <= box.maxY(); y++) {
-            for (int z = box.minZ(); z <= box.maxZ(); z++) {
-                for (int x = box.minX(); x <= box.maxX(); x++) {
-                    BlockState wanted = states[index++];
-                    if (level.getBlockState(cursor.set(x, y, z)) == wanted) continue;
-                    level.setBlock(cursor, wanted, flags);
-                }
-            }
-        }
     }
 
     private static BlockState[] read(ServerLevel level, BoundingBox box) {
