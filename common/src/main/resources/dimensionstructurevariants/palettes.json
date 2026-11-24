@@ -252,15 +252,14 @@
     "fortress_snowy": {
       "blocks": {
         "brick": {
-          "minecraft:packed_ice": 8,
-          "minecraft:ice": 3,
+          "minecraft:packed_ice": 99,
           "minecraft:snow_block": 1
         },
         "brick_stairs": "minecraft:diorite_stairs",
         "brick_slab": "minecraft:diorite_slab",
-        "brick_wall": "minecraft:glass_pane",
+        "brick_wall": "minecraft:ice",
         "fill": {
-          "minecraft:packed_ice": 4,
+          "minecraft:packed_ice": 99,
           "minecraft:snow_block": 1
         },
         "floor": "minecraft:snow_block",
@@ -270,7 +269,10 @@
       },
       "piece_accent": {
         "role": "brick",
-        "block": "minecraft:blue_ice",
+        "block": {
+          "minecraft:blue_ice": 99,
+          "minecraft:snow_block": 1
+        },
         "pieces": [
           "minecraft:nebs",
           "minecraft:nebcr",
@@ -280,9 +282,9 @@
     },
     "fortress_mushroom": {
       "blocks": {
-        "brick": "minecraft:mushroom_stem",
-        "brick_stairs": "minecraft:mud_brick_stairs",
-        "brick_slab": "minecraft:mud_brick_slab",
+        "brick": "minecraft:red_mushroom_block",
+        "brick_stairs": "minecraft:red_nether_brick_stairs",
+        "brick_slab": "minecraft:red_nether_brick_slab",
         "brick_wall": "minecraft:iron_bars",
         "fill": "minecraft:mycelium",
         "floor": "minecraft:mycelium",
@@ -291,11 +293,11 @@
           "minecraft:brown_mushroom": 1
         },
         "liquid": "minecraft:water",
-        "accent": "minecraft:mushroom_stem"
+        "accent": "minecraft:red_mushroom_block"
       },
       "piece_accent": {
         "role": "brick",
-        "block": "minecraft:red_mushroom_block",
+        "block": "minecraft:mushroom_stem",
         "pieces": [
           "minecraft:nebs",
           "minecraft:nebcr",
@@ -306,23 +308,23 @@
     "fortress_ocean": {
       "blocks": {
         "brick": {
-          "minecraft:prismarine_bricks": 5,
-          "minecraft:prismarine": 4,
-          "minecraft:dark_prismarine": 2
+          "minecraft:prismarine_bricks": 50,
+          "minecraft:prismarine": 49,
+          "minecraft:dark_prismarine": 1
         },
         "brick_stairs": {
-          "minecraft:prismarine_brick_stairs": 2,
-          "minecraft:prismarine_stairs": 2,
+          "minecraft:prismarine_brick_stairs": 50,
+          "minecraft:prismarine_stairs": 49,
           "minecraft:dark_prismarine_stairs": 1
         },
         "brick_slab": {
-          "minecraft:prismarine_brick_slab": 2,
-          "minecraft:prismarine_slab": 2,
+          "minecraft:prismarine_brick_slab": 50,
+          "minecraft:prismarine_slab": 49,
           "minecraft:dark_prismarine_slab": 1
         },
         "brick_wall": "minecraft:iron_bars",
         "fill": {
-          "minecraft:prismarine": 2,
+          "minecraft:prismarine": 99,
           "minecraft:dark_prismarine": 1
         },
         "floor": "minecraft:sand",

@@ -486,6 +486,21 @@ public final class PaletteGameTests {
                             + " must texture its walls with at least 3 blocks, got "
                             + walls);
         }
+        // Dark prismarine is trim: about 1 block in 100 of the ocean walls, like the snow of the
+        // snowy fortress. A seeded count over 16384 positions stays inside 0.3 to 2 per cent.
+        StructurePalettes.Palette ocean = palette(helper, "fortress_overworld", Biomes.OCEAN);
+        int dark = 0;
+        int sampled = 0;
+        for (BlockPos pos : BlockPos.betweenClosed(0, 64, 0, 63, 67, 63)) {
+            sampled++;
+            if (ocean.remap(brick, pos).is(Blocks.DARK_PRISMARINE)) dark++;
+        }
+        helper.assertTrue(
+                dark * 1000 >= sampled * 3 && dark * 100 <= sampled * 2,
+                "The ocean fortress must use dark prismarine for about 1 block in 100, got "
+                        + dark
+                        + " of "
+                        + sampled);
         for (ResourceKey<Biome> biome : FORTRESS_BIOMES) {
             StructurePalettes.Palette palette = palette(helper, "fortress_overworld", biome);
             BlockState window = palette.remap(fence, BlockPos.ZERO);
@@ -508,17 +523,28 @@ public final class PaletteGameTests {
     public static void accentPiecesWearTheAccentBlock(GameTestHelper helper) {
         BlockState brick = Blocks.NETHER_BRICKS.defaultBlockState();
         for (ResourceKey<Biome> biome : List.of(Biomes.SNOWY_PLAINS, Biomes.MUSHROOM_FIELDS)) {
+            boolean snowy = biome == Biomes.SNOWY_PLAINS;
+            Block expectedMain = snowy ? Blocks.PACKED_ICE : Blocks.RED_MUSHROOM_BLOCK;
+            Block expectedAccent = snowy ? Blocks.BLUE_ICE : Blocks.MUSHROOM_STEM;
             StructurePalettes.Palette palette = palette(helper, "fortress_overworld", biome);
             StructurePalettes.Accent accent = palette.accent();
             helper.assertTrue(
                     accent != null,
                     "fortress_overworld in " + biome.identifier() + " must name an accent");
-            BlockState main = palette.remap(brick, BlockPos.ZERO);
+            BlockState main = palette.choiceFor(brick).main();
+            helper.assertTrue(
+                    main.is(expectedMain),
+                    "fortress_overworld in "
+                            + biome.identifier()
+                            + " must build its walls of "
+                            + expectedMain
+                            + ", got "
+                            + main);
             BlockState accentBlock = null;
             for (Identifier piece : accent.pieces()) {
                 Identifier previous = StructurePalettes.pushPiece(piece);
                 try {
-                    BlockState block = palette.remap(brick, BlockPos.ZERO);
+                    BlockState block = palette.choiceFor(brick).main();
                     if (accentBlock == null) accentBlock = block;
                     helper.assertTrue(
                             block == accentBlock,
@@ -535,18 +561,18 @@ public final class PaletteGameTests {
                 }
             }
             helper.assertTrue(
-                    accentBlock != null && accentBlock != main,
+                    accentBlock != null && accentBlock.is(expectedAccent),
                     "fortress_overworld in "
                             + biome.identifier()
-                            + " must give its accent pieces a block of their own, got "
-                            + accentBlock
-                            + " against the main "
-                            + main);
+                            + " must give its accent pieces "
+                            + expectedAccent
+                            + ", got "
+                            + accentBlock);
             Identifier previous =
                     StructurePalettes.pushPiece(Identifier.withDefaultNamespace("neccs"));
             try {
                 helper.assertTrue(
-                        palette.remap(brick, BlockPos.ZERO) == main,
+                        palette.choiceFor(brick).main() == main,
                         "fortress_overworld in "
                                 + biome.identifier()
                                 + " must keep the main block in a piece it does not name");
@@ -558,12 +584,11 @@ public final class PaletteGameTests {
     }
 
     /**
-     * The snowy fortress builds its walls of packed ice, ice and snow, and the weaker the block the
-     * rarer it is: snow is the weakest and the rarest, packed ice the strongest of the three and
-     * the commonest. Blue ice, the strongest of all, is the accent on the bridge pieces. The order
-     * is Thomas's, from 18 Nov 2026, not vanilla's hardness: vanilla gives packed ice and ice the
-     * same hardness, 0.5 ({@code Blocks.java:2076,3121}), and blue ice 2.8 ({@code :4202}). The
-     * counts come from a fortress placed in a snowy plains, not from the palette alone.
+     * The snowy fortress builds its walls of packed ice, its bridges of blue ice, and puts about 1
+     * block in 100 of snow among them; its windows are ice, the one of the four that the game draws
+     * translucent (its texture has an alpha of 190, the others 255; {@code
+     * SpriteContents.java:82}, {@code BakedQuad.java:76}). The counts come from a fortress placed
+     * in a snowy plains, not from the palette alone.
      */
     public static void snowyFortressWeightsBlocksByStrength(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -590,45 +615,48 @@ public final class PaletteGameTests {
                             pieceBox.maxZ())) {
                 BlockState state = level.getBlockState(pos);
                 if (state.is(Blocks.PACKED_ICE)
+                        || state.is(Blocks.BLUE_ICE)
                         || state.is(Blocks.ICE)
-                        || state.is(Blocks.SNOW_BLOCK)) {
+                        || state.is(Blocks.SNOW_BLOCK)
+                        || state.is(Blocks.GLASS_PANE)) {
                     counts.merge(state.getBlock(), 1, Integer::sum);
                 }
             }
         }
         for (ChunkPos each : chunks) level.setChunkForced(each.x(), each.z(), false);
         int packed = counts.getOrDefault(Blocks.PACKED_ICE, 0);
+        int blue = counts.getOrDefault(Blocks.BLUE_ICE, 0);
         int ice = counts.getOrDefault(Blocks.ICE, 0);
         int snow = counts.getOrDefault(Blocks.SNOW_BLOCK, 0);
-        int total = packed + ice + snow;
+        int walls = packed + blue + snow;
         System.out.println(
-                "[DSV] Snowy fortress walls: "
+                "[DSV] Snowy fortress: "
                         + packed
                         + " packed ice, "
+                        + blue
+                        + " blue ice, "
                         + ice
                         + " ice, "
                         + snow
                         + " snow of "
-                        + total);
-        helper.assertTrue(total > 100, "The snowy fortress must build walls, got " + counts);
+                        + walls
+                        + " wall blocks");
+        helper.assertTrue(walls > 100, "The snowy fortress must build walls, got " + counts);
         helper.assertTrue(
-                packed > ice && ice > snow,
-                "The snowy fortress must use packed ice more than ice and ice more than snow, got "
-                        + counts);
+                packed > 0 && blue > 0,
+                "The snowy fortress must hold packed ice and blue ice, got " + counts);
         helper.assertTrue(
-                snow * 10 < total,
-                "Snow must stay rare in the snowy fortress, got "
+                snow > 0 && snow * 100 <= walls * 3,
+                "Snow must stay at about 1 block in 100 of the snowy fortress, got "
                         + snow
                         + " of "
-                        + total
+                        + walls
                         + " wall blocks");
         helper.assertTrue(
-                packed * 2 > total,
-                "Packed ice must dominate the snowy fortress, got "
-                        + packed
-                        + " of "
-                        + total
-                        + " wall blocks");
+                ice > 0, "The snowy fortress must fill its windows with ice, got " + counts);
+        helper.assertTrue(
+                !counts.containsKey(Blocks.GLASS_PANE),
+                "The snowy fortress must hold no glass pane, got " + counts);
         helper.succeed();
     }
 
