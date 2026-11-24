@@ -1219,8 +1219,7 @@ public final class DimensionStructureVariantsFilm {
      * first: a lava source set beside a water block that is still there turns into obsidian the
      * moment it is set ({@code LiquidBlock.shouldSpreadLiquid}, called from {@code
      * LiquidBlock.onPlace}), and the vanilla village's farm channels are water where the Nether
-     * village's are lava, so writing them in one pass left each channel obsidian but its last
-     * cell.
+     * village's are lava, so writing them in one pass left each channel obsidian but its last cell.
      */
     static int writeBack(ServerLevel level, BoundingBox box, BlockState[] states) {
         int flags =
