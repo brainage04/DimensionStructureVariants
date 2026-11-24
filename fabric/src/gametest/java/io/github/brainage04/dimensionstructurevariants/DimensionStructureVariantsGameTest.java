@@ -94,6 +94,11 @@ public final class DimensionStructureVariantsGameTest {
         PaletteGameTests.snowyFortressWeightsBlocksByStrength(helper);
     }
 
+    @GameTest
+    public void rareBlocksStayAtAboutOnePercent(GameTestHelper helper) {
+        PaletteGameTests.rareBlocksStayAtAboutOnePercent(helper);
+    }
+
     @GameTest(maxTicks = 200)
     public void endCityInTheNetherLeavesNoPurpur(GameTestHelper helper) {
         EndCityNetherGameTests.endCityInTheNetherLeavesNoPurpur(helper);

@@ -185,8 +185,7 @@ class StructurePalettesTest {
                             "stone": {
                               "blocks": {"wall": "minecraft:stone_bricks"},
                               "piece_accent": {
-                                "role": "wall",
-                                "block": "minecraft:blue_ice",
+                                "blocks": {"wall": "minecraft:blue_ice"},
                                 "pieces": ["%s"]
                               }
                             }

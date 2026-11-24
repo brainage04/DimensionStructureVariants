@@ -486,21 +486,6 @@ public final class PaletteGameTests {
                             + " must texture its walls with at least 3 blocks, got "
                             + walls);
         }
-        // Dark prismarine is trim: about 1 block in 100 of the ocean walls, like the snow of the
-        // snowy fortress. A seeded count over 16384 positions stays inside 0.3 to 2 per cent.
-        StructurePalettes.Palette ocean = palette(helper, "fortress_overworld", Biomes.OCEAN);
-        int dark = 0;
-        int sampled = 0;
-        for (BlockPos pos : BlockPos.betweenClosed(0, 64, 0, 63, 67, 63)) {
-            sampled++;
-            if (ocean.remap(brick, pos).is(Blocks.DARK_PRISMARINE)) dark++;
-        }
-        helper.assertTrue(
-                dark * 1000 >= sampled * 3 && dark * 100 <= sampled * 2,
-                "The ocean fortress must use dark prismarine for about 1 block in 100, got "
-                        + dark
-                        + " of "
-                        + sampled);
         for (ResourceKey<Biome> biome : FORTRESS_BIOMES) {
             StructurePalettes.Palette palette = palette(helper, "fortress_overworld", biome);
             BlockState window = palette.remap(fence, BlockPos.ZERO);
@@ -568,6 +553,29 @@ public final class PaletteGameTests {
                             + expectedAccent
                             + ", got "
                             + accentBlock);
+            BlockState fence = Blocks.NETHER_BRICK_FENCE.defaultBlockState();
+            Block expectedWindow = snowy ? Blocks.ICE : Blocks.STAINED_GLASS_PANE.red();
+            Block expectedRail = snowy ? Blocks.PACKED_ICE : Blocks.STAINED_GLASS_PANE.white();
+            helper.assertTrue(
+                    palette.remap(fence, BlockPos.ZERO).is(expectedWindow),
+                    "fortress_overworld in "
+                            + biome.identifier()
+                            + " must fill its windows with "
+                            + expectedWindow);
+            Identifier railPiece = accent.pieces().iterator().next();
+            Identifier beforeRail = StructurePalettes.pushPiece(railPiece);
+            try {
+                helper.assertTrue(
+                        palette.remap(fence, BlockPos.ZERO).is(expectedRail),
+                        "fortress_overworld in "
+                                + biome.identifier()
+                                + " must put "
+                                + expectedRail
+                                + " in the rails of "
+                                + railPiece);
+            } finally {
+                StructurePalettes.restorePiece(beforeRail);
+            }
             Identifier previous =
                     StructurePalettes.pushPiece(Identifier.withDefaultNamespace("neccs"));
             try {
@@ -581,6 +589,66 @@ public final class PaletteGameTests {
             }
         }
         helper.succeed();
+    }
+
+    /**
+     * Each role that carries a rare block gives it to about 1 block in 100: a seeded sample over
+     * 16384 positions stays inside 0.3 to 2 per cent. The snowy fortress puts snow in its walls,
+     * fill and bridge pieces; the ocean fortress puts dark prismarine in its blocks, stairs, slabs
+     * and fill.
+     */
+    public static void rareBlocksStayAtAboutOnePercent(GameTestHelper helper) {
+        StructurePalettes.Palette snowy =
+                palette(helper, "fortress_overworld", Biomes.SNOWY_PLAINS);
+        StructurePalettes.Palette ocean = palette(helper, "fortress_overworld", Biomes.OCEAN);
+        BlockState brick = Blocks.NETHER_BRICKS.defaultBlockState();
+        BlockState fill = Blocks.NETHERRACK.defaultBlockState();
+        assertRareShare(helper, "snowy walls", snowy, brick, Blocks.SNOW_BLOCK);
+        assertRareShare(helper, "snowy fill", snowy, fill, Blocks.SNOW_BLOCK);
+        Identifier previous = StructurePalettes.pushPiece(Identifier.withDefaultNamespace("nebs"));
+        try {
+            assertRareShare(helper, "snowy bridges", snowy, brick, Blocks.SNOW_BLOCK);
+        } finally {
+            StructurePalettes.restorePiece(previous);
+        }
+        assertRareShare(helper, "ocean walls", ocean, brick, Blocks.DARK_PRISMARINE);
+        assertRareShare(
+                helper,
+                "ocean stairs",
+                ocean,
+                Blocks.NETHER_BRICK_STAIRS.defaultBlockState(),
+                Blocks.DARK_PRISMARINE_STAIRS);
+        assertRareShare(
+                helper,
+                "ocean slabs",
+                ocean,
+                Blocks.NETHER_BRICK_SLAB.defaultBlockState(),
+                Blocks.DARK_PRISMARINE_SLAB);
+        assertRareShare(helper, "ocean fill", ocean, fill, Blocks.DARK_PRISMARINE);
+        helper.succeed();
+    }
+
+    private static void assertRareShare(
+            GameTestHelper helper,
+            String what,
+            StructurePalettes.Palette palette,
+            BlockState source,
+            Block rare) {
+        int hits = 0;
+        int sampled = 0;
+        for (BlockPos pos : BlockPos.betweenClosed(0, 64, 0, 63, 67, 63)) {
+            sampled++;
+            if (palette.remap(source, pos).is(rare)) hits++;
+        }
+        helper.assertTrue(
+                hits * 1000 >= sampled * 3 && hits * 100 <= sampled * 2,
+                what
+                        + " must hold "
+                        + rare
+                        + " in about 1 block in 100, got "
+                        + hits
+                        + " of "
+                        + sampled);
     }
 
     /**
@@ -646,7 +714,7 @@ public final class PaletteGameTests {
                 packed > 0 && blue > 0,
                 "The snowy fortress must hold packed ice and blue ice, got " + counts);
         helper.assertTrue(
-                snow > 0 && snow * 100 <= walls * 3,
+                snow * 1000 >= walls * 3 && snow * 100 <= walls * 3,
                 "Snow must stay at about 1 block in 100 of the snowy fortress, got "
                         + snow
                         + " of "

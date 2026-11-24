@@ -268,10 +268,12 @@
         "accent": "minecraft:blue_ice"
       },
       "piece_accent": {
-        "role": "brick",
-        "block": {
-          "minecraft:blue_ice": 99,
-          "minecraft:snow_block": 1
+        "blocks": {
+          "brick": {
+            "minecraft:blue_ice": 99,
+            "minecraft:snow_block": 1
+          },
+          "brick_wall": "minecraft:packed_ice"
         },
         "pieces": [
           "minecraft:nebs",
@@ -285,19 +287,18 @@
         "brick": "minecraft:red_mushroom_block",
         "brick_stairs": "minecraft:red_nether_brick_stairs",
         "brick_slab": "minecraft:red_nether_brick_slab",
-        "brick_wall": "minecraft:iron_bars",
+        "brick_wall": "minecraft:red_stained_glass_pane",
         "fill": "minecraft:mycelium",
         "floor": "minecraft:mycelium",
-        "plant": {
-          "minecraft:red_mushroom": 1,
-          "minecraft:brown_mushroom": 1
-        },
+        "plant": "minecraft:red_mushroom",
         "liquid": "minecraft:water",
-        "accent": "minecraft:red_mushroom_block"
+        "accent": "minecraft:mushroom_stem"
       },
       "piece_accent": {
-        "role": "brick",
-        "block": "minecraft:mushroom_stem",
+        "blocks": {
+          "brick": "minecraft:mushroom_stem",
+          "brick_wall": "minecraft:white_stained_glass_pane"
+        },
         "pieces": [
           "minecraft:nebs",
           "minecraft:nebcr",

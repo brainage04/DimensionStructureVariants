@@ -334,8 +334,8 @@ public final class StructurePalettes {
             float groundFeatureChance,
             @Nullable PieceAccent accent) {}
 
-    /** One role's block in the named pieces, so a part of the structure reads as its own. */
-    private record PieceAccent(String role, Set<Identifier> pieces, Map<String, Integer> block) {}
+    /** The roles' blocks in the named pieces, so a part of the structure reads as its own. */
+    private record PieceAccent(Set<Identifier> pieces, Map<String, Map<String, Integer>> blocks) {}
 
     record Data(
             Map<String, Map<String, String>> roleSets,
@@ -464,10 +464,19 @@ public final class StructurePalettes {
         }
         if (object.has("piece_accent")) {
             JsonObject spec = object.getAsJsonObject("piece_accent");
-            String role = spec.get("role").getAsString();
-            if (!blocks.containsKey(role)) {
-                throw new IllegalStateException(
-                        "Palette " + name + " gives its accent to the unknown role " + role);
+            Map<String, Map<String, Integer>> accentBlocks = new LinkedHashMap<>();
+            for (Map.Entry<String, JsonElement> entry : spec.getAsJsonObject("blocks").entrySet()) {
+                if (!blocks.containsKey(entry.getKey())) {
+                    throw new IllegalStateException(
+                            "Palette "
+                                    + name
+                                    + " gives its accent to the unknown role "
+                                    + entry.getKey());
+                }
+                accentBlocks.put(entry.getKey(), weights(name, entry.getValue()));
+            }
+            if (accentBlocks.isEmpty()) {
+                throw new IllegalStateException("Palette " + name + " names no accent role");
             }
             Set<Identifier> pieces = new LinkedHashSet<>();
             for (JsonElement piece : spec.getAsJsonArray("pieces")) {
@@ -483,9 +492,8 @@ public final class StructurePalettes {
             }
             accent =
                     new PieceAccent(
-                            role,
                             Collections.unmodifiableSet(pieces),
-                            weights(name, spec.get("block")));
+                            Collections.unmodifiableMap(accentBlocks));
         }
         path.remove(path.size() - 1);
         return new RawPalette(Collections.unmodifiableMap(blocks), ground, feature, chance, accent);
@@ -596,9 +604,11 @@ public final class StructurePalettes {
         if (palette.accent() != null) {
             PieceAccent spec = palette.accent();
             Map<BlockState, Choice> accentStates = new IdentityHashMap<>();
-            for (Map.Entry<String, String> entry : roles.entrySet()) {
-                if (!entry.getValue().equals(spec.role())) continue;
-                addMappings(accentStates, block(entry.getKey()), spec.block());
+            for (Map.Entry<String, Map<String, Integer>> role : spec.blocks().entrySet()) {
+                for (Map.Entry<String, String> entry : roles.entrySet()) {
+                    if (!entry.getValue().equals(role.getKey())) continue;
+                    addMappings(accentStates, block(entry.getKey()), role.getValue());
+                }
             }
             if (lava) {
                 accentStates.replaceAll((source, choice) -> withoutWater(choice));

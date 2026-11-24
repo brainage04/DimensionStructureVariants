@@ -10,7 +10,6 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -69,13 +68,12 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
     }
 
     /**
-     * Reproduces A-2313: the farms of a Nether village held obsidian where the palette has lava.
-     * The village's own placement leaves every farm channel lava (the GameTest {@code
-     * netherVillageFarmsUseSoulSandAndKeepComposters} counts none). The film's swap puts the
+     * Reproduces A-2316: the farms of a Nether village held obsidian where the palette has lava.
+     * The village's own placement holds none (this check counts it). The film's swap puts the
      * vanilla village over it, whose farms hold water, and then writes the palette back block by
-     * block: a lava source set beside a water block that is not yet replaced becomes obsidian at
-     * once ({@code LiquidBlock.shouldSpreadLiquid}, called from {@code LiquidBlock.onPlace}), and
-     * every channel cell has such a neighbour in the order the swap writes.
+     * block: a lava cell set beside a water block that is not yet replaced becomes obsidian, or
+     * cobblestone if it is not a source ({@code LiquidBlock.shouldSpreadLiquid}, called from {@code
+     * LiquidBlock.onPlace}).
      */
     private static void checkVillage(ServerLevel level) {
         Holder<Structure> village =
@@ -108,12 +106,15 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
         Structure vanilla =
                 level.registryAccess()
                         .lookupOrThrow(Registries.STRUCTURE)
-                        .getValue(Identifier.withDefaultNamespace("village_plains"));
+                        .getValue(
+                                DimensionStructureVariantsFilm.vanillaStructure("village_nether"));
         StructureStart plain =
                 new StructureStart(
                         vanilla, start.getChunkPos(), 0, new PiecesContainer(start.getPieces()));
         for (ChunkPos chunk : chunks) place(level, plain, chunk);
+        long writeStart = System.nanoTime();
         DimensionStructureVariantsFilm.writeBack(level, swap, snapshot);
+        long writeMillis = (System.nanoTime() - writeStart) / 1_000_000L;
         BlockState[] after = read(level, swap);
         int obsidian = count(after, Blocks.OBSIDIAN);
         int cobblestone = count(after, Blocks.COBBLESTONE);
@@ -122,11 +123,15 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
         System.out.println(
                 "[DSV] village swap check: box "
                         + swap
-                        + ", palette holds "
+                        + " ("
+                        + snapshot.length
+                        + " blocks), palette holds "
                         + lava
                         + " lava and "
                         + placedSolid
-                        + " obsidian or cobblestone; after the swap "
+                        + " obsidian or cobblestone; writeBack took "
+                        + writeMillis
+                        + " ms; after the swap "
                         + lavaAfter
                         + " lava, "
                         + obsidian
@@ -192,7 +197,8 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
         Structure vanilla =
                 level.registryAccess()
                         .lookupOrThrow(Registries.STRUCTURE)
-                        .getValue(Identifier.withDefaultNamespace("end_city"));
+                        .getValue(
+                                DimensionStructureVariantsFilm.vanillaStructure("end_city_nether"));
         StructureStart plain =
                 new StructureStart(
                         vanilla, start.getChunkPos(), 0, new PiecesContainer(start.getPieces()));

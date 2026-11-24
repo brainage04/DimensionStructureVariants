@@ -217,6 +217,13 @@ public final class DimensionStructureVariantsFilm {
     /** What a shot's second half, with the palette on, adds to the stage id in its markers. */
     private static final String PALETTE_HALF = "/on";
 
+    /** The flags every block write of the palette switch carries: the client learns each block. */
+    private static final int SWITCH_FLAGS =
+            Block.UPDATE_CLIENTS
+                    | Block.UPDATE_KNOWN_SHAPE
+                    | Block.UPDATE_SUPPRESS_DROPS
+                    | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+
     /** Ticks the changed blocks take to reach the client after the palette switch. */
     private static final int SWITCH_ARRIVAL_TICKS = 4;
 
@@ -1021,7 +1028,7 @@ public final class DimensionStructureVariantsFilm {
     }
 
     /** The vanilla structure a variant moves, which no palette touches. */
-    private static Identifier vanillaStructure(String variant) {
+    static Identifier vanillaStructure(String variant) {
         if (variant.startsWith("fortress")) return Identifier.withDefaultNamespace("fortress");
         if (variant.startsWith("bastion"))
             return Identifier.withDefaultNamespace("bastion_remnant");
@@ -1199,11 +1206,7 @@ public final class DimensionStructureVariantsFilm {
 
     /** Switches the stage to the blocks the mod built for it; returns how many changed. */
     private static int showPalette(ServerLevel level, Swap swap) {
-        int flags =
-                Block.UPDATE_CLIENTS
-                        | Block.UPDATE_KNOWN_SHAPE
-                        | Block.UPDATE_SUPPRESS_DROPS
-                        | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+        int flags = SWITCH_FLAGS;
         int changed = writeBack(level, swap.box(), swap.palette());
         for (Map.Entry<BlockPos, BlockState> entry : swap.foundations().entrySet()) {
             if (level.getBlockState(entry.getKey()) == entry.getValue()) continue;
@@ -1216,17 +1219,14 @@ public final class DimensionStructureVariantsFilm {
     /**
      * Writes {@code states} (x fastest, then z, then y, as {@link #read} returns them) over {@code
      * box} and returns how many blocks differed. The fluids the vanilla half left in the box go
-     * first: a lava source set beside a water block that is still there turns into obsidian the
-     * moment it is set ({@code LiquidBlock.shouldSpreadLiquid}, called from {@code
-     * LiquidBlock.onPlace}), and the vanilla village's farm channels are water where the Nether
-     * village's are lava, so writing them in one pass left each channel obsidian but its last cell.
+     * first: a lava source set beside a water block that is still there becomes obsidian, or
+     * cobblestone if it is not a source, the moment it is set ({@code
+     * LiquidBlock.shouldSpreadLiquid}, called from {@code LiquidBlock.onPlace}). The vanilla
+     * village's farm channels are water where the Nether village's are lava, so writing them in one
+     * pass turned part of each channel to obsidian and cobblestone.
      */
     static int writeBack(ServerLevel level, BoundingBox box, BlockState[] states) {
-        int flags =
-                Block.UPDATE_CLIENTS
-                        | Block.UPDATE_KNOWN_SHAPE
-                        | Block.UPDATE_SUPPRESS_DROPS
-                        | Block.UPDATE_SKIP_BLOCK_ENTITY_SIDEEFFECTS;
+        int flags = SWITCH_FLAGS;
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         BlockState air = Blocks.AIR.defaultBlockState();
         int index = 0;
