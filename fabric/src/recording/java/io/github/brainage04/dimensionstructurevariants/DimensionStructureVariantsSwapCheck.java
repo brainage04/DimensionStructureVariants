@@ -38,6 +38,10 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
             ResourceKey.create(
                     Registries.STRUCTURE, DimensionStructureVariants.of("end_city_nether"));
 
+    private static final ResourceKey<Structure> VILLAGE_NETHER =
+            ResourceKey.create(
+                    Registries.STRUCTURE, DimensionStructureVariants.of("village_nether"));
+
     @Override
     public void runTest(ClientGameTestContext context) {
         // withDedicatedServer starts a recording session, and the film's is the one a recording run
@@ -60,7 +64,103 @@ public final class DimensionStructureVariantsSwapCheck implements FabricClientGa
                                     ServerLevel nether = minecraftServer.getLevel(Level.NETHER);
                                     if (nether == null) throw new AssertionError("No Nether");
                                     check(nether);
+                                    checkVillage(nether);
                                 }));
+    }
+
+    /**
+     * Reproduces A-2313: the farms of a Nether village held obsidian where the palette has lava.
+     * The village's own placement leaves every farm channel lava (the GameTest {@code
+     * netherVillageFarmsUseSoulSandAndKeepComposters} counts none). The film's swap puts the
+     * vanilla village over it, whose farms hold water, and then writes the palette back block by
+     * block: a lava source set beside a water block that is not yet replaced becomes obsidian at
+     * once ({@code LiquidBlock.shouldSpreadLiquid}, called from {@code LiquidBlock.onPlace}), and
+     * every channel cell has such a neighbour in the order the swap writes.
+     */
+    private static void checkVillage(ServerLevel level) {
+        Holder<Structure> village =
+                level.registryAccess()
+                        .lookupOrThrow(Registries.STRUCTURE)
+                        .getOrThrow(VILLAGE_NETHER);
+        StructureStart start = null;
+        for (int ring = 0; ring < 12 && start == null; ring++) {
+            for (int dx = -ring; dx <= ring && start == null; dx++) {
+                for (int dz = -ring; dz <= ring && start == null; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != ring) continue;
+                    StructureStart candidate =
+                            generate(level, village, new ChunkPos(900 + dx * 8, 900 + dz * 8));
+                    if (candidate.isValid()) start = candidate;
+                }
+            }
+        }
+        if (start == null) throw new AssertionError("No village start in the Nether");
+        BoundingBox box = start.getBoundingBox();
+        List<ChunkPos> chunks = chunks(box);
+        for (ChunkPos chunk : chunks) {
+            level.setChunkForced(chunk.x(), chunk.z(), true);
+            level.getChunk(chunk.x(), chunk.z());
+        }
+        for (ChunkPos chunk : chunks) place(level, start, chunk);
+        BoundingBox swap = DimensionStructureVariantsFilm.swapBox(level, true, box, box.minY());
+        BlockState[] snapshot = read(level, swap);
+        int lava = count(snapshot, Blocks.LAVA);
+        int placedSolid = count(snapshot, Blocks.OBSIDIAN) + count(snapshot, Blocks.COBBLESTONE);
+        Structure vanilla =
+                level.registryAccess()
+                        .lookupOrThrow(Registries.STRUCTURE)
+                        .getValue(Identifier.withDefaultNamespace("village_plains"));
+        StructureStart plain =
+                new StructureStart(
+                        vanilla, start.getChunkPos(), 0, new PiecesContainer(start.getPieces()));
+        for (ChunkPos chunk : chunks) place(level, plain, chunk);
+        write(level, swap, snapshot);
+        BlockState[] after = read(level, swap);
+        int obsidian = count(after, Blocks.OBSIDIAN);
+        int cobblestone = count(after, Blocks.COBBLESTONE);
+        int lavaAfter = count(after, Blocks.LAVA);
+        for (ChunkPos chunk : chunks) level.setChunkForced(chunk.x(), chunk.z(), false);
+        System.out.println(
+                "[DSV] village swap check: box "
+                        + swap
+                        + ", palette holds "
+                        + lava
+                        + " lava and "
+                        + placedSolid
+                        + " obsidian or cobblestone; after the swap "
+                        + lavaAfter
+                        + " lava, "
+                        + obsidian
+                        + " obsidian, "
+                        + cobblestone
+                        + " cobblestone");
+        if (lava == 0 || placedSolid != 0) {
+            throw new AssertionError(
+                    "The Nether village's own placement must hold lava and no obsidian, got "
+                            + lava
+                            + " lava, "
+                            + placedSolid
+                            + " obsidian or cobblestone");
+        }
+        if (obsidian != 0 || cobblestone != 0 || lavaAfter != lava) {
+            throw new AssertionError(
+                    "The swap must put the farm lava back as lava: "
+                            + lava
+                            + " lava before, "
+                            + lavaAfter
+                            + " lava, "
+                            + obsidian
+                            + " obsidian and "
+                            + cobblestone
+                            + " cobblestone after");
+        }
+    }
+
+    private static int count(BlockState[] states, net.minecraft.world.level.block.Block block) {
+        int count = 0;
+        for (BlockState state : states) {
+            if (state.is(block)) count++;
+        }
+        return count;
     }
 
     private static void check(ServerLevel level) {
