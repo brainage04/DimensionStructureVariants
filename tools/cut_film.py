@@ -16,9 +16,10 @@ picture from the camera's first step of the half on (count and draw times from t
 FRAME log lines for the stage: the palette frame for the vanilla half, the rest of the shot for the
 palette half), and the vanilla half also opens on the frame before the first step, which shows the
 held start pose, the shot's frame 0. The cut fails a stage whose capture holds fewer frames than the
-camera drew, whose frames do not come within a few slots after the slots they were drawn at, or that
-still changes after the last frame, so the film shows frame 0 first, frame 59 last of the vanilla
-half and frame 60 first of the palette half, with no halt at the join. The audio crossfades over
+camera drew, whose frames do not come within a few slots after the slots they were drawn at, whose
+lag drifts over the half, or whose repeats and camera steps are too close to tell apart, so the
+film shows frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palette
+half, with no halt at the join. The audio crossfades over
 JOIN seconds across the join, so the two halves' sound overlaps instead of meeting at a fade to
 silence.
 
@@ -73,10 +74,14 @@ JOIN = 0.15
 # drawn at catches.
 STILL_LEVEL = 0.4
 # The most slots a frame may be captured after the slot it was drawn at (the recorder reads it back
-# a few presents later), and the slots after a half's last frame in which one change is allowed.
+# a few presents later), how far the lag of the half's last frames may drift from its first, and how
+# far apart a camera step and a repeated slot must be.
 MAX_LATENCY_SLOTS = 10
 DEBUG = bool(__import__('os').environ.get('DSV_CUT_DEBUG'))
-TAIL_SLOTS = 3
+LAG_WINDOW = 10
+MAX_LAG_DRIFT = 3.0
+SEPARATION = 1.5
+SEPARATIONS = []
 PALETTE_HALF = "/on"
 # The shot's frame counts come from the film's own path check, which logs `[DSV] <stage> path: N
 # frames ... palette on from frame M` for each stage, not from a copy of CameraPlan here.
@@ -189,8 +194,9 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
     which shows the held start pose, the shot's frame 0.
 
     The half is checked against the log: each frame must come within MAX_LATENCY_SLOTS after the
-    slot it was drawn at, and after the last frame at most one more slot may change (the clock
-    stops with the game) before the camera's hold.
+    slot it was drawn at, and the lag at the end of the half must match the lag at its start. (The
+    world keeps changing for a few slots after the last frame, until the game freezes: the sun and the
+    clock still move, so the slots after the last frame say nothing about the camera.)
     """
     count = len(draws)
     from_slot = draws[1] if with_start_pose else draws[0]
@@ -217,11 +223,27 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
         raise SystemExit(
             f"{stage} {label}: frames drawn and frames captured do not line up, e.g. frame {late[0][0]}"
             f" drawn at slot {draws[late[0][0]]:.1f} is at slot {kept[late[0][0]]}")
-    tail = [f for f in range(kept[-1] + 1, kept[-1] + 1 + TAIL_SLOTS) if moving(f, STILL_LEVEL)]
-    if len(tail) > 1:
+    # The lag of the first and the last ten frames must agree: a change the camera did not make that
+    # was taken for a frame (or a frame taken for a repeat) shifts every later frame by a draw.
+    lags = [kept[i] - draws[i] for i in range(1 if with_start_pose else 0, count)]
+    drift = abs(statistics.median(lags[-LAG_WINDOW:]) - statistics.median(lags[:LAG_WINDOW]))
+    if drift > MAX_LAG_DRIFT:
         raise SystemExit(
-            f"{stage} {label}: slots {tail} still change after the last of the {count} frames the camera"
-            " drew, so the half has more frames than the camera drew")
+            f"{stage} {label}: the lag between a frame's draw and its slot drifts by {drift:.1f}"
+            f" slots over the half (limit {MAX_LAG_DRIFT}), so a change the camera did not make was"
+            " taken for a frame or a frame for a repeat")
+    # The camera steps and the repeats must be far enough apart to tell by the level.
+    inside = set(kept)
+    repeats = [STEPS.get(f - 1, 0.0) for f in range(kept[1 if with_start_pose else 0], kept[-1])
+               if f not in inside]
+    smallest = min(STEPS[f - 1] for f in kept[1 if with_start_pose else 0:])
+    largest_repeat = max(repeats, default=0.0)
+    if largest_repeat * SEPARATION > smallest:
+        raise SystemExit(
+            f"{stage} {label}: a repeated slot differs by {largest_repeat:.3f} and the smallest camera"
+            f" step by {smallest:.3f}: they are less than {SEPARATION}x apart, so the level cannot"
+            " tell them apart")
+    SEPARATIONS.append((stage, label, smallest, largest_repeat))
     return kept
 
 
@@ -284,6 +306,10 @@ for index in range(1, len(parts)):
 graph.append(f"{chain}afade=t=in:st=0:d={JOIN},afade=t=out:st={position - JOIN:.6f}:d={JOIN}[aout]")
 graph.append("".join(f"[v{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=0[vout]")
 
+smallest_step = min(SEPARATIONS, key=lambda e: e[2])
+largest_repeat = max(SEPARATIONS, key=lambda e: e[3])
+print(f"smallest camera step {smallest_step[2]:.3f} ({smallest_step[0]} {smallest_step[1]}), largest"
+      f" repeated slot {largest_repeat[3]:.3f} ({largest_repeat[0]} {largest_repeat[1]})", flush=True)
 print("encoding...", flush=True)
 subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),
