@@ -54,8 +54,8 @@ foreground.
 `tools/cut_film.py` cuts the recording to its shots from the `STAGE_START`/`STAGE_END` markers and the
 test's `FRAME` log lines, one clip per stage. Each half keeps exactly the frames the camera drew, in
 order (frame 0 first, frame 59 last of the vanilla half, frame 60 first of the palette half), and
-refuses a half in which the recorder dropped a frame (`CAPTURE_DROPS` lines) or a frame lies far from
-the slot it was drawn at. The two halves are joined with no halt, so the blocks and the caption
+refuses a half in which the recorder dropped a frame (`CAPTURE_DROPS` lines) or whose capture holds
+fewer changing slots than the camera drew frames. The two halves are joined with no halt, so the blocks and the caption
 change on one frame and the camera carries on. The film has no sound: it shows 30 ticks of game time
 a second, against the game's 20, so the recording's sound cannot line up with it.
 
