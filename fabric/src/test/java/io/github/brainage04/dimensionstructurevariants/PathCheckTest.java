@@ -21,7 +21,12 @@ class PathCheckTest {
             ShowcaseCamera.Pose pose = PLAN.at(source.applyAsInt(n));
             frames.add(
                     new PathCheck.Frame(
-                            pose.x(), pose.y(), pose.z(), pose.yaw(), pose.pitch(), n >= paletteFrame));
+                            pose.x(),
+                            pose.y(),
+                            pose.z(),
+                            pose.yaw(),
+                            pose.pitch(),
+                            n >= paletteFrame));
         }
         return frames;
     }
@@ -83,11 +88,7 @@ class PathCheckTest {
     @Example
     void aPaletteSwitchOneFrameLateIsCaught() {
         List<String> problems =
-                problems(
-                        frames(
-                                CameraPlan.SHOT_FRAMES + 1,
-                                n -> n,
-                                CameraPlan.PALETTE_FRAME + 1));
+                problems(frames(CameraPlan.SHOT_FRAMES + 1, n -> n, CameraPlan.PALETTE_FRAME + 1));
         assertTrue(mentions(problems, "palette came on at frame 61"), problems.toString());
     }
 

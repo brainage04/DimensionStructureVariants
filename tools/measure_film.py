@@ -115,6 +115,86 @@ digests = [line.rsplit(",", 1)[1].strip() for line in hashes.splitlines()
            if line and not line.startswith("#")]
 repeats = [i for i in range(1, len(digests)) if digests[i] == digests[i - 1]]
 
+# The largest flat region of each frame: a block or a roof that fills the frame is one big area of
+# nearly one colour. The world region is scaled to FLAT_WIDTH x FLAT_HEIGHT and a pixel is flat when
+# it differs from the pixel right of it and below it by FLAT_TOLERANCE grey levels or less; the share
+# is the largest 4-connected flat area over the whole region. The sky and the Nether's fog are flat
+# too, so a frame over the limit is looked at, not failed by the number alone.
+FLAT_WIDTH, FLAT_HEIGHT = 128, 72
+FLAT_TOLERANCE = 3
+FLAT_LIMIT = 0.25
+
+
+def flat_shares():
+    proc = subprocess.Popen(
+        ["ffmpeg", "-v", "error", "-i", str(film), "-vf",
+         f"{WORLD},scale={FLAT_WIDTH}:{FLAT_HEIGHT},format=gray", "-f", "rawvideo", "-"],
+        stdout=subprocess.PIPE)
+    size = FLAT_WIDTH * FLAT_HEIGHT
+    shares = []
+    while True:
+        data = proc.stdout.read(size)
+        if len(data) < size:
+            break
+        flat = bytearray(size)
+        for y in range(FLAT_HEIGHT - 1):
+            row = y * FLAT_WIDTH
+            for x in range(FLAT_WIDTH - 1):
+                i = row + x
+                if abs(data[i] - data[i + 1]) <= FLAT_TOLERANCE \
+                        and abs(data[i] - data[i + FLAT_WIDTH]) <= FLAT_TOLERANCE:
+                    flat[i] = 1
+        best = 0
+        for start in range(size):
+            if flat[start] != 1:
+                continue
+            flat[start] = 2
+            stack = [start]
+            area = 0
+            while stack:
+                i = stack.pop()
+                area += 1
+                x = i % FLAT_WIDTH
+                for j in (i - 1 if x else -1, i + 1 if x < FLAT_WIDTH - 1 else -1,
+                          i - FLAT_WIDTH, i + FLAT_WIDTH):
+                    if 0 <= j < size and flat[j] == 1:
+                        flat[j] = 2
+                        stack.append(j)
+            best = max(best, area)
+        shares.append(best / size)
+    proc.wait()
+    return shares
+
+
+shares = flat_shares()
+flat_per_stage = []
+for shot in shots:
+    a = int(round(shot["video_start_s"] * RATE))
+    b = int(round(shot["video_end_s"] * RATE))
+    window = shares[a:b]
+    over = [a + i for i, v in enumerate(window) if v > FLAT_LIMIT]
+    flat_per_stage.append({
+        "stage": shot["stage"],
+        "max_flat_share": round(max(window), 3) if window else None,
+        "frames_over_limit": over,
+    })
+
+# The longest run of frames the world region does not move in, by the review's rule, anywhere in
+# the film: a still the viewer sees. The film's first and last frames count, as in run_at.
+longest_still = 0
+run = 0
+for f in range(len(steps)):
+    stage_median = None
+    for i, shot in enumerate(shots):
+        if int(round(shot["video_start_s"] * RATE)) <= f < int(round(shot["video_end_s"] * RATE)):
+            stage_median = medians[i]
+            break
+    if stage_median is not None and steps[f] < 0.05 * stage_median:
+        run += 1
+        longest_still = max(longest_still, run)
+    else:
+        run = 0
+
 # Audio: the 20 ms RMS at each palette join and at each stage cut, against the stage's own median.
 rms = rms_envelope()
 window = 0.25
@@ -178,6 +258,8 @@ result = {
     "palette_joins": join_stills,
     "film_start_still_ms": start_still,
     "film_end_still_ms": end_still,
+    "longest_still_ms": round(longest_still * 1000.0 / RATE),
+    "flat_region": flat_per_stage,
     "repeated_frame_pairs": len(repeats),
     "repeated_frames": repeats,
     "palette_joins_audio": joins,

@@ -61,7 +61,11 @@ public final class PathCheck {
         int expected = CameraPlan.SHOT_FRAMES + 1;
         if (frames.size() != expected) {
             problems.add(
-                    "the shot drew " + frames.size() + " frames, not the " + expected + " it plans");
+                    "the shot drew "
+                            + frames.size()
+                            + " frames, not the "
+                            + expected
+                            + " it plans");
         }
         int count = frames.size();
         double worstPosition = 0.0D;
@@ -80,9 +84,7 @@ public final class PathCheck {
             worstPosition = Math.max(worstPosition, position);
             worstYaw = Math.max(worstYaw, yaw);
             worstPitch = Math.max(worstPitch, pitch);
-            if (position > POSITION_TOLERANCE
-                    || yaw > ANGLE_TOLERANCE
-                    || pitch > ANGLE_TOLERANCE) {
+            if (position > POSITION_TOLERANCE || yaw > ANGLE_TOLERANCE || pitch > ANGLE_TOLERANCE) {
                 if (deviations.size() < MAX_FRAME_PROBLEMS) {
                     deviations.add(
                             String.format(
@@ -116,7 +118,8 @@ public final class PathCheck {
         for (int n = 1; n < count; n++) {
             Frame before = frames.get(n - 1);
             Frame now = frames.get(n);
-            double angleBefore = Math.atan2(before.z() - plan.centreZ(), before.x() - plan.centreX());
+            double angleBefore =
+                    Math.atan2(before.z() - plan.centreZ(), before.x() - plan.centreX());
             double angleNow = Math.atan2(now.z() - plan.centreZ(), now.x() - plan.centreX());
             double step = Math.toDegrees(angleNow - angleBefore);
             step = wrapDegrees(step);

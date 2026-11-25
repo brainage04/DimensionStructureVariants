@@ -28,13 +28,20 @@ class CameraPlanTest {
 
     /** Frames drawn from {@code poses}, the palette on from {@code paletteFrame}. */
     private static List<PathCheck.Frame> frames(
-            java.util.function.IntFunction<ShowcaseCamera.Pose> poses, int count, int paletteFrame) {
+            java.util.function.IntFunction<ShowcaseCamera.Pose> poses,
+            int count,
+            int paletteFrame) {
         List<PathCheck.Frame> frames = new ArrayList<>();
         for (int n = 0; n < count; n++) {
             ShowcaseCamera.Pose pose = poses.apply(n);
             frames.add(
                     new PathCheck.Frame(
-                            pose.x(), pose.y(), pose.z(), pose.yaw(), pose.pitch(), n >= paletteFrame));
+                            pose.x(),
+                            pose.y(),
+                            pose.z(),
+                            pose.yaw(),
+                            pose.pitch(),
+                            n >= paletteFrame));
         }
         return frames;
     }
@@ -76,22 +83,21 @@ class CameraPlanTest {
         assertEquals(CameraPlan.PALETTE_FRAME, report.paletteFrame());
     }
 
-    /** The orbit the film flies must be the plan: this is the frame check on the film's own class. */
+    /**
+     * The orbit the film flies must be the plan: this is the frame check on the film's own class.
+     */
     @Example
     void theOrbitFliesThePlan() {
         ShowcaseCamera.Orbit orbit =
                 new ShowcaseCamera.Orbit(
-                        CENTRE_X,
-                        CENTRE_Y,
-                        CENTRE_Z,
-                        RADIUS,
-                        GROUND_LEVEL,
-                        CEILING,
-                        START_ANGLE);
+                        CENTRE_X, CENTRE_Y, CENTRE_Z, RADIUS, GROUND_LEVEL, CEILING, START_ANGLE);
         PathCheck.Report report =
                 PathCheck.verify(
                         plan(),
-                        frames(orbit::atFrame, CameraPlan.SHOT_FRAMES + 1, CameraPlan.PALETTE_FRAME));
+                        frames(
+                                orbit::atFrame,
+                                CameraPlan.SHOT_FRAMES + 1,
+                                CameraPlan.PALETTE_FRAME));
         assertTrue(report.problems().isEmpty(), String.join("\n", report.problems()));
     }
 }
