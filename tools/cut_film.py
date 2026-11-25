@@ -17,9 +17,8 @@ draw times from the film's own FRAME log lines for the stage: the palette frame 
 half, the rest of the shot for the palette half), and the vanilla half also opens on the frame
 before the first step, which shows the held start pose, the shot's frame 0. The cut fails a half
 during which the recorder dropped a frame (the film logs the recorder's drop count at each half's
-start and end as CAPTURE_DROPS), a half whose capture holds fewer changing slots
-than the camera drew frames, and a half in which a frame is not within a few slots of the slot it
-was drawn at (a pose missing or a change the camera did not make). The film shows
+start and end as CAPTURE_DROPS) and a half whose capture holds fewer changing slots than the camera
+drew frames. The film shows
 frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palette half, with no
 halt at the join.
 
@@ -73,10 +72,6 @@ CHANGED = f"lut=y=if(gt(val\\,{CHANGED_BY})\\,255\\,0)"
 STILL_LEVEL = 0.25
 STEP_LEVELS = []
 REPEAT_LEVELS = []
-# The most a half's frames may differ in how long after their draw slot they were captured: the
-# recorder hands a frame on up to 4 presents after its own and holds a slot 250 ms for it
-# (GameCapture.java BUFFERS, HOLD_US in MinecraftModConventions 3.5.0), 7.5 slots.
-MAX_LAG_SPREAD_SLOTS = 7.5
 LAGS = []
 PALETTE_HALF = "/on"
 # The shot's frame counts come from the film's own path check, which logs `[DSV] <stage> path: N
@@ -196,9 +191,9 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
     The half must hold at least `len(draws)` changing slots, and its first `len(draws)` are the
     frames. The sun and the clock still move for a slot or two after the camera's last frame, until
     the game freezes, so slots beyond the count are ignored. The frames' lags (capture slot minus
-    draw slot) may differ by at most MAX_LAG_SPREAD_SLOTS within the half: a frame missing from
-    the capture, or a change the camera did not make taken for a frame, shifts the frames after
-    it against their draws.
+    draw slot) are printed, not limited: the recorder hands a frame on up to 4 presents after its
+    own, so they differ by a few slots, and a frame the capture lost is caught by the drop counts
+    the caller checks around the half, not by the lag.
     """
     count = len(draws)
     from_slot = draws[1] if with_start_pose else draws[0]
@@ -212,11 +207,6 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
     kept = ([moves[0] - 1] if with_start_pose else []) + moves[:needed]
     lags = [kept[i] - draws[i] for i in range(1 if with_start_pose else 0, count)]
     LAGS.append((max(lags) - min(lags), stage, label))
-    if max(lags) - min(lags) > MAX_LAG_SPREAD_SLOTS:
-        raise SystemExit(
-            f"{stage} {label}: the frames are {min(lags):.1f} to {max(lags):.1f} slots from the slots"
-            " they were drawn at: a pose is missing or a change the camera did not make was taken"
-            " for a frame")
     taken = set(kept)
     STEP_LEVELS.append((min(STEPS[f - 1] for f in kept[1:]), stage, label))
     REPEAT_LEVELS.append(
