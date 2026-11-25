@@ -38,6 +38,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from step_check import ratios, repeated
+
 log_path, video_path, meta_path, out_path, sidecar_path = map(Path, sys.argv[1:6])
 log = log_path.read_text(errors="replace")
 meta = json.loads(meta_path.read_text())
@@ -62,15 +64,18 @@ LEAD = 0.10
 TRAIL = 0.25
 # The picture's change between two slots is the share of the world region's pixels that differ by more
 # than CHANGED_BY grey levels, times 255. A repeated slot is the same raw frame, which the encoder
-# reproduces to within a grey level or two: its change measured at most 0.07 in take 14's film, and
-# a camera step at least 1.0 (the cut prints both extremes, and the level sits between them). A mean
-# difference did not separate them in end city's ocean stage (repeats up to 0.4 against steps near
-# 1.0), and a level of 10 grey levels missed the camera's steps in the Nether's dark fog (basalt
-# deltas).
+# reproduces to within a grey level or two: its change measured at most 0.09 in take 14's film. A camera
+# step measured 1.10 or more in the halves that were clean, but the one repeated picture that got into
+# that film measured 0.35 to 0.69, so no fixed level separates a slow camera step from a repeat that
+# the encoder has made noisy: step_check.py compares a step with its neighbours instead. A mean
+# difference did not separate repeats from steps in end city's ocean stage (repeats up to 0.4 against
+# steps near 1.0), and a level of 10 grey levels missed the camera's steps in the Nether's dark fog
+# (basalt deltas).
 CHANGED_BY = 5
 CHANGED = f"lut=y=if(gt(val\\,{CHANGED_BY})\\,255\\,0)"
 STILL_LEVEL = 0.25
 STEP_LEVELS = []
+CLOSEST = []
 REPEAT_LEVELS = []
 LAGS = []
 PALETTE_HALF = "/on"
@@ -193,7 +198,9 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
     the game freezes, so slots beyond the count are ignored. The frames' lags (capture slot minus
     draw slot) are printed, not limited: the recorder hands a frame on up to 4 presents after its
     own, so they differ by a few slots, and a frame the capture lost is caught by the drop counts
-    the caller checks around the half, not by the lag.
+    the caller checks around the half, not by the lag. A kept slot whose step is under FRACTION of
+    the median of its neighbours' steps (step_check.py) is the picture of the slot before it shown
+    again, and the half is refused.
     """
     count = len(draws)
     from_slot = draws[1] if with_start_pose else draws[0]
@@ -209,6 +216,15 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
     LAGS.append((max(lags) - min(lags), stage, label))
     taken = set(kept)
     STEP_LEVELS.append((min(STEPS[f - 1] for f in kept[1:]), stage, label))
+    steps = [STEPS[f - 1] for f in kept[1:]]
+    again = repeated(steps)
+    if again:
+        at_slot = kept[1:][again[0]]
+        raise SystemExit(
+            f"{stage} {label}: the picture at capture slot {at_slot} is the one before it again (step"
+            f" {steps[again[0]]:.2f} against {steps[max(0, again[0] - 1)]:.2f} before it): a planned"
+            " pose is missing from the capture; record the stage again")
+    CLOSEST.append((min(ratios(steps)), stage, label))
     REPEAT_LEVELS.append(
         (max((STEPS.get(f - 1, 0.0) for f in range(kept[0], kept[-1]) if f not in taken), default=0.0),
          stage, label))
@@ -258,6 +274,7 @@ print(f"largest spread of a half's frame lags (capture slot minus draw slot): {m
       f" ({max(LAGS)[1:]})", flush=True)
 print(f"smallest camera step {min(STEP_LEVELS)[0]:.2f} ({min(STEP_LEVELS)[1:]}), largest repeated"
       f" slot {max(REPEAT_LEVELS)[0]:.3f} ({max(REPEAT_LEVELS)[1:]}), level {STILL_LEVEL}", flush=True)
+print(f"smallest step against its neighbours' median {min(CLOSEST)[0]:.2f} ({min(CLOSEST)[1:]})", flush=True)
 print("encoding...", flush=True)
 subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),

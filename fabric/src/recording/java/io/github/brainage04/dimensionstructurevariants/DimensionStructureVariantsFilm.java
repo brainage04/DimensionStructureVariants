@@ -2487,8 +2487,9 @@ public final class DimensionStructureVariantsFilm {
             }
             // The frames the client presented along the shot, not the ticks the steps waited for: a
             // card presents several frames per tick and a software rasterizer fewer than one. The
-            // shot runs at the game's own 20 ticks a second whatever this is, because the camera is
-            // posed per frame (ShowcaseCamera); the number says how smooth the film will be.
+            // camera is posed per frame (ShowcaseCamera), so the tick rate does not decide its
+            // path; the number says how smooth the film will be. The world ticks about once per
+            // drawn frame (take 14: 30.2 ticks a film second), not at the tick rate.
             double seconds = (System.nanoTime() - began) / 1.0E9D;
             long rendered =
                     context.computeOnClient(client -> ShowcaseCamera.frames()) - beganFrames;
@@ -2615,12 +2616,12 @@ public final class DimensionStructureVariantsFilm {
         if (stage.dimension() == Dimension.NETHER) assertNetherFog(context);
 
         // The Overworld clock stands at noon for the whole shot, so the sky is the same in every
-        // frame. The harness ticks about once per drawn frame (take 14's log: 122 ticks for 121
-        // frames), which is 30 ticks a film second against the game's 20, so a clock that ran
+        // frame: advance_time has been false since the world's set-up commands and nothing here
+        // turns it on. The harness ticks about once per drawn frame (take 14's log: 122 ticks for
+        // 121 frames), which is 30 ticks a film second against the game's 20, so a clock that ran
         // would pass 1.5 times the day the film's seconds show.
         server.runOnServer(
                 minecraftServer -> {
-                    run(minecraftServer, "gamerule advance_time false");
                     setDayTime(minecraftServer, NOON);
                     minecraftServer.tickRateManager().setTickRate(ShowcaseCamera.SHOT_TICK_RATE);
                     minecraftServer.tickRateManager().setFrozen(false);

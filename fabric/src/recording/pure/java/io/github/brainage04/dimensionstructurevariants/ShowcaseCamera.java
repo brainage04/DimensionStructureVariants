@@ -23,7 +23,10 @@ import java.util.concurrent.locks.LockSupport;
  * the switch changes nothing about the motion.
  */
 public final class ShowcaseCamera {
-    /** The game's own tick rate, which the server runs at while a shot is filmed. */
+    /**
+     * The game's own tick rate, which the server is set to while a shot is filmed. The film does
+     * not play the world at it: the world ticks about once per drawn frame.
+     */
     public static final int SHOT_TICK_RATE = 20;
 
     /**

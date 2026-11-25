@@ -13,6 +13,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from step_check import repeated
+
 film, sidecar_path = Path(sys.argv[1]), Path(sys.argv[2])
 out_json = None
 if "--json" in sys.argv:
@@ -92,13 +94,19 @@ def run_at(frame, limit):
 start_still = run_at(0, 0.05 * medians[0])
 end_still = run_at(frames - 1, 0.05 * medians[-1])
 
-# Frame hashes in the world region, so a repeated picture is named as one.
-hashes = subprocess.run(
-    ["ffmpeg", "-v", "error", "-i", str(film), "-map", "0:v:0", "-vf", f"{WORLD}", "-f", "framemd5", "-"],
-    check=True, capture_output=True, text=True).stdout
-digests = [line.rsplit(",", 1)[1].strip() for line in hashes.splitlines()
-           if line and not line.startswith("#")]
-repeats = [i for i in range(1, len(digests)) if digests[i] == digests[i - 1]]
+# A repeated picture: inside each half of a stage, a pair of frames whose step is under FRACTION of the
+# median of the steps next to it (step_check.py). Frame hashes cannot do this, because the encoder
+# never gives two copies of a picture the same bytes. The pair across the palette join is left out:
+# the blocks change there, so its step is not the camera's.
+repeats = []
+for shot in shots:
+    first = int(round(shot["video_start_s"] * RATE))
+    join = int(round(shot["palette_at_s"] * RATE))
+    last = int(round(shot["video_end_s"] * RATE))
+    for lo, hi in ((first, join - 1), (join, last - 1)):
+        pairs = [k for k in range(lo, hi) if k in steps]
+        for i in repeated([steps[k] for k in pairs]):
+            repeats.append(pairs[i] + 1)
 
 # The largest flat region of each frame: a block or a roof that fills the frame is one big area of
 # nearly one colour. The world region is scaled to FLAT_WIDTH x FLAT_HEIGHT and a pixel is flat when
