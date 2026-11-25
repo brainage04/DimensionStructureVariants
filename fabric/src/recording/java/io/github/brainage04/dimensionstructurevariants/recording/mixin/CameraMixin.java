@@ -23,5 +23,13 @@ abstract class CameraMixin {
         if (pose == null) return;
         setRotation(pose.yaw(), pose.pitch());
         setPosition(pose.x(), pose.y(), pose.z());
+        // What the game's own camera holds now is what this frame is drawn from.
+        Camera camera = (Camera) (Object) this;
+        ShowcaseCamera.applied(
+                camera.position().x,
+                camera.position().y,
+                camera.position().z,
+                camera.yRot(),
+                camera.xRot());
     }
 }

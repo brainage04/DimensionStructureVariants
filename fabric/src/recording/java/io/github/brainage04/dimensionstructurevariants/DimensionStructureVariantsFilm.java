@@ -2738,6 +2738,7 @@ public final class DimensionStructureVariantsFilm {
         // setup needs is not counted as the picture standing still.
         context.runOnClient(client -> ShowcaseCamera.pause());
         System.out.println("STAGE_END " + endMs + " " + stage.id() + PALETTE_HALF);
+        checkPath(context, stage, cameraPlan(stage, prepared));
         ShowcaseCamera.Still still = context.computeOnClient(client -> ShowcaseCamera.takeStill());
         String after =
                 server.computeOnServer(
@@ -2793,6 +2794,61 @@ public final class DimensionStructureVariantsFilm {
                             + poppedTicks
                             + " ticks:"
                             + problems);
+        }
+    }
+
+    /**
+     * The camera's height at the end of the shot: the middle of the structure's lowest layer, the
+     * level it stands on. Below the ground's surface nothing of the structure shows, so a stage
+     * with ground of its own counts from the layer above it.
+     */
+    private static double groundLevel(Stage stage, BoundingBox box, int groundY) {
+        int lowest = stage.hasGround() ? Math.max(box.minY(), groundY + 1) : box.minY();
+        return lowest + 0.5D;
+    }
+
+    /** The path the shot is planned to fly, as a function of the film's frame number. */
+    private static CameraPlan.Plan cameraPlan(Stage stage, Prepared prepared) {
+        ShowcaseCamera.Orbit orbit = prepared.orbit();
+        return CameraPlan.Plan.of(
+                orbit.centreX(),
+                orbit.centreY(),
+                orbit.centreZ(),
+                orbit.radius(),
+                groundLevel(stage, prepared.occupied(), prepared.groundY()),
+                orbit.ceilingY(),
+                orbit.startAngle());
+    }
+
+    /**
+     * Compares the camera every frame of the shot was drawn from with the plan, and prints the
+     * frames so the cut can be measured against them. A deviation fails the run.
+     */
+    private static void checkPath(
+            ClientGameTestContext context, Stage stage, CameraPlan.Plan plan) {
+        List<PathCheck.Frame> frames =
+                context.computeOnClient(client -> ShowcaseCamera.appliedFrames());
+        long[] millis = context.computeOnClient(client -> ShowcaseCamera.loggedMillis());
+        for (int n = 0; n < frames.size(); n++) {
+            PathCheck.Frame frame = frames.get(n);
+            System.out.println(
+                    String.format(
+                            Locale.ROOT,
+                            "[DSV] FRAME %s %d %d %.6f %.6f %.6f %.4f %.4f %s",
+                            stage.id(),
+                            n,
+                            millis[n],
+                            frame.x(),
+                            frame.y(),
+                            frame.z(),
+                            frame.yaw(),
+                            frame.pitch(),
+                            frame.paletteOn() ? "on" : "off"));
+        }
+        PathCheck.Report report = PathCheck.verify(plan, frames);
+        System.out.println("[DSV] " + stage.id() + " path: " + report.summary());
+        for (String problem : report.problems()) {
+            PROBLEMS.add(stage.id() + ": " + problem);
         }
     }
 

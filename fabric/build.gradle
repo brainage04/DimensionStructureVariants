@@ -10,6 +10,17 @@ tasks.matching { it.name == 'runProductionClientGameTest' }.configureEach {
 	jvmArgs.add('-XX:+UseZGC')
 }
 
+// The camera's path and its frame check use no Minecraft class, so the unit tests compile them from
+// the directory the recording source set reads them from.
+sourceSets {
+	recording {
+		java.srcDir 'src/recording/pure/java'
+	}
+	test {
+		java.srcDir 'src/recording/pure/java'
+	}
+}
+
 dependencies {
 	// jqwik 1.10.2 runs on JUnit Platform 1.14; the BOM keeps the rest of JUnit on the same release.
 	testImplementation platform('org.junit:junit-bom:5.14.4')

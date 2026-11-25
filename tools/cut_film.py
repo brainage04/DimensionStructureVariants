@@ -177,6 +177,15 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
         None)
     if begin is None or last is None or last <= begin:
         raise SystemExit(f"{stage}: no moving frames between its markers")
+    # The stage's first film frame is the shot's own first pose. The camera is held on that pose
+    # before the shot starts and its first frame shows it too, so the capture's frame before it
+    # repeats it and the frame after it is the first that moves. A cut that starts on the first
+    # moving frame has dropped the start pose and opens one step into the shot.
+    if not still(begin, limit) or still(begin + 1, limit):
+        raise SystemExit(
+            f"{stage}: the first film frame {begin} is not the start pose: it differs from the frame"
+            f" before it by {STEPS.get(begin - 1, 0.0):.3f} (a repeat is under {limit:.3f}), so the"
+            f" held start pose was cut off and the film opens one step into the shot")
     finish = last + 1
     off_stop, on_start = held_pose(e1, s2, stage)
     # The camera resumes a few ticks after the marker, so the palette half opens on the held pose

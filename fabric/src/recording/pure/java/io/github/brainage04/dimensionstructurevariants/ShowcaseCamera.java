@@ -1,5 +1,8 @@
 package io.github.brainage04.dimensionstructurevariants;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * The recording's camera, posed on the client for every frame the client draws, so the orbit moves
  * between the game's ticks as well as on them. {@code recording.mixin.CameraMixin} asks {@link
@@ -57,6 +60,20 @@ public final class ShowcaseCamera {
     private static long repeats;
     private static long pictures;
 
+    /** Frames of one shot the log keeps: more than a slow client draws in a shot. */
+    private static final int LOG_FRAMES = 1024;
+
+    private static final double[] LOG_X = new double[LOG_FRAMES];
+    private static final double[] LOG_Y = new double[LOG_FRAMES];
+    private static final double[] LOG_Z = new double[LOG_FRAMES];
+    private static final float[] LOG_YAW = new float[LOG_FRAMES];
+    private static final float[] LOG_PITCH = new float[LOG_FRAMES];
+    private static final boolean[] LOG_PALETTE = new boolean[LOG_FRAMES];
+    private static final long[] LOG_MILLIS = new long[LOG_FRAMES];
+    private static int logged;
+    private static boolean pendingLog;
+    private static boolean paletteOn;
+
     private ShowcaseCamera() {}
 
     /** Holds the camera at {@code progress} (0 to 1) of {@code orbit}; client thread only. */
@@ -87,6 +104,9 @@ public final class ShowcaseCamera {
         longestStillRepeats = 0L;
         repeats = 0L;
         pictures = 0L;
+        logged = 0;
+        pendingLog = false;
+        paletteOn = false;
     }
 
     /**
@@ -116,6 +136,7 @@ public final class ShowcaseCamera {
         longestStillRepeats = 0L;
         repeats = 0L;
         pictures = 0L;
+        paletteOn = true;
     }
 
     /** The progress (0 to 1) of the pose the last frame showed; client thread only. */
@@ -171,7 +192,48 @@ public final class ShowcaseCamera {
             }
         }
         lastProgress = progress;
+        pendingLog = running;
         return current.at(progress);
+    }
+
+    /**
+     * Records the camera the frame was drawn from, read back from the game's own camera after it
+     * was placed; client thread only, once per frame, after {@link #framePose} placed it.
+     */
+    public static void applied(double x, double y, double z, float yaw, float pitch) {
+        if (!pendingLog) return;
+        pendingLog = false;
+        if (logged < LOG_FRAMES) {
+            LOG_X[logged] = x;
+            LOG_Y[logged] = y;
+            LOG_Z[logged] = z;
+            LOG_YAW[logged] = yaw;
+            LOG_PITCH[logged] = pitch;
+            LOG_PALETTE[logged] = paletteOn;
+            LOG_MILLIS[logged] = System.currentTimeMillis();
+        }
+        logged++;
+    }
+
+    /** The wall-clock time, in epoch milliseconds, each frame of the last shot was drawn at. */
+    public static long[] loggedMillis() {
+        return java.util.Arrays.copyOf(LOG_MILLIS, Math.min(logged, LOG_FRAMES));
+    }
+
+    /** The frames of the last shot, in the order they were drawn; client thread only. */
+    public static List<PathCheck.Frame> appliedFrames() {
+        List<PathCheck.Frame> frames = new ArrayList<>();
+        for (int n = 0; n < Math.min(logged, LOG_FRAMES); n++) {
+            frames.add(
+                    new PathCheck.Frame(
+                            LOG_X[n],
+                            LOG_Y[n],
+                            LOG_Z[n],
+                            LOG_YAW[n],
+                            LOG_PITCH[n],
+                            LOG_PALETTE[n]));
+        }
+        return frames;
     }
 
     /** The camera's progress through a shot {@code elapsedNanos} after its first frame. */
@@ -267,6 +329,11 @@ public final class ShowcaseCamera {
             double toCentre = -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
             float pitch = (float) Math.max(0.0D, Math.min(plannedPitch(progress), toCentre));
             return new Pose(x, y, z, yaw, pitch);
+        }
+
+        /** The pose at film frame {@code frame} of a shot that spans {@link CameraPlan#SHOT_FRAMES}. */
+        public Pose atFrame(int frame) {
+            return at(frame / (double) CameraPlan.SHOT_FRAMES);
         }
 
         /** Degrees the camera looks up at the centre at the end (negative: still looking down). */
