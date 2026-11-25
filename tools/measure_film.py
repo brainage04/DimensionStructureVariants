@@ -109,7 +109,7 @@ end_still = run_at(frames - 1, 0.05 * medians[-1])
 
 # Frame hashes in the world region, so a repeated picture is named as one.
 hashes = subprocess.run(
-    ["ffmpeg", "-v", "error", "-i", str(film), "-vf", f"{WORLD}", "-f", "framemd5", "-"],
+    ["ffmpeg", "-v", "error", "-i", str(film), "-map", "0:v:0", "-vf", f"{WORLD}", "-f", "framemd5", "-"],
     check=True, capture_output=True, text=True).stdout
 digests = [line.rsplit(",", 1)[1].strip() for line in hashes.splitlines()
            if line and not line.startswith("#")]
