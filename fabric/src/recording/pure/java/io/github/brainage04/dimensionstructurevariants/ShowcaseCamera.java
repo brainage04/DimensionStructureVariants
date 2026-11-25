@@ -32,9 +32,8 @@ public final class ShowcaseCamera {
      * shows the newest frame at each of its slots, so a frame presented less than a slot after the
      * one before it hides that one, and its pose is missing from the film. The game's own frame cap
      * does not prevent it: after a slow frame the next one is drawn at once, and a cap only spaces
-     * the frames' starts, not their presents. First full recordings of this camera lost a pose in 1
-     * and 3 of their 46 halves that way. A full recording at 36 ms had the recorder drop 7 frames,
-     * so the gap is 50 ms to give its copies more time between frames.
+     * the frames' starts, not their presents. The gap is 50 ms so the recorder's copy buffers have
+     * time between two frames.
      */
     public static final long PRESENT_GAP_MILLIS = 50L;
 
