@@ -8,6 +8,8 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 public final class DimensionStructureVariantsClientGameTest implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext context) {
+        // A run that takes percent sheets films nothing.
+        if (DimensionStructureVariantsPercentSheet.requested()) return;
         DimensionStructureVariantsFilm.run(
                 context,
                 StructureVariantCatalog.VARIANTS.stream()

@@ -351,6 +351,19 @@ public final class StructurePalettes {
         }
     }
 
+    /**
+     * Replaces the table for the rest of the run, or restores the bundled one when {@code table} is
+     * null. Only the recording source set calls it (the percent sheets of {@code
+     * DimensionStructureVariantsPercentSheet}, which compare rare-block shares without editing
+     * {@code palettes.json}); nothing in the mod does.
+     */
+    static void useTable(@Nullable JsonObject table) {
+        synchronized (StructurePalettes.class) {
+            data = table == null ? null : parse(table);
+            COMPILED.clear();
+        }
+    }
+
     private static Data read() {
         try (InputStream stream = StructurePalettes.class.getResourceAsStream(DATA)) {
             if (stream == null) throw new IllegalStateException("Missing palette table " + DATA);

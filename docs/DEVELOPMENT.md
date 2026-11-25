@@ -65,6 +65,8 @@ sounds are audible.
 
 Without `DSV_STAGES`, `CLIENT_GAMETEST_PROFILE=smoke` films one stage of each structure (bastion, end city, fortress, village), spread over the three dimensions; both CI jobs that start the client run that profile, because the full run takes about an hour. Items that mobs dropped as they died while a stage was populated are removed before its shot and logged; any other loose item, chest loot above all, fails the run.
 
+`DimensionStructureVariantsPercentSheet` takes still pictures for comparing the share of a palette's rare block (the snow block of the snowy fortress, the dark prismarine of the ocean fortress). `DSV_PERCENT_SHEET=snowy` or `ocean` makes `:fabric:recordClientGameTest` take the pictures instead of filming. It generates one fortress, places it five times with the rare block at 1 to 5 per cent of every role that carries it, and shoots the same overview and the same wall close-up each time. `DSV_PERCENT_DIR` names the output folder (default `build/percent-sheet`). Each share is a rewritten copy of the bundled table passed to `StructurePalettes.useTable`, so `palettes.json` is not edited. The animated textures are stopped for the run, because prismarine changes colour over 6600 ticks. `tools/percent_sheet.sh` joins the five pictures into a labelled row.
+
 A biome's drone is a streamed sound, so the sound engine holds four one-second buffers of it and
 refills them once per frame (`ChannelAccess.scheduleTick`, reached from `SoundEngine.tick`); placing a
 stage's structure stalls the client for seconds, the buffers run dry, the engine drops the loop, and

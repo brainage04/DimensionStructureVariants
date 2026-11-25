@@ -11,7 +11,8 @@
 		],
 		"fabric-client-gametest": [
 			"io.github.brainage04.dimensionstructurevariants.DimensionStructureVariantsClientGameTest",
-			"io.github.brainage04.dimensionstructurevariants.DimensionStructureVariantsSwapCheck"
+			"io.github.brainage04.dimensionstructurevariants.DimensionStructureVariantsSwapCheck",
+			"io.github.brainage04.dimensionstructurevariants.DimensionStructureVariantsPercentSheet"
 		]
 	},
 	"mixins": [
