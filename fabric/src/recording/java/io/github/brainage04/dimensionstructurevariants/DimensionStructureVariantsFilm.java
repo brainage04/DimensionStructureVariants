@@ -3,6 +3,7 @@ package io.github.brainage04.dimensionstructurevariants;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestRecorder;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestRecordingHud;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestServers;
+import io.github.brainage04.minecraftmodconventions.GameCapture;
 import io.github.brainage04.minecraftmodconventions.PerformanceOverlayPlacement;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -116,6 +117,9 @@ public final class DimensionStructureVariantsFilm {
      * 121 frames of the client, so a client under 30 frames a second needs more than 80 ticks.
      */
     private static final int LATE_TICKS = 60;
+
+    /** How long after a half's last frame the recorder's drop count is read, in milliseconds. */
+    private static final long CAPTURE_SETTLE_MILLIS = 250L;
 
     /** Pieces of fewer blocks than this that touch nothing else are removed. */
     private static final int MIN_PIECE_BLOCKS = 40;
@@ -1684,6 +1688,32 @@ public final class DimensionStructureVariantsFilm {
         server.clockManager().setTotalTicks(clock, total - Math.floorMod(total, DAY) + time);
     }
 
+    /**
+     * Prints {@code CAPTURE_DROPS <half> <edge> <count>}: the frames the recorder has dropped so
+     * far, which the cut compares between a half's start and end. The recorder counts a drop when
+     * it hands a finished copy on, up to a few presents after the frame was drawn
+     * ({@code GameCapture.hand}), so the count at a half's end is read {@link
+     * #CAPTURE_SETTLE_MILLIS} after the half's last frame.
+     */
+    private static void printCaptureDrops(String half, String edge, boolean settle) {
+        if (settle) {
+            try {
+                Thread.sleep(CAPTURE_SETTLE_MILLIS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        Properties evidence = new Properties();
+        GameCapture.describe(evidence);
+        System.out.println(
+                "CAPTURE_DROPS "
+                        + half
+                        + " "
+                        + edge
+                        + " "
+                        + evidence.getProperty("gameCaptureDroppedFrames", "0"));
+    }
+
     private static void run(MinecraftServer server, String command) {
         CommandSourceStack source =
                 server.createCommandSourceStack()
@@ -2610,6 +2640,7 @@ public final class DimensionStructureVariantsFilm {
                 });
         long startMs = System.currentTimeMillis();
         System.out.println("STAGE_START " + startMs + " " + stage.id());
+        printCaptureDrops(stage.id(), "start", false);
         ShotTiming timing =
                 new ShotTiming(
                         stage.id(),
@@ -2683,6 +2714,7 @@ public final class DimensionStructureVariantsFilm {
         // setup needs is not counted as the picture standing still.
         context.runOnClient(client -> ShowcaseCamera.pause());
         System.out.println("STAGE_END " + endMs + " " + stage.id() + PALETTE_HALF);
+        printCaptureDrops(stage.id() + PALETTE_HALF, "end", true);
         checkPath(context, stage, orbit.plan());
         ShowcaseCamera.Still still = context.computeOnClient(client -> ShowcaseCamera.takeStill());
         String after =
@@ -2801,6 +2833,7 @@ public final class DimensionStructureVariantsFilm {
                     client.level.tickRateManager().setFrozen(true);
                 });
         System.out.println("STAGE_END " + System.currentTimeMillis() + " " + stage.id());
+        printCaptureDrops(stage.id(), "end", true);
         long began = System.nanoTime();
         int changed =
                 server.computeOnServer(
@@ -2834,6 +2867,7 @@ public final class DimensionStructureVariantsFilm {
                                 built.cardinality()));
         System.out.println(
                 "STAGE_START " + System.currentTimeMillis() + " " + stage.id() + PALETTE_HALF);
+        printCaptureDrops(stage.id() + PALETTE_HALF, "start", false);
         context.runOnClient(
                 client -> {
                     client.level.tickRateManager().setFrozen(false);

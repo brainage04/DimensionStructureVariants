@@ -15,8 +15,9 @@ a slot that repeats the one before it is one the client did not draw in, and the
 half is the slots that change the picture from the camera's first step of the half on (count and
 draw times from the film's own FRAME log lines for the stage: the palette frame for the vanilla
 half, the rest of the shot for the palette half), and the vanilla half also opens on the frame
-before the first step, which shows the held start pose, the shot's frame 0. The cut fails a
-recording in which the recorder dropped a frame, a half whose capture holds fewer changing slots
+before the first step, which shows the held start pose, the shot's frame 0. The cut fails a half
+during which the recorder dropped a frame (the film logs the recorder's drop count at each half's
+start and end as CAPTURE_DROPS), a half whose capture holds fewer changing slots
 than the camera drew frames, and a half in which a frame is not within a few slots of the slot it
 was drawn at (a pose missing or a change the camera did not make). The film shows
 frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palette half, with no
@@ -99,10 +100,13 @@ for m in re.finditer(r"\[DSV\] SUMMARY (.*)", log):
     summary[fields[0]] = fields
 
 epoch = float(meta["boundaries"]["selectedStartEpochSeconds"])
+# The recorder's own count of frames it dropped (a frame it could not copy or write), read by the
+# film at each half's start and end: a drop outside the halves (loading, the block swap) costs the
+# film nothing.
+DROPS = {(m.group(1), m.group(2)): int(m.group(3))
+         for m in re.finditer(r"CAPTURE_DROPS (\S+) (start|end) (\d+)", log)}
 dropped = int(meta["boundaries"].get("gameCaptureDroppedFrames", 0))
-if meta.get("captureSource") == "game" and dropped:
-    raise SystemExit(f"the recorder dropped {dropped} frames: a dropped frame is a pose the film"
-                     " cannot show, so this recording cannot be cut; record it again")
+print(f"the recorder dropped {dropped} frames in the whole recording", flush=True)
 
 
 def at(ms):
@@ -220,6 +224,13 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     drawn = DRAWS.get(stage, [])
     if len(drawn) != shot_frames:
         raise SystemExit(f"{stage}: the log has {len(drawn)} FRAME lines, the path check {shot_frames}")
+    for half in (stage, stage + PALETTE_HALF):
+        begin, end = DROPS.get((half, "start")), DROPS.get((half, "end"))
+        if begin is None or end is None:
+            raise SystemExit(f"{half}: the log has no CAPTURE_DROPS line for its start and end")
+        if end != begin:
+            raise SystemExit(f"{half}: the recorder dropped {end - begin} frames while the half ran:"
+                             " a dropped frame is a pose the film cannot show; record it again")
     slots = [at(ms) * RATE for ms in drawn]
     # The search starts at the previous stage's last frame, so a stage cannot take a frame that
     # belongs to the stage before.
