@@ -1,64 +1,31 @@
 package io.github.brainage04.dimensionstructurevariants;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * The recording's camera, posed on the client for every frame the client draws, so the orbit moves
- * between the game's ticks as well as on them. {@code recording.mixin.CameraMixin} asks {@link
- * #framePose} for the pose of each frame.
+ * The recording's camera, posed on the client for every frame the client draws. {@code
+ * recording.mixin.CameraMixin} asks {@link #framePose} for the pose of each frame and then reports
+ * back what the game's own camera holds ({@link #applied}).
  *
- * <p>The test thread either holds the camera at one point of an orbit (off camera, while the client
- * loads and rehearses the shot) or runs the orbit; a running orbit is a function of the film's own
- * clock, which starts at the first frame the shot draws: {@link #SHOT_TICKS} game ticks at the
- * game's {@link #SHOT_TICK_RATE} are {@link #SHOT_NANOS} of picture, and the orbit turns once in
- * them. Counting the frame's time rather than its tick is what keeps a new pose on every frame when
- * the client draws thirty frames a second and ticks twenty times, and what lets the orbit keep its
- * pace while the client waits for a slow server tick: that wait costs the frames the client does
- * not draw, which {@link #takeStill()} measures.
+ * <p>The test thread either holds the camera at one frame of an orbit (off camera, while the client
+ * loads and rehearses the shot) or runs the shot. A running shot is a function of the film's own
+ * frame counter, not of any clock: the first frame the client draws after {@link #run} shows frame
+ * 0 of the {@link CameraPlan}, and every frame after it the next one, so the film's frame {@code n}
+ * is the plan's pose at {@code n / 30} s whatever the client's speed or the game's tick. Frames the
+ * client draws while it is slow or waits repeat a picture, and the cut drops the repeats.
+ *
+ * <p>At {@link CameraPlan#PALETTE_FRAME} the camera holds on the previous frame's pose until {@link
+ * #resume}: the palette goes in off camera, and the first frame after it is the plan's frame 60, so
+ * the switch changes nothing about the motion.
  */
 public final class ShowcaseCamera {
-    /** Length of one shot in ticks: 4 seconds. */
+    /** Game ticks in a shot's 4 seconds, which the game clock's rate is set for. */
     public static final int SHOT_TICKS = 80;
 
-    /** Game ticks a second while a shot is filmed: the game's own rate, so a shot is 4 seconds. */
+    /** Game ticks a second while a shot is filmed: the game's own rate. */
     public static final int SHOT_TICK_RATE = 20;
-
-    /** The film a shot covers: its {@link #SHOT_TICKS} ticks at {@link #SHOT_TICK_RATE}. */
-    public static final long SHOT_NANOS = SHOT_TICKS * 1_000_000_000L / SHOT_TICK_RATE;
-
-    /** Full turns around the structure in one shot: one, so a turn takes the shot's 4 seconds. */
-    public static final int REVOLUTIONS = 1;
-
-    /**
-     * Degrees below the horizon the camera looks when a shot starts: steep enough that every
-     * structure is seen from above, its paths and the blocks around it in view.
-     */
-    public static final double PITCH_START = 60.0D;
-
-    /**
-     * Degrees below the horizon the camera looks when a shot ends: level, never from underneath.
-     * Where the ground stops the descent the camera looks level from above the centre, so the
-     * structure sits below the axis rather than the camera tilting down at it.
-     */
-    public static final double PITCH_END = 0.0D;
-
-    private static Orbit orbit;
-    private static double heldProgress;
-    private static boolean running;
-    private static long frames;
-    private static double startProgress;
-    private static double lastProgress;
-    private static long startNanos;
-    private static long pausedNanos;
-    private static long lastFrameNanos;
-    private static long longestFrameGapNanos;
-    private static long stillStartNanos;
-    private static long longestStillNanos;
-    private static long stillRepeats;
-    private static long longestStillRepeats;
-    private static long repeats;
-    private static long pictures;
 
     /** Frames of one shot the log keeps: more than a slow client draws in a shot. */
     private static final int LOG_FRAMES = 1024;
@@ -70,83 +37,116 @@ public final class ShowcaseCamera {
     private static final float[] LOG_PITCH = new float[LOG_FRAMES];
     private static final boolean[] LOG_PALETTE = new boolean[LOG_FRAMES];
     private static final long[] LOG_MILLIS = new long[LOG_FRAMES];
+
+    private static Orbit orbit;
+
+    /** The orbit's pose at every film frame, built once so a frame allocates nothing. */
+    private static Pose[] poses;
+
+    private static int heldFrame;
+    private static boolean running;
+    private static long frames;
+
+    /** The number of the shot's next frame; one past the last once the shot has ended. */
+    private static int nextFrame;
+
+    /** The number of the frame last shown, -1 before the shot's first. */
+    private static int lastFrame = -1;
+
+    private static boolean holding;
+    private static boolean passedPalette;
+    private static boolean paletteOn;
     private static int logged;
     private static boolean pendingLog;
-    private static boolean paletteOn;
+    private static long lastFrameNanos;
+    private static long longestFrameGapNanos;
+    private static long stillStartNanos;
+    private static long longestStillNanos;
+    private static long stillRepeats;
+    private static long longestStillRepeats;
+    private static long repeats;
+    private static long pictures;
 
     private ShowcaseCamera() {}
 
-    /** Holds the camera at {@code progress} (0 to 1) of {@code orbit}; client thread only. */
-    public static void hold(Orbit orbit, double progress) {
-        ShowcaseCamera.orbit = orbit;
-        heldProgress = progress;
-        lastProgress = progress;
+    private static void use(Orbit next) {
+        if (next == orbit && poses != null) return;
+        orbit = next;
+        poses = new Pose[CameraPlan.SHOT_FRAMES + 1];
+        CameraPlan.Plan plan = next.plan();
+        for (int n = 0; n < poses.length; n++) poses[n] = plan.at(n);
+    }
+
+    /** Holds the camera at {@code frame} of {@code orbit}; client thread only. */
+    public static void hold(Orbit orbit, int frame) {
+        use(orbit);
+        heldFrame = frame;
         running = false;
-        pausedNanos = 0L;
     }
 
     /**
-     * Runs the shot from {@code from} (0 to 1) of {@code orbit}, continuing from the pose a held
-     * camera shows; test thread's client tasks only.
+     * Runs the shot from its frame 0 on {@code orbit}, continuing from the pose a held camera shows
+     * at frame 0; test thread's client tasks only.
      */
-    public static void run(Orbit orbit, double from) {
-        ShowcaseCamera.orbit = orbit;
+    public static void run(Orbit orbit) {
+        use(orbit);
         running = true;
-        startProgress = from;
-        lastProgress = from;
-        // The clock starts at the first frame the shot draws, so that frame shows the pose the cut
-        // joins the shot's halves on and no time is counted for the call itself.
-        startNanos = 0L;
-        pausedNanos = 0L;
-        stillStartNanos = 0L;
-        longestStillNanos = 0L;
-        stillRepeats = 0L;
-        longestStillRepeats = 0L;
-        repeats = 0L;
-        pictures = 0L;
+        nextFrame = 0;
+        lastFrame = -1;
+        holding = false;
+        passedPalette = false;
+        paletteOn = false;
         logged = 0;
         pendingLog = false;
-        paletteOn = false;
+        resetStills();
     }
 
-    /**
-     * Stops a running shot on the pose of the last frame and returns its progress; client thread
-     * only.
-     */
-    public static double pause() {
-        hold(orbit, lastProgress);
-        pausedNanos = System.nanoTime();
-        return lastProgress;
-    }
-
-    /**
-     * Carries a paused shot on from where it stopped, with the pause's own time left out of the
-     * shot's clock, so the first frame after it shows the next pose of the orbit rather than the
-     * one the camera stopped on. Client thread only.
-     */
-    public static void resume() {
-        if (pausedNanos != 0L && startNanos != 0L) startNanos += System.nanoTime() - pausedNanos;
-        pausedNanos = 0L;
-        running = true;
-        // The still clock starts at the first frame after the resume, as it does at a shot's first
-        // frame: the pause's own tail is not a still the film shows.
+    private static void resetStills() {
         stillStartNanos = 0L;
         longestStillNanos = 0L;
         stillRepeats = 0L;
         longestStillRepeats = 0L;
         repeats = 0L;
         pictures = 0L;
-        paletteOn = true;
     }
 
-    /** The progress (0 to 1) of the pose the last frame showed; client thread only. */
-    public static double progress() {
-        return lastProgress;
+    /**
+     * Stops a running shot on the pose of the last frame and returns that frame's number; client
+     * thread only.
+     */
+    public static int pause() {
+        int frame = Math.max(0, lastFrame);
+        hold(orbit, frame);
+        return frame;
+    }
+
+    /**
+     * Carries the shot on from the palette frame, which the camera has been waiting at; client
+     * thread only. The still clock starts at the first frame after it: the wait's own tail is not a
+     * still the film shows.
+     */
+    public static void resume() {
+        holding = false;
+        passedPalette = true;
+        paletteOn = true;
+        running = true;
+        resetStills();
+    }
+
+    /** The number of the frame the last drawn frame showed; client thread only. */
+    public static int lastFrame() {
+        return lastFrame;
+    }
+
+    /** Whether the camera waits at the palette frame for {@link #resume}; client thread only. */
+    public static boolean holding() {
+        return holding;
     }
 
     /** Hands the camera back to the player; client thread only. */
     public static void release() {
         orbit = null;
+        poses = null;
         running = false;
     }
 
@@ -160,40 +160,38 @@ public final class ShowcaseCamera {
         if (lastFrameNanos != 0L)
             longestFrameGapNanos = Math.max(longestFrameGapNanos, now - lastFrameNanos);
         lastFrameNanos = now;
-        Orbit current = orbit;
-        if (current == null) return null;
-        double progress = heldProgress;
+        if (orbit == null) return null;
+        int frame = heldFrame;
+        pendingLog = false;
         if (running) {
-            if (startNanos == 0L) {
-                // The shot's first frame shows the pose it starts on: the clock and the run of
-                // stills both start here, and no picture is counted yet.
-                startNanos = now;
-                stillStartNanos = now;
-                progress = startProgress;
+            if (holding || (!passedPalette && nextFrame == CameraPlan.PALETTE_FRAME)) {
+                // The frame before the palette frame again: the shot waits off camera.
+                holding = true;
+                frame = lastFrame;
             } else {
-                progress = progressAt(startProgress, now - startNanos);
-                // A resumed shot's first frame starts the run of stills, as a shot's first frame
-                // does: the pause's own tail is not a still the film shows.
-                if (stillStartNanos == 0L) stillStartNanos = now;
-                // The picture stands still while the pose stays where it was: the frames of a
-                // stall, which the film shows as a repeated image.
-                if (progress != lastProgress) {
-                    pictures++;
-                    if (now - stillStartNanos > longestStillNanos) {
-                        longestStillNanos = now - stillStartNanos;
-                        longestStillRepeats = stillRepeats;
-                    }
-                    stillStartNanos = now;
-                    stillRepeats = 0L;
-                } else {
-                    stillRepeats++;
-                    repeats++;
+                frame = Math.min(nextFrame, CameraPlan.SHOT_FRAMES);
+                pendingLog = nextFrame <= CameraPlan.SHOT_FRAMES;
+                nextFrame = Math.min(nextFrame + 1, CameraPlan.SHOT_FRAMES + 1);
+            }
+            // The picture stands still while the pose stays where it was: the frames of a wait or
+            // of a shot past its end. The still clock starts at the shot's first frame and at the
+            // first after a resume.
+            if (stillStartNanos == 0L) stillStartNanos = now;
+            if (frame != lastFrame) {
+                pictures++;
+                if (now - stillStartNanos > longestStillNanos) {
+                    longestStillNanos = now - stillStartNanos;
+                    longestStillRepeats = stillRepeats;
                 }
+                stillStartNanos = now;
+                stillRepeats = 0L;
+            } else {
+                stillRepeats++;
+                repeats++;
             }
         }
-        lastProgress = progress;
-        pendingLog = running;
-        return current.at(progress);
+        lastFrame = frame;
+        return poses[frame];
     }
 
     /**
@@ -217,7 +215,7 @@ public final class ShowcaseCamera {
 
     /** The wall-clock time, in epoch milliseconds, each frame of the last shot was drawn at. */
     public static long[] loggedMillis() {
-        return java.util.Arrays.copyOf(LOG_MILLIS, Math.min(logged, LOG_FRAMES));
+        return Arrays.copyOf(LOG_MILLIS, Math.min(logged, LOG_FRAMES));
     }
 
     /** The frames of the last shot, in the order they were drawn; client thread only. */
@@ -236,15 +234,9 @@ public final class ShowcaseCamera {
         return frames;
     }
 
-    /** The camera's progress through a shot {@code elapsedNanos} after its first frame. */
-    static double progressAt(double from, long elapsedNanos) {
-        return Math.max(0.0D, Math.min(1.0D, from + elapsedNanos / (double) SHOT_NANOS));
-    }
-
     /**
      * The longest time between two frames since the last call, in nanoseconds: the longest the
-     * client went without drawing, which is a stall only if no new pose came of it either. Client
-     * thread only.
+     * client went without drawing. Client thread only.
      */
     public static long takeLongestFrameGap() {
         long longest = longestFrameGapNanos;
@@ -254,8 +246,8 @@ public final class ShowcaseCamera {
 
     /**
      * How long one picture ever stood still since the last call, how many frames repeated it, and
-     * how many pictures came. A stall shows as one long still with no repeat; a client drawing the
-     * same pose twice shows as a still with repeats. Client thread only.
+     * how many pictures came. A client that draws nothing for a while shows as one long still; one
+     * that draws the same frame twice as a still with repeats. Client thread only.
      */
     public static Still takeStill() {
         Still taken = new Still(longestStillNanos, longestStillRepeats, repeats, pictures);
@@ -285,67 +277,48 @@ public final class ShowcaseCamera {
     public record Pose(double x, double y, double z, float yaw, float pitch) {}
 
     /**
-     * A circle around {@code (centreX, centreY, centreZ)} at a fixed {@code radius}, flown {@link
-     * #REVOLUTIONS} time per shot while the camera descends from looking {@link #PITCH_START}
-     * degrees down to looking level. The height stays between {@code floorY} and {@code ceilingY},
-     * the floor winning where the two cross; where the floor stops the descent the camera keeps
-     * circling on it and looks level from there, so the structure sits below the axis rather than
-     * the camera tilting down at it.
+     * A circle around {@code (centreX, centreZ)} at a fixed {@code radius}, flown {@link
+     * CameraPlan#REVOLUTIONS} times per shot while the camera descends from looking {@link
+     * CameraPlan#PITCH_START} degrees down at {@code centreY} to looking level at {@code endY}, the
+     * structure's ground level. The start height is the world's {@code ceilingY} where the
+     * look-down height is above it.
      */
     public record Orbit(
             double centreX,
             double centreY,
             double centreZ,
             double radius,
-            double floorY,
+            double endY,
             double ceilingY,
             double startAngle) {
-        /**
-         * Degrees below the horizon the shot plans to look at {@code progress}: 60 down to level.
-         */
-        public double plannedPitch(double progress) {
-            return PITCH_START + (PITCH_END - PITCH_START) * progress;
+        public CameraPlan.Plan plan() {
+            return CameraPlan.Plan.of(
+                    centreX, centreY, centreZ, radius, endY, ceilingY, startAngle);
         }
 
-        public double height(double progress) {
-            double y = centreY + radius * Math.tan(Math.toRadians(plannedPitch(progress)));
-            return Math.max(floorY, Math.min(ceilingY, y));
+        /** The pose at film frame {@code frame}, or between two frames. */
+        public Pose at(double frame) {
+            return plan().at(frame);
         }
 
-        public Pose at(double progress) {
-            double angle = startAngle + 2.0D * Math.PI * REVOLUTIONS * progress;
-            double x = centreX + Math.cos(angle) * radius;
-            double y = height(progress);
-            double z = centreZ + Math.sin(angle) * radius;
-            double dx = centreX - x;
-            double dy = centreY - y;
-            double dz = centreZ - z;
-            float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0D);
-            // The camera looks at the centre, but never steeper than the shot's own descent and
-            // never up. Where the ceiling stops the climb the camera is nearer the centre than
-            // planned, so it looks at the centre, shallower than planned. Where the ground stops
-            // the descent the camera is above the centre and the angle to it is steeper than
-            // planned, so the camera looks level instead and the structure sits below the axis.
-            double toCentre = -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
-            float pitch = (float) Math.max(0.0D, Math.min(plannedPitch(progress), toCentre));
-            return new Pose(x, y, z, yaw, pitch);
-        }
-
-        /** The pose at film frame {@code frame} of a shot that spans {@link CameraPlan#SHOT_FRAMES}. */
+        /** The pose at film frame {@code frame}. */
         public Pose atFrame(int frame) {
-            return at(frame / (double) CameraPlan.SHOT_FRAMES);
+            return at(frame);
+        }
+
+        /** The camera's height at the shot's first frame. */
+        public double startY() {
+            return plan().startY();
         }
 
         /** Degrees the camera looks up at the centre at the end (negative: still looking down). */
         public double finalUpAngle() {
-            return Math.toDegrees(Math.atan2(centreY - height(1.0D), radius));
+            return Math.toDegrees(Math.atan2(centreY - endY, radius));
         }
 
-        /**
-         * Degrees below the horizon the camera looks at the end: 0 unless the ground stopped it.
-         */
+        /** Degrees below the horizon the camera looks at the end. */
         public double finalPitch() {
-            return at(1.0D).pitch();
+            return at(CameraPlan.SHOT_FRAMES).pitch();
         }
     }
 }

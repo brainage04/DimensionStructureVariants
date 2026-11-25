@@ -11,12 +11,12 @@ tasks.matching { it.name == 'runProductionClientGameTest' }.configureEach {
 }
 
 // The camera's path and its frame check use no Minecraft class, so the unit tests compile them from
-// the directory the recording source set reads them from.
-sourceSets {
-	recording {
-		java.srcDir 'src/recording/pure/java'
-	}
-	test {
+// the directory the recording source set reads them from. The recording source set is the recorder
+// plugin's: a `sourceSets { recording { ... } }` block here would create it first and keep the plugin
+// from giving it its classpath.
+sourceSets.test.java.srcDir 'src/recording/pure/java'
+afterEvaluate {
+	sourceSets.named('recording') {
 		java.srcDir 'src/recording/pure/java'
 	}
 }

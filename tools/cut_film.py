@@ -8,17 +8,19 @@ Each stage prints four markers: `STAGE_START`/`STAGE_END <ms> <id>` around the v
 the game stand still while the server swaps the blocks and the client builds them; the cut drops
 that pause, so the two halves' audio are not contiguous in the capture and a hard join clicks.
 
-The picture joins the halves on the pose the camera stops on: the vanilla half ends on that pose's
-first frame and the palette half starts on the first frame after it, so the blocks and the caption
-change on one frame and the camera carries on. The audio crossfades over JOIN seconds across the same
-join, so the two halves' sound overlaps instead of meeting at a fade to silence.
+Each half is cut to exactly the frames the camera drew. The camera draws every frame of the shot as
+a new pose, frame n at n / 30 s of the plan, so a frame of the capture that repeats the one before
+it is a slot the client did not draw in, and the cut drops it. A half is the first `count` frames
+that move (count from the film's own path check line for the stage: the palette frame for the
+vanilla half, the rest of the shot for the palette half), and the vanilla half also opens on the
+held start pose, the frame before the first that moves, which is the shot's frame 0. The cut fails a
+stage whose capture holds fewer frames than the camera drew, or still moves after the last one, so
+the film shows frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palette
+half, with no halt at the join. The audio crossfades over JOIN seconds across the join, so the two
+halves' sound overlaps instead of meeting at a fade to silence.
 
-A stage's outer edges are trimmed to the frames that move. The camera is held still before a shot
-starts and after it ends, so the frames the markers sit in do not move, and a cut on them shows a
-still picture. A frame moves when it differs from the one before it by at least a twentieth of the
-stage's own median difference, which is the rule the film is reviewed by. The trim takes the first
-and last frame of the stage that move, and the frame after the first and the frame before the last
-have to move too, so the cut never lands next to a still.
+A frame moves when it differs from the one before it by at least a twentieth of the stage's own
+motion (its upper quartile of differences), the rule the film is reviewed by.
 
 Consecutive stages crossfade their audio over JOIN seconds as well, each stage's sound running JOIN
 seconds past its picture into the next stage's, so the Nether drone carries through a stage cut
@@ -65,12 +67,11 @@ JOIN = 0.15
 # median is a still's own difference.
 STILL_SHARE = 0.05
 MOTION_QUANTILE = 0.75
-# The frame a stage is cut on has to move like the stage does, not merely clear the still
-# threshold: a capture the client drew slowly repeats slots, and a cut on a repeat shows a still
-# picture even though the frame before it moved. A repeat is a tenth of the stage's motion or less;
-# the shot's own first frames are slower than the rest, so the share stays well under a quarter.
-BOUNDARY_SHARE = 0.10
 PALETTE_HALF = "/on"
+# The shot's frame counts come from the film's own path check, which logs `[DSV] <stage> path: N
+# frames ... palette on from frame M` for each stage, not from a copy of CameraPlan here.
+PATHS = {m.group(1): (int(m.group(2)), int(m.group(3)))
+         for m in re.finditer(r"\[DSV\] (\S+) path: (\d+) frames,.*palette on from frame (\d+)", log)}
 
 starts = [(int(m.group(1)), m.group(2)) for m in re.finditer(r"STAGE_START (\d+) (\S+)", log)]
 ends = [(int(m.group(1)), m.group(2)) for m in re.finditer(r"STAGE_END (\d+) (\S+)", log)]
@@ -133,23 +134,68 @@ def still(frame, limit):
     return STEPS.get(frame - 1, 0.0) < limit
 
 
-def held_pose(start_ms, end_ms, stage):
-    """The frames the two halves meet on: the vanilla half's last and the palette half's first.
-
-    The markers say where each half ends and starts, and the camera is held on one pose between
-    them, so the join is that pose with the blocks and the caption changed. The frames between the
-    markers are not a still stretch: the client draws the structure again as it rebuilds it.
-    """
-    first = frame_at(at(start_ms))
-    last = frame_at(at(end_ms))
-    if last <= first:
-        raise SystemExit(f"{stage}: the palette half starts before the vanilla half ends")
-    return first, last
-
-
 graph = [f"[0:v]{CFR}[cfr]"]
 parts = []
 position = 0.0
+
+
+def moving(frame, limit):
+    """Whether frame {@code frame} differs from the one before it by more than a repeat does."""
+    return not still(frame, limit)
+
+
+def runs(frames):
+    """The frames as (first, last) runs of consecutive numbers, for a select expression."""
+    out = []
+    for f in frames:
+        if out and out[-1][1] == f - 1:
+            out[-1][1] = f
+        else:
+            out.append([f, f])
+    return out
+
+
+def select(frames):
+    return "+".join(f"between(n,{lo},{hi})" for lo, hi in runs(frames))
+
+
+def take_half(stage, label, start_frame, stop_frame, count, limit, with_start_pose):
+    """The frames of one half of a stage, as the camera's own frame counter drew them.
+
+    The camera draws every frame of the shot as a new pose, so a frame of the capture that repeats
+    the one before it is a slot the client did not draw in (a slow frame), and the film leaves it
+    out. A half is exactly `count` poses: the first moving frame and the {count - 1} after it, and
+    the first half also opens on the held pose before the shot, which is the shot's frame 0.
+    A half that has fewer or more moving frames than the camera drew fails the cut.
+    """
+    first = next((f for f in range(start_frame, stop_frame) if moving(f, limit)), None)
+    if first is None:
+        raise SystemExit(f"{stage} {label}: no moving frame between its markers")
+    kept = []
+    if with_start_pose:
+        # The camera is held on the start pose before the shot and its first frame shows it too: the
+        # frame before the first that moves is that pose, and the film opens on it.
+        if first - 1 < start_frame or moving(first - 1, limit):
+            raise SystemExit(
+                f"{stage} {label}: the first moving frame {first} has no still start pose before it")
+        kept.append(first - 1)
+    frame = first
+    while len(kept) < count:
+        if frame >= stop_frame:
+            raise SystemExit(
+                f"{stage} {label}: only {len(kept)} of the {count} frames the camera drew are in"
+                f" the capture (frames {start_frame}-{stop_frame})")
+        if moving(frame, limit):
+            kept.append(frame)
+        frame += 1
+    # The camera stops after its last frame of the half, so the frame after it repeats it.
+    if moving(kept[-1] + 1, limit):
+        raise SystemExit(
+            f"{stage} {label}: frame {kept[-1] + 1} still moves after the {count} frames the camera"
+            " drew, so the half has more frames than the camera drew")
+    return kept
+
+
 for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     # The stage's own motion, from the frames of its two halves and not the held pose between them.
     span = [STEPS[f] for f in list(range(frame_at(at(s1)), frame_at(at(e1)) + 1))
@@ -159,77 +205,41 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
     span.sort()
     motion = span[int(MOTION_QUANTILE * (len(span) - 1))]
     limit = STILL_SHARE * motion
-    boundary = BOUNDARY_SHARE * motion
-    # The first and last frame of the shot that move: the frames outside them are the held pose the
-    # camera waits on, and a cut on one of those shows a still picture. A frame moves when it
-    # differs from the one before it. The frame after the first has to move too, or the film opens
-    # on a still, and the frame before the last, or the film ends on one.
-    # The search starts at the previous stage's last frame, so a stage that opens on a still cannot
-    # take the frame before it, which belongs to the stage before.
+    # The search starts at the previous stage's last frame, so a stage cannot take a frame that
+    # belongs to the stage before.
     floor = 0 if index == 0 else frame_at(at(stages[index - 1][4]))
-    begin = next(
-        (f for f in range(max(floor, frame_at(at(s1) - LEAD)), frame_at(at(e1)))
-         if not still(f, boundary) and not still(f + 1, boundary)),
-        None)
-    last = next(
-        (f for f in range(frame_at(at(e2) + TRAIL), frame_at(at(s2)), -1)
-         if not still(f, boundary) and not still(f - 1, boundary)),
-        None)
-    if begin is None or last is None or last <= begin:
-        raise SystemExit(f"{stage}: no moving frames between its markers")
-    # The stage's first film frame is the shot's own first pose. The camera is held on that pose
-    # before the shot starts and its first frame shows it too, so the capture's frame before it
-    # repeats it and the frame after it is the first that moves. A cut that starts on the first
-    # moving frame has dropped the start pose and opens one step into the shot.
-    if not still(begin, limit) or still(begin + 1, limit):
-        raise SystemExit(
-            f"{stage}: the first film frame {begin} is not the start pose: it differs from the frame"
-            f" before it by {STEPS.get(begin - 1, 0.0):.3f} (a repeat is under {limit:.3f}), so the"
-            f" held start pose was cut off and the film opens one step into the shot")
-    finish = last + 1
-    off_stop, on_start = held_pose(e1, s2, stage)
-    # The camera resumes a few ticks after the marker, so the palette half opens on the held pose
-    # again. Start the half on the first frame after that still run, or the film shows the pose
-    # twice. The run is measured by the still rule the film is reviewed by, not the boundary rule,
-    # so a slow first frame of the shot is kept.
-    while on_start + 1 < finish and still(on_start + 1, limit):
-        on_start += 1
-
-    # The vanilla half ends on the held pose's first frame, which still shows the vanilla blocks;
-    # the palette half starts on the first frame after the pose, the same pose with the palette and
-    # its caption. The held pose's own frames are one picture, so the cut keeps its first and drops
-    # the rest: the blocks and the caption change on the join and the camera carries on from the
-    # pose it stopped on.
-    off_frames = off_stop - begin
-    on_frames = finish - on_start
-    if off_frames < 1 or on_frames < 1:
-        raise SystemExit(f"{stage}: a half holds no frame")
-    begin_s = begin / RATE
-    off_picture = off_stop / RATE
-    on_begin = on_start / RATE
-    finish_s = finish / RATE
-    # The vanilla half's audio runs JOIN seconds past its picture, so the crossfade starts on the
-    # join and the audio is exactly as long as the picture.
-    off_end = off_picture + JOIN
-    if finish_s - on_begin < 2.0 * JOIN:
-        raise SystemExit(
-                f"{stage}: the palette half is {finish_s - on_begin:.2f} s, shorter than two"
-                        + f" {JOIN} s fades")
+    if stage not in PATHS:
+        raise SystemExit(f"{stage}: the log has no path check line for it")
+    shot_frames, palette_frame = PATHS[stage]
+    off = take_half(stage, "vanilla half", max(floor, frame_at(at(s1) - LEAD)),
+                    frame_at(at(e1) + TRAIL), palette_frame, limit, True)
+    on = take_half(stage, "palette half", frame_at(at(s2) - LEAD),
+                   frame_at(at(e2) + TRAIL), shot_frames - palette_frame, limit, False)
+    off_frames = len(off)
+    on_frames = len(on)
+    begin_s = off[0] / RATE
+    on_begin = on[0] / RATE
     off_len = off_frames / RATE
     on_len = on_frames / RATE
     length = off_len + on_len
-    # The picture is trimmed by frame index, not by time: a trim on a timestamp can take or drop
-    # the frame that sits exactly on its boundary, which is the frame the still detection chose.
+    # The audio is cut by length from where each half starts, so it is as long as the picture
+    # whatever repeated slots the capture held between the frames.
+    finish_s = on_begin + on_len
+    if on_len < 2.0 * JOIN:
+        raise SystemExit(f"{stage}: the palette half is {on_len:.2f} s, shorter than two {JOIN} s fades")
     graph.append(
-        f"[cfr]trim=start_frame={begin}:end_frame={off_stop},setpts=PTS-STARTPTS[v{index}a];"
-        f"[cfr]trim=start_frame={on_start}:end_frame={finish},setpts=PTS-STARTPTS[v{index}b];"
+        f"[cfr]select='{select(off)}',setpts=N/({RATE:.0f}*TB)[v{index}a];"
+        f"[cfr]select='{select(on)}',setpts=N/({RATE:.0f}*TB)[v{index}b];"
         f"[v{index}a][v{index}b]concat=n=2:v=1:a=0[v{index}]")
     graph.append(
-        f"[0:a]atrim=start={begin_s:.6f}:end={off_end:.6f},asetpts=PTS-STARTPTS[a{index}a];"
+        f"[0:a]atrim=start={begin_s:.6f}:end={begin_s + off_len + JOIN:.6f},asetpts=PTS-STARTPTS[a{index}a];"
         f"[0:a]atrim=start={on_begin:.6f}:end={finish_s:.6f},asetpts=PTS-STARTPTS[a{index}b];"
         f"[a{index}a][a{index}b]acrossfade=d={JOIN}:c1=tri:c2=tri[a{index}]")
     parts.append((stage, length, off_len, finish_s))
     position += length
+    print(f"{stage}: {off_frames}+{on_frames} frames, vanilla {off[0]}-{off[-1]}, palette {on[0]}-{on[-1]}"
+          f" of the capture ({off[-1] - off[0] + 1 - off_frames} + {on[-1] - on[0] + 1 - on_frames}"
+          " repeated slots dropped)", flush=True)
 
 # Stage boundaries: each stage's sound runs JOIN seconds past its picture, into the next stage's,
 # and the two crossfade there. The picture cuts hard; the sound carries the drone through the cut

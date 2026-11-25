@@ -7,9 +7,9 @@ package io.github.brainage04.dimensionstructurevariants;
  * level and turns {@link #REVOLUTIONS} times around the structure at one radius.
  *
  * <p>Pitch, height and angle are straight lines of the frame number, and the palette switch at
- * {@link #PALETTE_FRAME} only chooses which blocks frame 60 shows, so it changes nothing about
- * the motion. Frame 0 is at 0 s and frame {@link #SHOT_FRAMES} at {@link #SHOT_SECONDS} s, so a
- * shot is {@code SHOT_FRAMES + 1} frames and ends on the pose it is planned to end on.
+ * {@link #PALETTE_FRAME} only chooses which blocks frame 60 shows, so it changes nothing about the
+ * motion. Frame 0 is at 0 s and frame {@link #SHOT_FRAMES} at {@link #SHOT_SECONDS} s, so a shot is
+ * {@code SHOT_FRAMES + 1} frames and ends on the pose it is planned to end on.
  *
  * <p>This class uses no Minecraft class: the unit tests and the recording share it.
  */
@@ -50,9 +50,9 @@ public final class CameraPlan {
             double endY,
             double startAngle) {
         /**
-         * A plan whose first frame looks {@link #PITCH_START} degrees down at the centre: the camera
-         * starts {@code radius * tan(PITCH_START)} above it, or at {@code ceilingY} where the world
-         * ends first.
+         * A plan whose first frame looks {@link #PITCH_START} degrees down at the centre: the
+         * camera starts {@code radius * tan(PITCH_START)} above it, or at {@code ceilingY} where
+         * the world ends first.
          */
         public static Plan of(
                 double centreX,

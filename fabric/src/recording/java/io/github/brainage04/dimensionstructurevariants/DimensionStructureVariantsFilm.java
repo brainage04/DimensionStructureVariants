@@ -2,7 +2,6 @@ package io.github.brainage04.dimensionstructurevariants;
 
 import io.github.brainage04.minecraftmodconventions.ClientGameTestRecorder;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestRecordingHud;
-import io.github.brainage04.minecraftmodconventions.ClientGameTestRecordingSession;
 import io.github.brainage04.minecraftmodconventions.ClientGameTestServers;
 import io.github.brainage04.minecraftmodconventions.PerformanceOverlayPlacement;
 import java.lang.management.GarbageCollectorMXBean;
@@ -20,7 +19,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.concurrent.locks.LockSupport;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -97,11 +95,13 @@ import net.minecraft.world.phys.AABB;
  * until a whole pass builds no new section; the filmed pass must then build and lose none.
  *
  * <p>Every shot runs the Overworld clock from noon to midnight with Night Vision on the camera
- * player, and circles the structure once per shot at a fixed distance, descending from looking 60
- * degrees down at the centre to looking level at it. The first half shows the vanilla blocks;
- * halfway the camera and the game stop off camera while the palette goes in, and the second half
- * carries on from the same pose. {@code STAGE_START} and {@code STAGE_END} with a wall-clock time
- * mark each half (the second one's id ends in {@code /on}), and the delivered video is cut to them.
+ * player, and circles the structure twice per shot at a fixed distance, descending from looking 60
+ * degrees down at the centre to looking level from the structure's ground level, as one function of
+ * the film's frame number ({@link CameraPlan}). The first half shows the vanilla blocks; at frame
+ * 60, the 2-second mark, the camera and the game stop off camera while the palette goes in, and the
+ * second half carries on from the next frame of the same path. {@code STAGE_START} and {@code
+ * STAGE_END} with a wall-clock time mark each half (the second one's id ends in {@code /on}), and
+ * the delivered video is cut to them.
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class DimensionStructureVariantsFilm {
@@ -111,8 +111,11 @@ public final class DimensionStructureVariantsFilm {
     /** The pop-in check runs every this many ticks of the shot. */
     private static final int CHECK_INTERVAL = 4;
 
-    /** Ticks past the shot's 80 a shot may run while its camera finishes the turn. */
-    private static final int LATE_TICKS = 20;
+    /**
+     * Ticks past the shot's 80 a shot may run while its camera draws its last frames: the shot is
+     * 121 frames of the client, so a client under 30 frames a second needs more than 80 ticks.
+     */
+    private static final int LATE_TICKS = 60;
 
     /** Pieces of fewer blocks than this that touch nothing else are removed. */
     private static final int MIN_PIECE_BLOCKS = 40;
@@ -129,9 +132,6 @@ public final class DimensionStructureVariantsFilm {
 
     private static final int MAX_REHEARSALS = 6;
 
-    /** Camera poses per tick in the rehearsal, so it covers what the frames between ticks show. */
-    private static final int REHEARSAL_STEPS_PER_TICK = 2;
-
     private static final int STABLE_TICKS = 20;
 
     /** Blocks a structure may float above the flat world's ground before it is moved onto it. */
@@ -141,19 +141,6 @@ public final class DimensionStructureVariantsFilm {
 
     /** How far the camera stays from every block of the structure (and the End's islands). */
     private static final double REQUIRED_CLEARANCE = 10.0D;
-
-    /** How far above the ground's surface the camera's descent stops. */
-    private static final double FLOOR_ABOVE_GROUND = 2.0D;
-
-    /** Blocks past the structure the sky check looks, so the ground under its edge is covered. */
-    private static final int SKY_SCAN_MARGIN = 16;
-
-    /**
-     * Blocks of open sky the camera keeps over it. A camera below a block shows that block's
-     * underside in the top of the frame even while it looks down, which reads as filming from
-     * underneath, so the camera's lowest point stays this far above the structure's top.
-     */
-    private static final int SKY_CLEARANCE = 3;
 
     /** Chunks loaded and fed to the GameTest server in one task, so no task blocks for long. */
     private static final int CHUNK_BATCH = 96;
@@ -760,13 +747,6 @@ public final class DimensionStructureVariantsFilm {
         // The vertical field of view the client draws is its fov option times the camera entity's
         // modifier (Camera.java:227, AbstractClientPlayer.java:92-96: a flying player's is 1.1), so
         // the framing is solved for that; 2 degrees are kept clear of its edge.
-        // The picture's aspect, which the client's projection uses (Camera.java:183-185), so the
-        // frame's horizontal half-angle follows the window the film is drawn in.
-        double aspect =
-                context.computeOnClient(
-                        client ->
-                                client.getWindow().getWidth()
-                                        / (double) client.getWindow().getHeight());
         double halfFov =
                 context.computeOnClient(
                                 client ->
@@ -856,7 +836,7 @@ public final class DimensionStructureVariantsFilm {
         }
 
         Prepared[] plan = new Prepared[1];
-        server.runOnServer(minecraftServer -> plan[0] = plan(build, stage, halfFov, aspect));
+        server.runOnServer(minecraftServer -> plan[0] = plan(build, stage, halfFov));
         Prepared prepared = plan[0];
 
         // The ground and the biome around the stage: in the Overworld everything the camera can
@@ -1456,15 +1436,15 @@ public final class DimensionStructureVariantsFilm {
     }
 
     /** The camera, the region the pop-in check watches and the distances for the stage. */
-    private static Prepared plan(Build build, Stage stage, double halfFov, double aspect) {
+    private static Prepared plan(Build build, Stage stage, double halfFov) {
         ServerLevel level = build.level;
         ShowcaseCamera.Orbit orbit =
                 planOrbit(level, stage, build.occupied, build.groundY, halfFov);
-        ShowcaseCamera.Pose[] samples = new ShowcaseCamera.Pose[201];
+        ShowcaseCamera.Pose[] samples = new ShowcaseCamera.Pose[CameraPlan.SHOT_FRAMES + 1];
         for (int i = 0; i < samples.length; i++) {
-            samples[i] = orbit.at(i / (double) (samples.length - 1));
+            samples[i] = orbit.atFrame(i);
         }
-        String blocked = blockedSky(level, build.occupied, samples, halfFov, aspect, stage.id());
+        String blocked = blockedSky(level, samples, stage.id());
         if (blocked != null) PROBLEMS.add(blocked);
         ChunkRange padded = build.padded;
         int lowestSection =
@@ -1507,8 +1487,8 @@ public final class DimensionStructureVariantsFilm {
                         orbit.centreY(),
                         orbit.centreZ(),
                         orbit.radius(),
-                        orbit.height(0.0D),
-                        orbit.height(1.0D),
+                        orbit.startY(),
+                        orbit.endY(),
                         orbit.finalUpAngle(),
                         orbit.finalPitch(),
                         renderDistance,
@@ -2035,17 +2015,18 @@ public final class DimensionStructureVariantsFilm {
     /**
      * The circle around the structure's centre: the smallest radius, from far enough out that the
      * whole structure is in the frame, from which the camera keeps {@link #REQUIRED_CLEARANCE} from
-     * every block for the whole shot (the ground aside, which only bounds the descent). The camera
-     * stays on that radius, looking 60 degrees down at the centre at the start and level at it at
-     * the end if the ground allows it; otherwise the descent stops {@link #FLOOR_ABOVE_GROUND}
-     * blocks above the ground. The End's islands are not flat: there the floor is the highest block
-     * (chorus plants included) on the circle and within the clearance of it, with the clearance on
-     * top.
+     * every block for the whole shot (the ground aside, which the descent ends on) and has no block
+     * over it or within the clearance sideways of it. The camera stays on that radius, looking 60
+     * degrees down at the centre at the start and flying down to the structure's ground level,
+     * where it looks level; it turns {@link CameraPlan#REVOLUTIONS} times on the way. The End's
+     * islands are not flat: there the camera ends the clearance above the highest block (chorus
+     * plants included) on the circle and within the clearance of it, when that is higher than the
+     * structure's ground level.
      *
-     * <p>The floor is also never below the structure's top plus {@link #SKY_CLEARANCE}: a camera
-     * under a roof shows the roof's underside in the top of the frame even while it looks down,
-     * which reads as filming from underneath. The whole structure then sits below the camera for
-     * the whole shot, so the camera sees it from above at every point of the orbit.
+     * <p>The camera ends low, so it sees the structure from the side and its upper parts from
+     * below, which is the shot. What it never does is stand under a block: the camera is outside
+     * the structure's footprint by the clearance on every sample of the path, which {@link
+     * #overhead} checks against the world's own heightmap.
      */
     private static ShowcaseCamera.Orbit planOrbit(
             ServerLevel level, Stage stage, BoundingBox box, int groundY, double halfFov) {
@@ -2053,9 +2034,6 @@ public final class DimensionStructureVariantsFilm {
         double centreZ = (box.minZ() + box.maxZ() + 1) / 2.0D;
         double centreY = (box.minY() + box.maxY() + 1) / 2.0D;
         double ceiling = level.getMaxY() - 2.0D;
-        // A structure whose top is within SKY_CLEARANCE of the world's top cannot have the sky over
-        // it: the camera goes as high as the world allows, and the sky check reports the stage.
-        double sky = Math.min(ceiling, box.maxY() + 1.0D + SKY_CLEARANCE);
         double[] framed = framedHalf(level, box, groundY, centreX, centreY, centreZ);
         double base = startRadius(framed[0], framed[1], halfFov);
         Solids solids =
@@ -2078,115 +2056,80 @@ public final class DimensionStructureVariantsFilm {
                                 centreX,
                                 centreZ,
                                 (int) Math.ceil(base + ORBIT_ROUNDS * 6.0D) + 8);
+        double ground = groundLevel(stage, box, groundY);
         for (int round = 0; round < ORBIT_ROUNDS; round++) {
             double radius = base + round * 6.0D;
-            double floor =
+            double end =
                     terrain == null
-                            ? Math.max(groundY + 1 + FLOOR_ABOVE_GROUND, sky)
+                            ? ground
                             : Math.max(
-                                    Math.max(
-                                            level.getMinY() + FLOOR_ABOVE_GROUND,
-                                            ringTop(terrain, radius) + REQUIRED_CLEARANCE + 0.5D),
-                                    sky);
+                                    ground, ringTop(terrain, radius) + REQUIRED_CLEARANCE + 0.5D);
             ShowcaseCamera.Orbit orbit =
-                    new ShowcaseCamera.Orbit(
-                            centreX, centreY, centreZ, radius, floor, ceiling, 0.0D);
+                    new ShowcaseCamera.Orbit(centreX, centreY, centreZ, radius, end, ceiling, 0.0D);
             if (clear(orbit, solids)) return orbit;
         }
         throw new AssertionError("Could not keep the camera clear of " + stage.id() + " " + box);
     }
 
     /**
-     * The first sampled point of the orbit that has a block over the camera inside the frame, or
-     * null when every point sees only sky above its axis. A block above the camera shows its
-     * underside in the top of the frame even while the camera looks down, which reads as filming
-     * from underneath, so the shot must keep the sky over the camera for its whole turn.
-     *
-     * <p>The block need not be straight up: the camera orbits outside the structure, so the roof
-     * that shows is the far edge of an overhang, in front of the camera and above it. The scan
-     * reads the world's own surface heightmap, not the structure's box the floor is planned from,
-     * so it catches a block the floor does not know about: the ground, the End's terrain, a stray
-     * feature, the Nether's roof, or the structure itself where the ceiling clamp stops the floor
-     * short.
+     * The camera's height at the end of the shot: the middle of the structure's lowest layer, the
+     * level it stands on. Below the ground's surface nothing of the structure shows, so a stage
+     * with ground of its own counts from the layer above it.
+     */
+    private static double groundLevel(Stage stage, BoundingBox box, int groundY) {
+        int lowest = stage.hasGround() ? Math.max(box.minY(), groundY + 1) : box.minY();
+        return lowest + 0.5D;
+    }
+
+    /**
+     * The column nearest to {@code (x, z)}, within {@code reach} blocks of it sideways, whose
+     * highest block is above {@code y}: {@code {x, top, z}}, or null when the sky is open over the
+     * whole disc. It reads the world's own surface heightmap, so it sees the ground, the End's
+     * terrain, a stray feature and the structure itself. A camera with a block over it shows that
+     * block's underside in the frame, which reads as filming from underneath.
+     */
+    private static int[] overhead(ServerLevel level, double x, double y, double z, double reach) {
+        int cameraX = (int) Math.floor(x);
+        int cameraZ = (int) Math.floor(z);
+        int span = (int) Math.ceil(reach);
+        int[] nearest = null;
+        double nearestDistance = Double.MAX_VALUE;
+        for (int dx = -span; dx <= span; dx++) {
+            for (int dz = -span; dz <= span; dz++) {
+                double distance = Math.hypot(dx, dz);
+                if (distance > reach || distance >= nearestDistance) continue;
+                int top = columnTop(level, cameraX + dx, cameraZ + dz);
+                if (top <= y) continue;
+                nearestDistance = distance;
+                nearest = new int[] {cameraX + dx, top - 1, cameraZ + dz};
+            }
+        }
+        return nearest;
+    }
+
+    /**
+     * The first sampled pose of the shot that has a block over it, as a problem line, or null when
+     * the camera has open sky over it at every frame.
      */
     private static String blockedSky(
-            ServerLevel level,
-            BoundingBox box,
-            ShowcaseCamera.Pose[] samples,
-            double halfFov,
-            double aspect,
-            String stage) {
-        // The frame's horizontal half-angle, from its vertical one and the picture's own aspect.
-        double horizontal = Math.toDegrees(Math.atan(Math.tan(Math.toRadians(halfFov)) * aspect));
-        double cosHorizontal = Math.cos(Math.toRadians(horizontal));
-        // The columns the shot can show: the structure's footprint, the ground just past it, and
-        // the camera's own column, which the orbit puts outside the footprint. A block over the
-        // camera's head is the one that fills the top of the frame.
-        int fromX = box.minX();
-        int toX = box.maxX();
-        int fromZ = box.minZ();
-        int toZ = box.maxZ();
-        for (ShowcaseCamera.Pose pose : samples) {
-            fromX = Math.min(fromX, (int) Math.floor(pose.x()) - SKY_SCAN_MARGIN);
-            toX = Math.max(toX, (int) Math.ceil(pose.x()) + SKY_SCAN_MARGIN);
-            fromZ = Math.min(fromZ, (int) Math.floor(pose.z()) - SKY_SCAN_MARGIN);
-            toZ = Math.max(toZ, (int) Math.ceil(pose.z()) + SKY_SCAN_MARGIN);
-        }
-        int width = toX - fromX + 1;
-        int depth = toZ - fromZ + 1;
-        int[] tops = new int[width * depth];
-        int highest = Integer.MIN_VALUE;
-        for (int x = fromX; x <= toX; x++) {
-            for (int z = fromZ; z <= toZ; z++) {
-                int top = columnTop(level, x, z);
-                tops[(x - fromX) * depth + (z - fromZ)] = top;
-                highest = Math.max(highest, top);
-            }
-        }
-        for (ShowcaseCamera.Pose pose : samples) {
-            // The frame's top edge is halfFov - pitch above the horizon; a block above the camera
-            // is inside the frame only within that angle, so nothing further out can show.
-            double edge = halfFov - pose.pitch();
-            if (edge <= 0.0D) continue;
-            double reach = (highest - pose.y()) / Math.tan(Math.toRadians(edge));
-            if (reach < 1.0D) continue;
-            double yaw = Math.toRadians(pose.yaw() + 90.0D);
-            double cos = Math.cos(yaw);
-            double sin = Math.sin(yaw);
-            int poseFromX = Math.max(fromX, (int) Math.floor(pose.x() - reach));
-            int poseToX = Math.min(toX, (int) Math.ceil(pose.x() + reach));
-            int poseFromZ = Math.max(fromZ, (int) Math.floor(pose.z() - reach));
-            int poseToZ = Math.min(toZ, (int) Math.ceil(pose.z() + reach));
-            for (int x = poseFromX; x <= poseToX; x++) {
-                for (int z = poseFromZ; z <= poseToZ; z++) {
-                    int top = tops[(x - fromX) * depth + (z - fromZ)];
-                    if (top <= pose.y()) continue;
-                    double dx = x + 0.5D - pose.x();
-                    double dz = z + 0.5D - pose.z();
-                    double distance = Math.hypot(dx, dz);
-                    if (distance > reach) continue;
-                    // A block straight over the camera is the worst case, so the column under the
-                    // camera is tested too: only its direction is undefined, and it is over the
-                    // camera whatever the yaw.
-                    if (distance >= 1.0D && (dx * cos + dz * sin) / distance < cosHorizontal)
-                        continue;
-                    double above = Math.toDegrees(Math.atan2(top - pose.y(), distance));
-                    if (above + pose.pitch() > halfFov) continue;
-                    return String.format(
-                            Locale.ROOT,
-                            "%s: the camera at (%.1f, %.1f, %.1f) looking %.1f down has the block"
-                                    + " at %d %d %d over it, %.1f degrees above its axis",
-                            stage,
-                            pose.x(),
-                            pose.y(),
-                            pose.z(),
-                            pose.pitch(),
-                            x,
-                            top - 1,
-                            z,
-                            above + pose.pitch());
-                }
-            }
+            ServerLevel level, ShowcaseCamera.Pose[] samples, String stage) {
+        for (int frame = 0; frame < samples.length; frame++) {
+            ShowcaseCamera.Pose pose = samples[frame];
+            int[] block = overhead(level, pose.x(), pose.y(), pose.z(), REQUIRED_CLEARANCE);
+            if (block == null) continue;
+            return String.format(
+                    Locale.ROOT,
+                    "%s: at frame %d the camera at (%.1f, %.1f, %.1f) has the block at %d %d %d"
+                            + " over it or within %.0f blocks of it sideways",
+                    stage,
+                    frame,
+                    pose.x(),
+                    pose.y(),
+                    pose.z(),
+                    block[0],
+                    block[1],
+                    block[2],
+                    REQUIRED_CLEARANCE);
         }
         return null;
     }
@@ -2206,16 +2149,19 @@ public final class DimensionStructureVariantsFilm {
     /**
      * Far enough out that the whole structure is in the frame at both ends of the shot: the top of
      * a tall structure has to stay inside the vertical field of view, whose half is {@code halfFov}
-     * degrees, seen from {@link ShowcaseCamera#PITCH_START} degrees above the centre at the start
-     * and from level at the end.
+     * degrees, seen from {@link CameraPlan#PITCH_START} degrees above the centre at the start and
+     * from level at the end.
      */
     private static double startRadius(double half, double up, double halfFov) {
         // The top sits atan(tan p - up / r) below the horizon, so it is p - that above the view
         // axis at the start, and it fits when r >= up / (tan p - tan(p - halfFov)). At the end the
         // camera looks level, so the top is atan(up / r) above the axis and it fits when r >=
-        // up / tan(halfFov). A stage the ground stops ends above the centre, which puts the top
-        // lower in the frame than that, so the same radius still holds it.
-        double pitch = Math.toRadians(ShowcaseCamera.PITCH_START);
+        // up / tan(halfFov). That holds for a camera level with the centre. The shot ends at the
+        // structure's ground level, below the centre, so the top of a tall structure is above the
+        // frame there; the radius is not grown for it, because the shot keeps the radius that
+        // frames
+        // the whole structure from above.
+        double pitch = Math.toRadians(CameraPlan.PITCH_START);
         double fov = Math.toRadians(halfFov);
         double tall = Math.max(up / (Math.tan(pitch) - Math.tan(pitch - fov)), up / Math.tan(fov));
         return Math.max(
@@ -2358,14 +2304,20 @@ public final class DimensionStructureVariantsFilm {
         return highest;
     }
 
-    /** Whether every point of the circle, half a block apart, keeps its distance from blocks. */
+    /**
+     * Whether every point of the path, half a block of circle apart, keeps its distance from blocks
+     * and has open sky over it.
+     */
     private static boolean clear(ShowcaseCamera.Orbit orbit, Solids solids) {
-        double length = 2.0D * Math.PI * ShowcaseCamera.REVOLUTIONS * orbit.radius();
+        CameraPlan.Plan plan = orbit.plan();
+        double length = 2.0D * Math.PI * CameraPlan.REVOLUTIONS * orbit.radius();
         int samples = Math.max(800, (int) Math.ceil(length / 0.5D));
-        // From the end: the low part of the circle is where it fails.
+        // From the end: the low part of the path is where it fails.
         for (int i = samples; i >= 0; i--) {
-            ShowcaseCamera.Pose pose = orbit.at(i / (double) samples);
+            ShowcaseCamera.Pose pose = plan.at(i * (double) CameraPlan.SHOT_FRAMES / samples);
             if (solids.near(pose.x(), pose.y(), pose.z(), REQUIRED_CLEARANCE)) return false;
+            if (overhead(solids.level, pose.x(), pose.y(), pose.z(), REQUIRED_CLEARANCE) != null)
+                return false;
         }
         return true;
     }
@@ -2463,28 +2415,11 @@ public final class DimensionStructureVariantsFilm {
                     ClientGameTestRecordingHud.placePerformanceOverlay(
                             PerformanceOverlayPlacement.BOTTOM_RIGHT);
                     StageCaptionPanel.clear();
-                    ShowcaseCamera.hold(orbit, 0.0D);
+                    ShowcaseCamera.hold(orbit, 0);
                 });
         server.runOnServer(
                 minecraftServer ->
                         minecraftServer.getPlayerList().setSimulationDistance(SIMULATION_DISTANCE));
-        // Two frames inside one game tick must be two pictures, or a film at 30 frames a second
-        // repeats half of them; the probe runs off camera, before the shot's own clock starts.
-        boolean movesBetweenTicks =
-                context.computeOnClient(
-                        client -> {
-                            ShowcaseCamera.run(orbit, 0.0D);
-                            ShowcaseCamera.Pose first = ShowcaseCamera.framePose();
-                            LockSupport.parkNanos(15_000_000L);
-                            ShowcaseCamera.Pose second = ShowcaseCamera.framePose();
-                            ShowcaseCamera.hold(orbit, 0.0D);
-                            return !first.equals(second);
-                        });
-        if (!movesBetweenTicks)
-            PROBLEMS.add(
-                    "The camera showed one pose for 15 ms at "
-                            + stage.id()
-                            + ", less than one tick, twice: the film would repeat frames");
         context.waitForScreen(null);
         // The server's view distance grows in steps, each complete on the client before the
         // next. The client asks for that distance but renders only renderDistance around the
@@ -2509,15 +2444,16 @@ public final class DimensionStructureVariantsFilm {
         waitForRegionLoaded(context, stage, prepared);
 
         // Rehearsal: the same shot, off camera, until a whole pass builds nothing new.
-        int steps = ShowcaseCamera.SHOT_TICKS * REHEARSAL_STEPS_PER_TICK;
         BitSet baseline = settle(context, stage, prepared);
         double framesPerSecond = 0.0D;
         for (int pass = 1; pass <= MAX_REHEARSALS; pass++) {
             long beganFrames = context.computeOnClient(client -> ShowcaseCamera.frames());
             long began = System.nanoTime();
-            for (int step = 0; step <= steps; step++) {
-                double progress = step / (double) steps;
-                context.runOnClient(client -> ShowcaseCamera.hold(orbit, progress));
+            // One pose per film frame, the poses the film shows, each held for a tick so the
+            // client builds what that frame sees.
+            for (int frame = 0; frame <= CameraPlan.SHOT_FRAMES; frame++) {
+                int shown = frame;
+                context.runOnClient(client -> ShowcaseCamera.hold(orbit, shown));
                 context.waitTick();
             }
             // The frames the client presented along the shot, not the ticks the steps waited for: a
@@ -2528,7 +2464,7 @@ public final class DimensionStructureVariantsFilm {
             long rendered =
                     context.computeOnClient(client -> ShowcaseCamera.frames()) - beganFrames;
             framesPerSecond = rendered / seconds;
-            context.runOnClient(client -> ShowcaseCamera.hold(orbit, 0.0D));
+            context.runOnClient(client -> ShowcaseCamera.hold(orbit, 0));
             waitForRegionLoaded(context, stage, prepared);
             BitSet after = settle(context, stage, prepared);
             boolean converged = after.equals(baseline);
@@ -2549,12 +2485,13 @@ public final class DimensionStructureVariantsFilm {
         System.out.println(
                 "[DSV] "
                         + stage.id()
-                        + " films at "
-                        + ShowcaseCamera.SHOT_TICK_RATE
-                        + " ticks a second, the game's own rate: 80 ticks are the shot's 4 seconds,"
-                        + " and the camera is posed on every frame the client draws (it presented "
+                        + " films on the frame counter: frame n of the shot is the camera at n / "
+                        + CameraPlan.FRAMES_PER_SECOND
+                        + " s of the plan, whatever the client's speed (it presented "
                         + String.format(Locale.ROOT, "%.1f", framesPerSecond)
-                        + " a second)");
+                        + " frames a second, the game ticks at "
+                        + ShowcaseCamera.SHOT_TICK_RATE
+                        + ")");
         if (baseline.isEmpty())
             throw new AssertionError("Expected sections to be built for " + stage.id());
 
@@ -2668,7 +2605,7 @@ public final class DimensionStructureVariantsFilm {
                 });
         context.runOnClient(
                 client -> {
-                    ShowcaseCamera.run(orbit, 0.0D);
+                    ShowcaseCamera.run(orbit);
                     ShowcaseCamera.takeLongestFrameGap();
                 });
         long startMs = System.currentTimeMillis();
@@ -2681,23 +2618,25 @@ public final class DimensionStructureVariantsFilm {
         int poppedTicks = 0;
         StringBuilder problems = new StringBuilder();
         boolean switched = false;
-        // The shot ends when the camera finishes its turn, on its own clock: a fixed 80 ticks would
-        // stop it short when the shot's first frame came after its first tick, and leave it
-        // standing at the end of its turn when slow ticks made the 80 ticks longer than 4 seconds.
-        // The swap follows the same clock: a fixed tick would come after the turn had ended on a
-        // host whose ticks outran the camera, and the stage would film no palette half at all.
+        // The shot ends when the camera has drawn its last frame, and the camera itself waits at
+        // the palette frame, so neither follows a tick: a slow client draws the shot's 121 frames
+        // in more ticks, a fast one in fewer, and the picture is the same.
+        boolean finished = false;
         for (int tick = 1; tick <= ShowcaseCamera.SHOT_TICKS + LATE_TICKS; tick++) {
             timing.beforeWait();
             context.waitTick();
-            double shown = timing.afterWait(context, server, tick);
-            if (!switched && shown >= 0.5D) {
+            ShotTiming.Shown shown = timing.afterWait(context, server, tick);
+            if (!switched && shown.holding()) {
                 switched = true;
                 baseline = switchPalette(context, server, stage, prepared, timing);
                 continue;
             }
-            if (shown >= 1.0D) break;
+            if (shown.frame() >= CameraPlan.SHOT_FRAMES) {
+                finished = true;
+                break;
+            }
             if (tick % CHECK_INTERVAL != 0) continue;
-            ShowcaseCamera.Pose pose = orbit.at(shown);
+            ShowcaseCamera.Pose pose = orbit.atFrame(Math.max(0, shown.frame()));
             Snapshot now =
                     context.computeOnClient(
                             client ->
@@ -2733,12 +2672,18 @@ public final class DimensionStructureVariantsFilm {
             if (!context.computeOnClient(client -> client.levelRenderer.hasRenderedAllSections()))
                 busyTicks++;
         }
+        if (!finished)
+            throw new AssertionError(
+                    stage.id()
+                            + ": the camera did not draw the shot's last frame in "
+                            + (ShowcaseCamera.SHOT_TICKS + LATE_TICKS)
+                            + " ticks");
         long endMs = System.currentTimeMillis();
         // The shot ends on this frame: the clock stops here, so the held pose the next stage's
         // setup needs is not counted as the picture standing still.
         context.runOnClient(client -> ShowcaseCamera.pause());
         System.out.println("STAGE_END " + endMs + " " + stage.id() + PALETTE_HALF);
-        checkPath(context, stage, cameraPlan(stage, prepared));
+        checkPath(context, stage, orbit.plan());
         ShowcaseCamera.Still still = context.computeOnClient(client -> ShowcaseCamera.takeStill());
         String after =
                 server.computeOnServer(
@@ -2780,8 +2725,8 @@ public final class DimensionStructureVariantsFilm {
                                 startMs,
                                 endMs,
                                 orbit.radius(),
-                                orbit.height(0.0D),
-                                orbit.height(1.0D),
+                                orbit.startY(),
+                                orbit.endY(),
                                 orbit.finalUpAngle(),
                                 orbit.finalPitch(),
                                 before,
@@ -2795,29 +2740,6 @@ public final class DimensionStructureVariantsFilm {
                             + " ticks:"
                             + problems);
         }
-    }
-
-    /**
-     * The camera's height at the end of the shot: the middle of the structure's lowest layer, the
-     * level it stands on. Below the ground's surface nothing of the structure shows, so a stage
-     * with ground of its own counts from the layer above it.
-     */
-    private static double groundLevel(Stage stage, BoundingBox box, int groundY) {
-        int lowest = stage.hasGround() ? Math.max(box.minY(), groundY + 1) : box.minY();
-        return lowest + 0.5D;
-    }
-
-    /** The path the shot is planned to fly, as a function of the film's frame number. */
-    private static CameraPlan.Plan cameraPlan(Stage stage, Prepared prepared) {
-        ShowcaseCamera.Orbit orbit = prepared.orbit();
-        return CameraPlan.Plan.of(
-                orbit.centreX(),
-                orbit.centreY(),
-                orbit.centreZ(),
-                orbit.radius(),
-                groundLevel(stage, prepared.occupied(), prepared.groundY()),
-                orbit.ceilingY(),
-                orbit.startAngle());
     }
 
     /**
@@ -2853,12 +2775,12 @@ public final class DimensionStructureVariantsFilm {
     }
 
     /**
-     * Switches the shot to the palette between its halves, off camera: the camera stops on the last
-     * frame's pose and the game freezes, the server swaps the blocks, the client builds all of
-     * them, the caption changes, and the shot carries on from the same pose. The cut joins the
-     * halves, so the film shows neither the swap's server time, during which the client cannot draw
-     * a frame, nor a structure the client has only partly rebuilt. Returns the sections built
-     * afterwards.
+     * Switches the shot to the palette between its halves, off camera: the camera has stopped on
+     * frame 59's pose, where it waits for the palette frame, and the game freezes, the server swaps
+     * the blocks, the client builds all of them, the caption changes, and the shot carries on from
+     * the same pose. The cut joins the halves, so the film shows neither the swap's server time,
+     * during which the client cannot draw a frame, nor a structure the client has only partly
+     * rebuilt. Returns the sections built afterwards.
      */
     private static BitSet switchPalette(
             ClientGameTestContext context,
@@ -2866,13 +2788,13 @@ public final class DimensionStructureVariantsFilm {
             Stage stage,
             Prepared prepared,
             ShotTiming timing) {
-        double[] held = new double[1];
+        int[] held = new int[1];
         server.runOnServer(minecraftServer -> minecraftServer.tickRateManager().setFrozen(true));
         // The server tells the client it froze one tick later, which would let the client's day,
         // mobs and particles run one tick past the server's.
         context.runOnClient(
                 client -> {
-                    held[0] = ShowcaseCamera.pause();
+                    held[0] = ShowcaseCamera.lastFrame();
                     // The camera starts its numbers again when the shot carries on, so the half the
                     // swap interrupts is added here.
                     timing.half(ShowcaseCamera.takeStill());
@@ -2904,7 +2826,7 @@ public final class DimensionStructureVariantsFilm {
                         + stage.id()
                         + String.format(
                                 Locale.ROOT,
-                                " switched to the palette off camera at %.4f of the orbit: %d"
+                                " switched to the palette off camera after frame %d: %d"
                                         + " blocks in %d ms on the server, then %d sections built",
                                 held[0],
                                 changed,
@@ -2950,12 +2872,6 @@ public final class DimensionStructureVariantsFilm {
         /** Of the frames the client drew, this share must show a new picture. */
         private static final double PICTURE_SHARE = 0.8D;
 
-        /**
-         * How far a shot's length may stray from the 4 seconds the cut plays: the camera's turn
-         * ends inside a tick, and the shot on the tick after it.
-         */
-        private static final double SHOT_SECONDS_TOLERANCE = 0.25D;
-
         private static final int MAX_LINES = 20;
 
         private final String id;
@@ -2996,13 +2912,13 @@ public final class DimensionStructureVariantsFilm {
         }
 
         /**
-         * Records the tick that just ended and returns the camera's progress, read in the same
-         * client task as the frame counters: the test thread blocks until the client has run the
-         * task (Fabric's {@code ThreadingImpl.runTaskOnOtherThread} waits on {@code
-         * TEST_SEMAPHORE}), so the shot takes one client task a tick instead of two, and three on
-         * the ticks that also check the sections.
+         * Records the tick that just ended and returns the camera's frame, read in the same client
+         * task as the frame counters: the test thread blocks until the client has run the task
+         * (Fabric's {@code ThreadingImpl.runTaskOnOtherThread} waits on {@code TEST_SEMAPHORE}), so
+         * the shot takes one client task a tick instead of two, and three on the ticks that also
+         * check the sections.
          */
-        double afterWait(
+        Shown afterWait(
                 ClientGameTestContext context, TestDedicatedServerContext server, int tick) {
             long now = System.nanoTime();
             double wall = (now - returned) / 1.0E6D;
@@ -3024,7 +2940,8 @@ public final class DimensionStructureVariantsFilm {
                                     new double[] {
                                         ShowcaseCamera.frames(),
                                         ShowcaseCamera.takeLongestFrameGap(),
-                                        ShowcaseCamera.progress()
+                                        ShowcaseCamera.lastFrame(),
+                                        ShowcaseCamera.holding() ? 1.0D : 0.0D
                                     });
             long drawn = frames < 0L ? -1L : (long) client[0] - frames;
             if (drawn > 0L) drawnTotal += drawn;
@@ -3054,7 +2971,7 @@ public final class DimensionStructureVariantsFilm {
                                 drawn,
                                 gap));
             }
-            return client[2];
+            return new Shown((int) client[2], client[3] != 0.0D);
         }
 
         /** The JVM's time in collector pauses; G1's concurrent cycles run beside the threads. */
@@ -3137,12 +3054,16 @@ public final class DimensionStructureVariantsFilm {
                                             .getSystemLoadAverage(),
                                     Runtime.getRuntime().availableProcessors()));
             for (String line : slow) System.out.println("[DSV] " + id + " slow " + line);
+            // A long still is a client that drew nothing for a while. The camera follows the frame
+            // counter, so the film shows no repeated picture for it: the capture's repeated slots
+            // are dropped by the cut, which fails a stage that is short of frames. The still is
+            // reported, not failed, so a busy host does not stop a take that cuts clean.
             if (drawnTotal > 2L && stillMs > stillLimitMs)
-                PROBLEMS.add(
+                System.out.println(
                         String.format(
                                 Locale.ROOT,
-                                "%s: one picture stood still for %.0f ms with %d frames repeating"
-                                        + " it, more than the %.0f ms of two and a half of the"
+                                "[DSV] %s: one picture stood still for %.0f ms with %d frames"
+                                        + " repeating it, over the %.0f ms of two and a half of the"
                                         + " frames the client drew (%.1f a second)",
                                 id,
                                 stillMs,
@@ -3159,20 +3080,10 @@ public final class DimensionStructureVariantsFilm {
                                 pictureShare,
                                 drawnTotal,
                                 PICTURE_SHARE));
-            // Only a recording is cut into clips of the shot's length. A run that is not recorded
-            // can fall behind 20 ticks a second, as software rendering on a hosted runner does (CI
-            // run 43465975056: 4.27 s), and a long shot does no harm there.
-            if (!ClientGameTestRecordingSession.isEnabled()) return;
-            double filmSeconds = ShowcaseCamera.SHOT_NANOS / 1.0E9D;
-            if (Math.abs(shotSeconds - filmSeconds) > SHOT_SECONDS_TOLERANCE)
-                PROBLEMS.add(
-                        String.format(
-                                Locale.ROOT,
-                                "%s: the shot lasted %.2f s, not the %.0f s the cut plays",
-                                id,
-                                shotSeconds,
-                                filmSeconds));
         }
+
+        /** What the camera showed at a tick's end: the frame it last drew and whether it waits. */
+        record Shown(int frame, boolean holding) {}
     }
 
     /** The structure and the ground around it, full height. */
@@ -3364,7 +3275,7 @@ public final class DimensionStructureVariantsFilm {
     private static BitSet settle(ClientGameTestContext context, Stage stage, Prepared prepared) {
         BitSet last = null;
         int stable = 0;
-        ShowcaseCamera.Pose pose = prepared.orbit().at(0.0D);
+        ShowcaseCamera.Pose pose = prepared.orbit().atFrame(0);
         for (int tick = 0; tick < LOAD_TIMEOUT_TICKS; tick++) {
             boolean[] idle = new boolean[1];
             Snapshot now =
