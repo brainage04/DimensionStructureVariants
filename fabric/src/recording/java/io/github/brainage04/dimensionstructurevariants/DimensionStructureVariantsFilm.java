@@ -95,14 +95,14 @@ import net.minecraft.world.phys.AABB;
  * spawning), and the server is frozen until the shot. The camera rehearses the shot off screen
  * until a whole pass builds no new section; the filmed pass must then build and lose none.
  *
- * <p>Every shot holds the Overworld clock at noon with Night Vision on the camera
- * player, and circles the structure twice per shot at a fixed distance, descending from looking 60
- * degrees down at the centre to looking level from the structure's ground level, as one function of
- * the film's frame number ({@link CameraPlan}). The first half shows the vanilla blocks; at frame
- * 60, the 2-second mark, the camera and the game stop off camera while the palette goes in, and the
- * second half carries on from the next frame of the same path. {@code STAGE_START} and {@code
- * STAGE_END} with a wall-clock time mark each half (the second one's id ends in {@code /on}), and
- * the delivered video is cut to them.
+ * <p>Every shot holds the Overworld clock at noon with Night Vision on the camera player, and
+ * circles the structure twice per shot at a fixed distance, descending from looking 60 degrees down
+ * at the centre to looking level from the structure's ground level, as one function of the film's
+ * frame number ({@link CameraPlan}). The first half shows the vanilla blocks; at frame 60, the
+ * 2-second mark, the camera and the game stop off camera while the palette goes in, and the second
+ * half carries on from the next frame of the same path. {@code STAGE_START} and {@code STAGE_END}
+ * with a wall-clock time mark each half (the second one's id ends in {@code /on}), and the
+ * delivered video is cut to them.
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class DimensionStructureVariantsFilm {

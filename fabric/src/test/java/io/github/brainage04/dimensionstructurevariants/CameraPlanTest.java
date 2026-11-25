@@ -80,8 +80,8 @@ class CameraPlanTest {
     }
 
     /**
-     * Frames 0, 30, 60, 90 and 120 are a quarter of the shot apart, which is half a turn of the
-     * two turns: the camera is on the east side at 0, 60 and 120 and on the west side at 30 and 90,
+     * Frames 0, 30, 60, 90 and 120 are a quarter of the shot apart, which is half a turn of the two
+     * turns: the camera is on the east side at 0, 60 and 120 and on the west side at 30 and 90,
      * always looking at the centre. The numbers are worked out by hand.
      */
     @Example
