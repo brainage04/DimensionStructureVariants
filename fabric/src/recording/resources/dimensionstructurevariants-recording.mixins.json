@@ -5,6 +5,7 @@
   "client": [
     "AmbientLoopKeeperMixin",
     "CameraMixin",
+    "FramerateLimiterMixin",
     "ConnectionMixin",
     "ServerCommonPacketListenerImplMixin"
   ],

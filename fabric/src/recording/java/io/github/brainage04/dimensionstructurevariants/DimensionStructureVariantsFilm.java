@@ -117,16 +117,6 @@ public final class DimensionStructureVariantsFilm {
      */
     private static final int LATE_TICKS = 60;
 
-    /**
-     * The client's frame cap while it is recorded, below the capture's {@link
-     * CameraPlan#FRAMES_PER_SECOND}. The recorder shows the newest present at each of its slots, so
-     * two presents closer than one slot lose a pose from the film. A cap equal to the capture rate
-     * still allows that when a frame renders faster than the one before it (one of the 46 halves of
-     * the first full recording of this camera lost a pose that way), and this cap puts presents
-     * further apart than a slot by the difference of {@code 1000 / cap} and the slot, 5.1 ms.
-     */
-    private static final int RECORDING_FRAME_CAP = 26;
-
     /** Pieces of fewer blocks than this that touch nothing else are removed. */
     private static final int MIN_PIECE_BLOCKS = 40;
 
@@ -462,10 +452,6 @@ public final class DimensionStructureVariantsFilm {
                                 // Mobs are drawn out to 64 blocks times their size by default; the
                                 // shot starts much farther out.
                                 client.options.entityDistanceScaling().set(5.0D);
-                                // The option only takes multiples of 10 (Options.java:126), so the
-                                // tracker the option feeds is set directly.
-                                client.getFramerateLimitTracker()
-                                        .setFramerateLimit(RECORDING_FRAME_CAP);
                             });
                     server.runOnServer(
                             minecraftServer -> {
@@ -2627,8 +2613,7 @@ public final class DimensionStructureVariantsFilm {
         ShotTiming timing =
                 new ShotTiming(
                         stage.id(),
-                        context.computeOnClient(
-                                client -> client.getFramerateLimitTracker().getFramerateLimit()));
+                        context.computeOnClient(client -> client.options.framerateLimit().get()));
         int busyTicks = 0;
         int poppedTicks = 0;
         StringBuilder problems = new StringBuilder();

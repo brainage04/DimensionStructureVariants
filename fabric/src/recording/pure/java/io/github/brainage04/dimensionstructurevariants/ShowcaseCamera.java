@@ -3,6 +3,8 @@ package io.github.brainage04.dimensionstructurevariants;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * The recording's camera, posed on the client for every frame the client draws. {@code
@@ -26,6 +28,17 @@ public final class ShowcaseCamera {
 
     /** Game ticks a second while a shot is filmed: the game's own rate. */
     public static final int SHOT_TICK_RATE = 20;
+
+    /**
+     * The least time between two frames of a shot reaching the screen, in milliseconds: the
+     * capture's slot of {@link CameraPlan#FRAMES_PER_SECOND} a second, 33.3 ms, plus 3 ms. The
+     * recorder shows the newest frame at each of its slots, so a frame presented less than a slot
+     * after the one before it hides that one, and its pose is missing from the film. The game's own
+     * frame cap does not prevent it: after a slow frame the next one is drawn at once, and a cap
+     * only spaces the frames' starts, not their presents. First full recordings of this camera lost
+     * a pose in 1 and 3 of their 46 halves that way.
+     */
+    public static final long PRESENT_GAP_MILLIS = 36L;
 
     /** Frames of one shot the log keeps: more than a slow client draws in a shot. */
     private static final int LOG_FRAMES = 1024;
@@ -148,6 +161,18 @@ public final class ShowcaseCamera {
         orbit = null;
         poses = null;
         running = false;
+    }
+
+    /**
+     * Waits {@link #PRESENT_GAP_MILLIS} while a shot runs, called right after a frame was presented
+     * and before the next one starts, so the next frame reaches the screen at least that long after
+     * this one. Client thread only.
+     */
+    public static void spaceFrames() {
+        if (!running) return;
+        long until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(PRESENT_GAP_MILLIS);
+        long left;
+        while ((left = until - System.nanoTime()) > 0L) LockSupport.parkNanos(left);
     }
 
     /**
