@@ -24,7 +24,7 @@ frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palet
 halt at the join. The audio crossfades over JOIN seconds across the join, so the two halves' sound
 overlaps instead of meeting at a fade to silence.
 
-A slot repeats the one before it when the two differ by less than STILL_LEVEL grey levels.
+A slot repeats the one before it when the pictures differ in no more than STILL_LEVEL (CHANGED).
 
 Consecutive stages crossfade their audio over JOIN seconds as well, each stage's sound running JOIN
 seconds past its picture into the next stage's, so the Nether drone carries through a stage cut
@@ -65,14 +65,18 @@ CFR = f"fps={RATE:.0f},setpts=PTS-STARTPTS"
 LEAD = 0.10
 TRAIL = 0.25
 JOIN = 0.15
-# A slot repeats the one before it when the two pictures differ by less than this, in mean grey
-# levels of the world region. A repeated slot is the same picture through the encoder: measured at
-# 0.001-0.27 (take 14's plains stage), while the smallest camera step measured is 0.78. A camera step
-# under the level would be taken for a repeat, which the half's frame count catches.
-STILL_LEVEL = 0.4
-# How many slots after (or before) its draw slot a frame may be captured: measured 0 to 3 slots.
-MIN_LATENCY_SLOTS = -1.0
-MAX_LATENCY_SLOTS = 4.0
+# The picture's change between two slots is the share of the world region's pixels that differ by more
+# than CHANGED_BY grey levels, times 255. A repeated slot is the same raw frame, which the encoder
+# reproduces to within a grey level or two: it measured exactly 0.0 on every repeat of end city's
+# ocean stage (take 14), where a camera step measured 2.25 or more. A mean difference did not
+# separate them there (repeats up to 0.4 against steps near 1.0).
+CHANGED_BY = 10
+CHANGED = f"lut=y=if(gt(val\\,{CHANGED_BY})\\,255\\,0)"
+STILL_LEVEL = 0.1
+# The most a half's frames may differ in how long after their draw slot they were captured: the
+# recorder hands a frame on up to 4 presents after its own and holds a slot 250 ms for it
+# (GameCapture.java BUFFERS, HOLD_US in MinecraftModConventions 3.5.0), 7.5 slots.
+MAX_LAG_SPREAD_SLOTS = 7.5
 LAGS = []
 PALETTE_HALF = "/on"
 # The shot's frame counts come from the film's own path check, which logs `[DSV] <stage> path: N
@@ -126,7 +130,7 @@ def still_frames():
     """
     out = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", str(video_path),
-         "-vf", f"{CFR},{WORLD},tblend=all_mode=difference,signalstats,metadata=print:file=-",
+         "-vf", f"{CFR},{WORLD},tblend=all_mode=difference,{CHANGED},signalstats,metadata=print:file=-",
          "-f", "null", "-"], check=True, capture_output=True, text=True).stdout
     values = {}
     current = 0
@@ -191,10 +195,10 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
 
     The half must hold at least `len(draws)` changing slots, and its first `len(draws)` are the
     frames. The sun and the clock still move for a slot or two after the camera's last frame, until
-    the game freezes, so slots beyond the count are ignored. Each frame must come within
-    MAX_LATENCY_SLOTS after the slot it was drawn at (the recorder reads a frame back a present or
-    two later): a pose missing from the capture, or a change the camera did not make taken for a
-    frame, shifts the frames after it by a draw and fails that.
+    the game freezes, so slots beyond the count are ignored. The frames' lags (capture slot minus
+    draw slot) may differ by at most MAX_LAG_SPREAD_SLOTS within the half: a frame missing from
+    the capture, or a change the camera did not make taken for a frame, shifts the frames after
+    it against their draws.
     """
     count = len(draws)
     from_slot = draws[1] if with_start_pose else draws[0]
@@ -206,14 +210,13 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
             f"{stage} {label}: only {len(moves)} of the {needed} frames the camera drew after its"
             f" first step are in the capture (slots {search}-{stop_frame})")
     kept = ([moves[0] - 1] if with_start_pose else []) + moves[:needed]
-    for i in range(1 if with_start_pose else 0, count):
-        lag = kept[i] - draws[i]
-        LAGS.append((lag, stage, label, i))
-        if not MIN_LATENCY_SLOTS <= lag <= MAX_LATENCY_SLOTS:
-            raise SystemExit(
-                f"{stage} {label}: frame {i} of {count} was drawn at slot {draws[i]:.1f} and is at"
-                f" slot {kept[i]} of the capture: a pose is missing or a change the camera did not"
-                " make was taken for a frame")
+    lags = [kept[i] - draws[i] for i in range(1 if with_start_pose else 0, count)]
+    LAGS.append((max(lags) - min(lags), stage, label))
+    if max(lags) - min(lags) > MAX_LAG_SPREAD_SLOTS:
+        raise SystemExit(
+            f"{stage} {label}: the frames are {min(lags):.1f} to {max(lags):.1f} slots from the slots"
+            " they were drawn at: a pose is missing or a change the camera did not make was taken"
+            " for a frame")
     return kept
 
 
@@ -283,8 +286,8 @@ for index in range(1, len(parts)):
 graph.append(f"{chain}afade=t=in:st=0:d={JOIN},afade=t=out:st={position - JOIN:.6f}:d={JOIN}[aout]")
 graph.append("".join(f"[v{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=0[vout]")
 
-print(f"frame lag (capture slot minus draw slot): smallest {min(LAGS)[0]:.1f} ({min(LAGS)[1:]}),"
-      f" largest {max(LAGS)[0]:.1f} ({max(LAGS)[1:]})", flush=True)
+print(f"largest spread of a half's frame lags (capture slot minus draw slot): {max(LAGS)[0]:.1f} slots"
+      f" ({max(LAGS)[1:]})", flush=True)
 print("encoding...", flush=True)
 subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),
