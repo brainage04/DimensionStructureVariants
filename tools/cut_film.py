@@ -9,18 +9,23 @@ the game stand still while the server swaps the blocks and the client builds the
 that pause, so the two halves' audio are not contiguous in the capture and a hard join clicks.
 
 Each half is cut to exactly the frames the camera drew. The camera draws every frame of the shot as
-a new pose, frame n at n / 30 s of the plan, so a frame of the capture that repeats the one before
-it is a slot the client did not draw in, and the cut drops it. A half is the first `count` frames
-that move (count from the film's own path check line for the stage: the palette frame for the
-vanilla half, the rest of the shot for the palette half), and the vanilla half also opens on the
-held start pose, the frame before the first that moves, which is the shot's frame 0. The cut fails a
-stage whose capture holds fewer frames than the camera drew, or still moves after the last one, so
-the film shows frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palette
-half, with no halt at the join. The audio crossfades over JOIN seconds across the join, so the two
-halves' sound overlaps instead of meeting at a fade to silence.
+a new pose, frame n at n / 30 s of the plan, and the recorder gives each presented frame its own
+slot and repeats a slot's picture when none came, so a slot that repeats the one before it is one
+the client did not draw in, and the cut drops it. A half is the first `count` slots that change the
+picture from the camera's first step of the half on (count and draw times from the film's own
+FRAME log lines for the stage: the palette frame for the vanilla half, the rest of the shot for the
+palette half), and the vanilla half also opens on the frame before the first step, which shows the
+held start pose, the shot's frame 0. The cut fails a stage whose capture holds fewer frames than the
+camera drew, whose frames do not come within a few slots after the slots they were drawn at, or that
+still changes after the last frame, so the film shows frame 0 first, frame 59 last of the vanilla
+half and frame 60 first of the palette half, with no halt at the join. The audio crossfades over
+JOIN seconds across the join, so the two halves' sound overlaps instead of meeting at a fade to
+silence.
 
-A frame moves when it differs from the one before it by at least a twentieth of the stage's own
-motion (the upper decile of its differences), the rule the film is reviewed by.
+A slot repeats the one before it when the two differ by less than STILL_LEVEL grey levels. That
+holds only if the recorder dropped no frame (`gameCaptureDroppedFrames` is 0 in the recording's
+boundary evidence): a dropped frame is a pose the film cannot show, and the cut refuses such a
+recording.
 
 Consecutive stages crossfade their audio over JOIN seconds as well, each stage's sound running JOIN
 seconds past its picture into the next stage's, so the Nether drone carries through a stage cut
@@ -31,6 +36,7 @@ The capture is resampled to the film's rate before anything is measured or cut, 
 still detection counts are the frames the film shows.
 """
 import json
+import math
 import re
 import statistics
 import subprocess
@@ -60,16 +66,23 @@ CFR = f"fps={RATE:.0f},setpts=PTS-STARTPTS"
 LEAD = 0.10
 TRAIL = 0.12
 JOIN = 0.15
-# A frame is still when it differs from the one before it by less than this share of the stage's
-# own motion: the rule the film is reviewed by, which measures against the stage's median
-# difference. The reference here is the stage's upper decile instead, because a capture the
-# client drew slowly repeats slots, and on such a capture half the frames are repeats and the
-# median is a still's own difference.
-STILL_SHARE = 0.05
-MOTION_QUANTILE = 0.9
+# A slot repeats the one before it when the two pictures differ by less than this, in mean grey
+# levels of the world region. A repeated slot is the same picture through the encoder: measured at
+# 0.001-0.27 (take 14's plains stage), while the smallest camera step measured is 0.78. A camera step
+# under the level would be taken for a repeat, which the check of each frame against the slot it was
+# drawn at catches.
+STILL_LEVEL = 0.4
+# The most slots a frame may be captured after the slot it was drawn at (the recorder reads it back
+# a few presents later), and the slots after a half's last frame in which one change is allowed.
+MAX_LATENCY_SLOTS = 10
+DEBUG = bool(__import__('os').environ.get('DSV_CUT_DEBUG'))
+TAIL_SLOTS = 3
 PALETTE_HALF = "/on"
 # The shot's frame counts come from the film's own path check, which logs `[DSV] <stage> path: N
 # frames ... palette on from frame M` for each stage, not from a copy of CameraPlan here.
+DRAWS = {}
+for m in re.finditer(r"\[DSV\] FRAME (\S+) (\d+) (\d+) ", log):
+    DRAWS.setdefault(m.group(1), []).append(int(m.group(3)))
 PATHS = {m.group(1): (int(m.group(2)), int(m.group(3)))
          for m in re.finditer(r"\[DSV\] (\S+) path: (\d+) frames,.*palette on from frame (\d+)", log)}
 
@@ -90,6 +103,10 @@ for m in re.finditer(r"\[DSV\] SUMMARY (.*)", log):
     summary[fields[0]] = fields
 
 epoch = float(meta["boundaries"]["selectedStartEpochSeconds"])
+dropped = int(meta["boundaries"].get("gameCaptureDroppedFrames", 0))
+if meta.get("captureSource") == "game" and dropped:
+    raise SystemExit(f"the recorder dropped {dropped} frames: a dropped frame is a pose the film"
+                     " cannot show, so this recording cannot be cut; record it again")
 
 
 def at(ms):
@@ -159,62 +176,70 @@ def select(frames):
     return "+".join(f"between(n,{lo},{hi})" for lo, hi in runs(frames))
 
 
-def take_half(stage, label, start_frame, stop_frame, count, limit, with_start_pose):
+def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
     """The frames of one half of a stage, as the camera's own frame counter drew them.
 
-    The camera draws every frame of the shot as a new pose, so a frame of the capture that repeats
-    the one before it is a slot the client did not draw in (a slow frame), and the film leaves it
-    out. A half is exactly `count` poses: the first moving frame and the {count - 1} after it, and
-    the first half also opens on the held pose before the shot, which is the shot's frame 0.
-    A half that has fewer or more moving frames than the camera drew fails the cut.
+    `draws` are the capture slots the camera drew the half's frames at, from the film's own FRAME
+    log. The camera draws every frame of the shot as a new pose, and the recorder gives each
+    presented frame its own slot and repeats a slot's picture when none came, so a half is the
+    first `len(draws)` slots that change the picture from the first step on, and a slot that
+    repeats the one before it is dropped. The search starts where the camera's own first step of
+    the half is drawn, so a change the world makes while the camera still holds (mobs, the clock
+    starting) is not taken for a frame. The first half also opens on the frame before that step,
+    which shows the held start pose, the shot's frame 0.
+
+    The half is checked against the log: each frame must come within MAX_LATENCY_SLOTS after the
+    slot it was drawn at, and after the last frame at most one more slot may change (the clock
+    stops with the game) before the camera's hold.
     """
-    first = next((f for f in range(start_frame, stop_frame) if moving(f, limit)), None)
+    count = len(draws)
+    from_slot = draws[1] if with_start_pose else draws[0]
+    search = max(start_frame, int(math.floor(from_slot - 0.5)))
+    first = next((f for f in range(search, stop_frame) if moving(f, STILL_LEVEL)), None)
     if first is None:
         raise SystemExit(f"{stage} {label}: no moving frame between its markers")
-    kept = []
-    if with_start_pose:
-        # The camera is held on the start pose before the shot and its first frame shows it too: the
-        # frame before the first that moves is that pose, and the film opens on it.
-        if first - 1 < start_frame or moving(first - 1, limit):
-            raise SystemExit(
-                f"{stage} {label}: the first moving frame {first} has no still start pose before it")
-        kept.append(first - 1)
+    kept = [first - 1] if with_start_pose else []
     frame = first
     while len(kept) < count:
         if frame >= stop_frame:
             raise SystemExit(
                 f"{stage} {label}: only {len(kept)} of the {count} frames the camera drew are in"
-                f" the capture (frames {start_frame}-{stop_frame})")
-        if moving(frame, limit):
+                f" the capture (slots {search}-{stop_frame})")
+        if moving(frame, STILL_LEVEL):
             kept.append(frame)
         frame += 1
-    # The camera stops after its last frame of the half, so the frame after it repeats it.
-    if moving(kept[-1] + 1, limit):
+    if DEBUG:
+        print(f"{stage} {label}: kept - drawn slots "
+              + " ".join(f"{kept[i] - draws[i]:.1f}" for i in range(count)), file=sys.stderr)
+    late = [(i, kept[i] - draws[i]) for i in range(1 if with_start_pose else 0, count)
+            if not -1.0 <= kept[i] - draws[i] <= MAX_LATENCY_SLOTS]
+    if late:
         raise SystemExit(
-            f"{stage} {label}: frame {kept[-1] + 1} still moves after the {count} frames the camera"
+            f"{stage} {label}: frames drawn and frames captured do not line up, e.g. frame {late[0][0]}"
+            f" drawn at slot {draws[late[0][0]]:.1f} is at slot {kept[late[0][0]]}")
+    tail = [f for f in range(kept[-1] + 1, kept[-1] + 1 + TAIL_SLOTS) if moving(f, STILL_LEVEL)]
+    if len(tail) > 1:
+        raise SystemExit(
+            f"{stage} {label}: slots {tail} still change after the last of the {count} frames the camera"
             " drew, so the half has more frames than the camera drew")
     return kept
 
 
 for index, (stage, s1, e1, s2, e2) in enumerate(stages):
-    # The stage's own motion, from the frames of its two halves and not the held pose between them.
-    span = [STEPS[f] for f in list(range(frame_at(at(s1)), frame_at(at(e1)) + 1))
-            + list(range(frame_at(at(s2)), frame_at(at(e2)) + 1)) if f in STEPS]
-    if not span:
-        raise SystemExit(f"{stage}: no frames between its markers")
-    span.sort()
-    motion = span[int(MOTION_QUANTILE * (len(span) - 1))]
-    limit = STILL_SHARE * motion
-    # The search starts at the previous stage's last frame, so a stage cannot take a frame that
-    # belongs to the stage before.
-    floor = 0 if index == 0 else frame_at(at(stages[index - 1][4]))
     if stage not in PATHS:
         raise SystemExit(f"{stage}: the log has no path check line for it")
     shot_frames, palette_frame = PATHS[stage]
+    drawn = DRAWS.get(stage, [])
+    if len(drawn) != shot_frames:
+        raise SystemExit(f"{stage}: the log has {len(drawn)} FRAME lines, the path check {shot_frames}")
+    slots = [at(ms) * RATE for ms in drawn]
+    # The search starts at the previous stage's last frame, so a stage cannot take a frame that
+    # belongs to the stage before.
+    floor = 0 if index == 0 else frame_at(at(stages[index - 1][4]))
     off = take_half(stage, "vanilla half", max(floor, frame_at(at(s1) - LEAD)),
-                    frame_at(at(e1) + TRAIL), palette_frame, limit, True)
+                    frame_at(at(e1) + TRAIL), slots[:palette_frame], True)
     on = take_half(stage, "palette half", frame_at(at(s2) - LEAD),
-                   frame_at(at(e2) + TRAIL), shot_frames - palette_frame, limit, False)
+                   frame_at(at(e2) + TRAIL), slots[palette_frame:], False)
     off_frames = len(off)
     on_frames = len(on)
     begin_s = off[0] / RATE
