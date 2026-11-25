@@ -33,6 +33,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.PermissionSet;
+import net.minecraft.world.clock.ClockTimeMarkers;
 import net.minecraft.world.clock.WorldClock;
 import net.minecraft.world.clock.WorldClocks;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -52,15 +53,18 @@ import net.minecraft.world.level.levelgen.structure.StructureStart;
 
 /**
  * Takes the pictures for comparing the share of a palette's rare block, one fortress at each of 1
- * to 5 per cent (A-2415): the same start, the same random for the pieces' details, the same camera
- * and the same light. Runs only when {@value #KIND_ENV} names a sheet ({@code snowy} or {@code
- * ocean}), and then the film does not run (see {@link #requested}). Each share is applied by
- * rewriting the rare block's weight in a copy of the bundled table and handing it to {@code
+ * to 5 per cent: the same start, the same random for the pieces' details, the same camera and the
+ * same light. Runs only when {@value #KIND_ENV} names a sheet ({@code snowy} or {@code ocean}), and
+ * then the film does not run (see {@link #requested}). Each share is applied by rewriting the rare
+ * block's weight in a copy of the bundled table and handing it to {@code
  * StructurePalettes.useTable}, so {@code palettes.json} is never edited.
  *
- * <p>The shares of one role stay nested: every weight map totals 100 before and after, the rare
- * block comes last, and a position's roll does not change, so a block that is rare at 2 per cent is
- * rare at 3.
+ * <p>The rare block's positions are nested: every weight map totals 100 before and after, the rare
+ * block comes last, and a position's roll does not change, so a position that is rare at 2 per cent
+ * is rare at 3. The other blocks of a map are not held still: the difference comes off the map's
+ * largest other block, so where a map has several (the ocean walls: prismarine bricks 50,
+ * prismarine 49) up to {@code MAX_PERCENT - 1} per cent of its positions swap between the two from
+ * the first panel to the last.
  *
  * <p>Needs the recording lane ({@code :fabric:recordClientGameTest}) for its display; the pictures
  * go to {@value #DIR_ENV} (default {@code build/percent-sheet}), named {@code
@@ -93,9 +97,6 @@ public final class DimensionStructureVariantsPercentSheet implements FabricClien
 
     /** Open blocks required in front of a wall section: the camera's whole line of sight. */
     private static final int WALL_DEPTH = 11;
-
-    private static final long NOON = 6000L;
-    private static final long DAY = 24000L;
 
     private static final Identifier FORTRESS_ENTRANCE = Identifier.withDefaultNamespace("nece");
 
@@ -157,18 +158,27 @@ public final class DimensionStructureVariantsPercentSheet implements FabricClien
                     Poses poses =
                             server.computeOnServer(
                                     minecraftServer -> prepare(minecraftServer, sheet));
-                    for (int percent = MIN_PERCENT; percent <= MAX_PERCENT; percent++) {
-                        int share = percent;
-                        server.runOnServer(minecraftServer -> place(minecraftServer, sheet, share));
-                        shoot(
-                                context,
-                                server,
-                                out,
-                                kind + "-overview-" + percent,
-                                poses.overview());
-                        shoot(context, server, out, kind + "-closeup-" + percent, poses.closeup());
+                    try {
+                        for (int percent = MIN_PERCENT; percent <= MAX_PERCENT; percent++) {
+                            int share = percent;
+                            server.runOnServer(
+                                    minecraftServer -> place(minecraftServer, sheet, share));
+                            shoot(
+                                    context,
+                                    server,
+                                    out,
+                                    kind + "-overview-" + percent,
+                                    poses.overview());
+                            shoot(
+                                    context,
+                                    server,
+                                    out,
+                                    kind + "-closeup-" + percent,
+                                    poses.closeup());
+                        }
+                    } finally {
+                        server.runOnServer(minecraftServer -> StructurePalettes.useTable(null));
                     }
-                    server.runOnServer(minecraftServer -> StructurePalettes.useTable(null));
                 });
     }
 
@@ -215,8 +225,7 @@ public final class DimensionStructureVariantsPercentSheet implements FabricClien
                 server.registryAccess()
                         .lookupOrThrow(Registries.WORLD_CLOCK)
                         .getOrThrow(WorldClocks.OVERWORLD);
-        long total = server.clockManager().getInstance(clock).totalTicks();
-        server.clockManager().setTotalTicks(clock, total - Math.floorMod(total, DAY) + NOON);
+        server.clockManager().moveToTimeMarker(clock, ClockTimeMarkers.NOON);
         ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
         player.setGameMode(GameType.SPECTATOR);
         player.addEffect(

@@ -486,7 +486,16 @@ public final class StructurePalettes {
                                     + " gives its accent to the unknown role "
                                     + entry.getKey());
                 }
-                accentBlocks.put(entry.getKey(), weights(name, entry.getValue()));
+                Map<String, Integer> targets = weights(name, entry.getValue());
+                if (targets == null) {
+                    throw new IllegalStateException(
+                            "Palette "
+                                    + name
+                                    + " gives its accent role "
+                                    + entry.getKey()
+                                    + " no block; leave the role out to keep the main block");
+                }
+                accentBlocks.put(entry.getKey(), targets);
             }
             if (accentBlocks.isEmpty()) {
                 throw new IllegalStateException("Palette " + name + " names no accent role");

@@ -797,18 +797,30 @@ public final class PaletteGameTests {
      */
     private static final int CHEST_SEARCH_STARTS = 8;
 
+    /** The chunk of the first start the chest test generates, and the chunks between its starts. */
+    private static final int CHEST_SEARCH_ORIGIN = 1400;
+
+    private static final int CHEST_SEARCH_SPACING = 64;
+
     /**
      * A palette changes block states only, so a chest of a placed fortress keeps the loot table the
      * piece gave it ({@code StructurePiece.createChest} sets the table on the block entity right
      * after the block). The test places snowy fortresses until one holds a chest and reads the
-     * block entity from the world.
+     * block entity from the world. Known gap: it checks the chests that stand, so a palette that
+     * turned some chests into another block while leaving one would pass; only a palette that
+     * removes every chest of the start it finds fails.
      */
     public static void fortressChestsKeepTheirLootTable(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         int chests = 0;
         for (int attempt = 0; attempt < CHEST_SEARCH_STARTS && chests == 0; attempt++) {
             StructureStart start =
-                    fortressStart(helper, level, new ChunkPos(1400 + attempt * 64, 1400));
+                    fortressStart(
+                            helper,
+                            level,
+                            new ChunkPos(
+                                    CHEST_SEARCH_ORIGIN + attempt * CHEST_SEARCH_SPACING,
+                                    CHEST_SEARCH_ORIGIN));
             BoundingBox box = start.getBoundingBox();
             List<ChunkPos> chunks = chunks(box);
             for (ChunkPos each : chunks) {

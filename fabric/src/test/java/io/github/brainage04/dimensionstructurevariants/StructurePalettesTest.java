@@ -8,11 +8,15 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.Lifecycle;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -46,7 +50,9 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ProtoChunk;
 import net.minecraft.world.level.chunk.status.ChunkPyramid;
@@ -186,6 +192,10 @@ class StructurePalettesTest {
     }
 
     private static JsonObject accentTable(String piece) {
+        return accentTable(piece, "\"minecraft:blue_ice\"");
+    }
+
+    private static JsonObject accentTable(String piece, String accentBlock) {
         return JsonParser.parseString(
                         """
                         {
@@ -194,7 +204,7 @@ class StructurePalettesTest {
                             "stone": {
                               "blocks": {"wall": "minecraft:stone_bricks"},
                               "piece_accent": {
-                                "blocks": {"wall": "minecraft:blue_ice"},
+                                "blocks": {"wall": %s},
                                 "pieces": ["%s"]
                               }
                             }
@@ -208,58 +218,93 @@ class StructurePalettesTest {
                           }
                         }
                         """
-                                .formatted(piece))
+                                .formatted(accentBlock, piece))
                 .getAsJsonObject();
     }
 
     /**
-     * Blocks a palette may never replace (A-2416: "palettes never replace valuable blocks (gold
-     * blocks, ores)", for example the ocean bastion's gold turning into sea lanterns). Every
-     * vanilla {@code _ore} counts as well.
+     * A role left null inside a piece accent has no meaning (leaving the role out keeps the main
+     * block), so it fails the table with a message that names the palette and the role.
      */
-    private static final Set<String> VALUABLE_BLOCKS =
-            Set.of(
-                    "minecraft:gold_block",
-                    "minecraft:gilded_blackstone",
-                    "minecraft:ancient_debris",
-                    "minecraft:netherite_block",
-                    "minecraft:diamond_block",
-                    "minecraft:emerald_block",
-                    "minecraft:lapis_block",
-                    "minecraft:iron_block",
-                    "minecraft:copper_block",
-                    "minecraft:exposed_copper",
-                    "minecraft:weathered_copper",
-                    "minecraft:oxidized_copper",
-                    "minecraft:waxed_copper_block",
-                    "minecraft:waxed_exposed_copper",
-                    "minecraft:waxed_weathered_copper",
-                    "minecraft:waxed_oxidized_copper",
-                    "minecraft:raw_iron_block",
-                    "minecraft:raw_copper_block",
-                    "minecraft:raw_gold_block",
-                    "minecraft:beacon",
-                    "minecraft:chest",
-                    "minecraft:trapped_chest",
-                    "minecraft:ender_chest",
-                    "minecraft:barrel",
-                    "minecraft:spawner",
-                    "minecraft:trial_spawner",
-                    "minecraft:vault");
+    @Example
+    void aNullAccentBlockFailsTheTable() {
+        IllegalStateException failure =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> StructurePalettes.parse(accentTable("minecraft:nebcr", "null")));
+        assertTrue(
+                failure.getMessage()
+                        .startsWith("Palette stone gives its accent role wall no block"),
+                failure.getMessage());
+    }
 
     /**
-     * Replacements of a valuable or block-entity block that the owner has not yet decided on
-     * (A-2416, open question): a barrel is a container, and the village palettes turn it into
-     * purpur pillar or stripped crimson hyphae, which also drops its block entity. Each entry is
-     * {@code source role -> targets}. The test fails when an entry no longer matches a palette, so
-     * the list shrinks as the owner decides.
+     * Blocks a palette may never replace: gold, gilded blackstone and the rest of the set the game
+     * itself guards with piglins or builds beacons and copper from, read from the vanilla block
+     * tags, and every {@code _ore}. The few valuable blocks no tag names are listed by hand.
+     */
+    private static final List<String> VALUABLE_TAGS =
+            List.of("guarded_by_piglins", "beacon_base_blocks", "copper", "ores");
+
+    private static final Set<String> VALUABLE_BLOCKS = valuableBlocks();
+
+    private static Set<String> valuableBlocks() {
+        Set<String> blocks =
+                new TreeSet<>(
+                        Set.of(
+                                "minecraft:ancient_debris",
+                                "minecraft:lapis_block",
+                                "minecraft:raw_iron_block",
+                                "minecraft:raw_copper_block",
+                                "minecraft:beacon",
+                                "minecraft:spawner",
+                                "minecraft:trial_spawner",
+                                "minecraft:vault"));
+        for (String tag : VALUABLE_TAGS) addTag(blocks, tag);
+        return blocks;
+    }
+
+    private static void addTag(Set<String> blocks, String tag) {
+        String path = "/data/minecraft/tags/block/" + tag + ".json";
+        try (InputStream stream = Block.class.getResourceAsStream(path)) {
+            assertNotNull(stream, path);
+            JsonObject json =
+                    JsonParser.parseReader(new InputStreamReader(stream, StandardCharsets.UTF_8))
+                            .getAsJsonObject();
+            for (JsonElement value : json.getAsJsonArray("values")) {
+                String id = value.getAsString();
+                if (id.startsWith(TAG_PREFIX)) {
+                    addTag(blocks, id.substring(TAG_PREFIX.length()));
+                } else {
+                    blocks.add(id);
+                }
+            }
+        } catch (IOException exception) {
+            throw new UncheckedIOException(path, exception);
+        }
+    }
+
+    private static final String TAG_PREFIX = "#minecraft:";
+
+    /**
+     * Replacements of a valuable or block-entity block that stay for now: a barrel is a container,
+     * and the village palettes turn it into purpur pillar or stripped crimson hyphae, a block with
+     * no block entity, which drops the template's contents and loot table. Each entry reads {@code
+     * source role -> targets in palette name}, the palette included, so a new palette that does the
+     * same is not covered. The test fails when an entry no longer matches the shipped table, so the
+     * list shrinks as the replacements go.
      */
     private static final Set<String> OPEN_REPLACEMENTS =
             Set.of(
-                    "minecraft:barrel storage -> [minecraft:purpur_pillar]",
-                    "minecraft:barrel storage -> [minecraft:stripped_crimson_hyphae]");
+                    "minecraft:barrel storage -> [minecraft:purpur_pillar] in palette village_end",
+                    "minecraft:barrel storage -> [minecraft:stripped_crimson_hyphae] in palette village_nether",
+                    "minecraft:barrel storage -> [minecraft:stripped_crimson_hyphae] in palette village_nether_basalt",
+                    "minecraft:barrel storage -> [minecraft:stripped_crimson_hyphae] in palette village_nether_crimson",
+                    "minecraft:barrel storage -> [minecraft:stripped_crimson_hyphae] in palette village_nether_soul",
+                    "minecraft:barrel storage -> [minecraft:stripped_crimson_hyphae] in palette village_nether_warped");
 
-    private static boolean valuable(String id) {
+    private static boolean valuable(Block block) {
+        String id = BuiltInRegistries.BLOCK.getKey(block).toString();
         return VALUABLE_BLOCKS.contains(id) || id.endsWith("_ore");
     }
 
@@ -329,15 +374,14 @@ class StructurePalettesTest {
     }
 
     private static Set<String> withoutOpen(Set<String> replacements) {
-        Set<String> rest = new TreeSet<>();
-        for (String replacement : replacements) {
-            String key = replacement.substring(0, replacement.indexOf(" in palette "));
-            if (!OPEN_REPLACEMENTS.contains(key)) rest.add(replacement);
-        }
+        Set<String> rest = new TreeSet<>(replacements);
+        rest.removeAll(OPEN_REPLACEMENTS);
         return rest;
     }
 
-    /** A named valuable block that the registry does not know is a typo in the list above. */
+    /**
+     * A block the lists above name that the registry does not know is a typo or a removed block.
+     */
     @Example
     void everyNamedValuableBlockExists() {
         for (String id : VALUABLE_BLOCKS) {
@@ -345,22 +389,25 @@ class StructurePalettesTest {
         }
     }
 
+    /** The tags reach the blocks a hand-written list missed: copper chests and shulker boxes. */
+    @Example
+    void theValuableSetHoldsCopperChestsAndShulkerBoxes() {
+        assertTrue(VALUABLE_BLOCKS.contains("minecraft:copper_chest"));
+        assertTrue(VALUABLE_BLOCKS.contains("minecraft:waxed_oxidized_copper_chest"));
+        assertTrue(VALUABLE_BLOCKS.contains("minecraft:shulker_box"));
+        assertTrue(VALUABLE_BLOCKS.contains("minecraft:gold_block"));
+        assertTrue(VALUABLE_BLOCKS.contains("minecraft:raw_gold_block"));
+    }
+
     /**
      * A palette keeps gold blocks, gilded blackstone, ores, metal blocks, beacons, containers and
-     * spawners as vanilla places them (A-2416). The bastion palettes turned gold and gilded
-     * blackstone into sea lanterns and purpur.
+     * spawners as vanilla places them. The bastion palettes used to turn gold and gilded blackstone
+     * into sea lanterns and purpur.
      */
     @Example
     void noPaletteReplacesAValuableBlock() throws Exception {
         Set<String> replaced =
-                withoutOpen(
-                        replacements(
-                                shippedTable(),
-                                source ->
-                                        valuable(
-                                                BuiltInRegistries.BLOCK
-                                                        .getKey(source)
-                                                        .toString())));
+                withoutOpen(replacements(shippedTable(), StructurePalettesTest::valuable));
         assertTrue(replaced.isEmpty(), "Palettes replace valuable blocks: " + replaced);
     }
 
@@ -371,13 +418,69 @@ class StructurePalettesTest {
     @Example
     void everyOpenReplacementIsStillInTheTable() throws Exception {
         Set<String> stillThere = new TreeSet<>();
-        for (String replacement :
-                replacements(
-                        shippedTable(),
-                        source -> valuable(BuiltInRegistries.BLOCK.getKey(source).toString()))) {
-            stillThere.add(replacement.substring(0, replacement.indexOf(" in palette ")));
+        for (String replacement : replacements(shippedTable(), StructurePalettesTest::valuable)) {
+            stillThere.add(replacement);
         }
         assertEquals(new TreeSet<>(OPEN_REPLACEMENTS), stillThere);
+    }
+
+    /**
+     * The scan reports what it is meant to: an ore and a copper chest, one through the palette's
+     * own block and one through a piece accent, and nothing for a block it does not guard.
+     */
+    @Example
+    void theScanReportsAValuableBlockAPaletteReplaces() {
+        StructurePalettes.Data data =
+                StructurePalettes.parse(
+                        JsonParser.parseString(
+                                        """
+                                        {
+                                          "role_sets": {"test": {
+                                            "minecraft:diamond_ore": "ore",
+                                            "minecraft:copper_chest": "chest",
+                                            "minecraft:stone_bricks": "wall"}},
+                                          "palettes": {"p": {
+                                            "blocks": {
+                                              "ore": "minecraft:stone",
+                                              "chest": "minecraft:copper_chest",
+                                              "wall": "minecraft:cobblestone"},
+                                            "piece_accent": {
+                                              "blocks": {"chest": "minecraft:glass"},
+                                              "pieces": ["minecraft:nebcr"]}}},
+                                          "structures": {"s": {
+                                            "roles": "test", "default": "p", "biomes": []}}
+                                        }
+                                        """)
+                                .getAsJsonObject());
+        assertEquals(
+                Set.of(
+                        "minecraft:diamond_ore ore -> [minecraft:stone] in palette p",
+                        "minecraft:copper_chest chest -> [minecraft:glass] in palette p (piece_accent)"),
+                replacements(data, StructurePalettesTest::valuable));
+    }
+
+    /**
+     * An explicit null keeps the vanilla block when a palette is compiled and a block is remapped:
+     * the four bastion palettes keep their gold block and gilded blackstone, and still change
+     * crying obsidian, so the check can fail.
+     */
+    @Example
+    void aBastionKeepsItsGoldAndChangesItsCryingObsidian() {
+        List<StructurePalettes.Palette> bastions =
+                List.of(
+                        palette("bastion_overworld", Biomes.OCEAN),
+                        palette("bastion_overworld", Biomes.WARM_OCEAN),
+                        palette("bastion_overworld", Biomes.FROZEN_OCEAN),
+                        palette("bastion_end", Biomes.THE_END));
+        assertEquals(bastions.size(), Set.copyOf(bastions).size());
+        BlockState gold = Blocks.GOLD_BLOCK.defaultBlockState();
+        BlockState gilded = Blocks.GILDED_BLACKSTONE.defaultBlockState();
+        BlockState crying = Blocks.CRYING_OBSIDIAN.defaultBlockState();
+        for (StructurePalettes.Palette bastion : bastions) {
+            assertSame(gold, bastion.remap(gold, BlockPos.ZERO));
+            assertSame(gilded, bastion.remap(gilded, BlockPos.ZERO));
+            assertFalse(bastion.remap(crying, BlockPos.ZERO).is(Blocks.CRYING_OBSIDIAN));
+        }
     }
 
     /**
@@ -391,8 +494,8 @@ class StructurePalettesTest {
         StructurePalettes.Data data = shippedTable();
         Set<String> lost = new TreeSet<>();
         for (String replacement : replacements(data, source -> source instanceof EntityBlock)) {
-            String key = replacement.substring(0, replacement.indexOf(" in palette "));
-            String targets = key.substring(key.indexOf("-> [") + 4, key.length() - 1);
+            String head = replacement.substring(0, replacement.indexOf(" in palette "));
+            String targets = head.substring(head.indexOf("-> [") + 4, head.length() - 1);
             for (String target : targets.split(", ")) {
                 Block block = BuiltInRegistries.BLOCK.getValue(Identifier.parse(target));
                 if (!(block instanceof EntityBlock)) lost.add(replacement);
@@ -445,6 +548,8 @@ class StructurePalettesTest {
                         Biomes.BEACH,
                         Biomes.OCEAN,
                         Biomes.WARM_OCEAN,
+                        Biomes.FROZEN_OCEAN,
+                        Biomes.THE_END,
                         Biomes.NETHER_WASTES,
                         DATAPACK_NETHER_BIOME)) {
             holders.put(
