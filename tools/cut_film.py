@@ -67,12 +67,16 @@ TRAIL = 0.25
 JOIN = 0.15
 # The picture's change between two slots is the share of the world region's pixels that differ by more
 # than CHANGED_BY grey levels, times 255. A repeated slot is the same raw frame, which the encoder
-# reproduces to within a grey level or two: it measured exactly 0.0 on every repeat of end city's
-# ocean stage (take 14), where a camera step measured 2.25 or more. A mean difference did not
-# separate them there (repeats up to 0.4 against steps near 1.0).
-CHANGED_BY = 10
+# reproduces to within a grey level or two: its change measured at most 0.07 in take 14's film, and
+# a camera step at least 1.0 (the cut prints both extremes, and the level sits between them). A mean
+# difference did not separate them in end city's ocean stage (repeats up to 0.4 against steps near
+# 1.0), and a level of 10 grey levels missed the camera's steps in the Nether's dark fog (basalt
+# deltas).
+CHANGED_BY = 5
 CHANGED = f"lut=y=if(gt(val\\,{CHANGED_BY})\\,255\\,0)"
-STILL_LEVEL = 0.1
+STILL_LEVEL = 0.25
+STEP_LEVELS = []
+REPEAT_LEVELS = []
 # The most a half's frames may differ in how long after their draw slot they were captured: the
 # recorder hands a frame on up to 4 presents after its own and holds a slot 250 ms for it
 # (GameCapture.java BUFFERS, HOLD_US in MinecraftModConventions 3.5.0), 7.5 slots.
@@ -217,6 +221,11 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
             f"{stage} {label}: the frames are {min(lags):.1f} to {max(lags):.1f} slots from the slots"
             " they were drawn at: a pose is missing or a change the camera did not make was taken"
             " for a frame")
+    taken = set(kept)
+    STEP_LEVELS.append((min(STEPS[f - 1] for f in kept[1:]), stage, label))
+    REPEAT_LEVELS.append(
+        (max((STEPS.get(f - 1, 0.0) for f in range(kept[0], kept[-1]) if f not in taken), default=0.0),
+         stage, label))
     return kept
 
 
@@ -288,6 +297,8 @@ graph.append("".join(f"[v{i}]" for i in range(len(parts))) + f"concat=n={len(par
 
 print(f"largest spread of a half's frame lags (capture slot minus draw slot): {max(LAGS)[0]:.1f} slots"
       f" ({max(LAGS)[1:]})", flush=True)
+print(f"smallest camera step {min(STEP_LEVELS)[0]:.2f} ({min(STEP_LEVELS)[1:]}), largest repeated"
+      f" slot {max(REPEAT_LEVELS)[0]:.3f} ({max(REPEAT_LEVELS)[1:]}), level {STILL_LEVEL}", flush=True)
 print("encoding...", flush=True)
 subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),
