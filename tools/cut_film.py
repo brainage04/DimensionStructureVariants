@@ -20,7 +20,7 @@ half, with no halt at the join. The audio crossfades over JOIN seconds across th
 halves' sound overlaps instead of meeting at a fade to silence.
 
 A frame moves when it differs from the one before it by at least a twentieth of the stage's own
-motion (its upper quartile of differences), the rule the film is reviewed by.
+motion (the upper decile of its differences), the rule the film is reviewed by.
 
 Consecutive stages crossfade their audio over JOIN seconds as well, each stage's sound running JOIN
 seconds past its picture into the next stage's, so the Nether drone carries through a stage cut
@@ -62,11 +62,11 @@ TRAIL = 0.12
 JOIN = 0.15
 # A frame is still when it differs from the one before it by less than this share of the stage's
 # own motion: the rule the film is reviewed by, which measures against the stage's median
-# difference. The reference here is the stage's upper quartile instead, because a capture the
+# difference. The reference here is the stage's upper decile instead, because a capture the
 # client drew slowly repeats slots, and on such a capture half the frames are repeats and the
 # median is a still's own difference.
 STILL_SHARE = 0.05
-MOTION_QUANTILE = 0.75
+MOTION_QUANTILE = 0.9
 PALETTE_HALF = "/on"
 # The shot's frame counts come from the film's own path check, which logs `[DSV] <stage> path: N
 # frames ... palette on from frame M` for each stage, not from a copy of CameraPlan here.
