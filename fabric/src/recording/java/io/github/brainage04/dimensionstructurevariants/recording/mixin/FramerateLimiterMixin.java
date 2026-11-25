@@ -14,7 +14,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(FramerateLimiter.class)
 abstract class FramerateLimiterMixin {
     @Inject(method = "limitDisplayFPS", at = @At("HEAD"))
-    private static void dimensionstructurevariants$spaceFrames(int framerateLimit, CallbackInfo ci) {
+    private static void dimensionstructurevariants$spaceFrames(
+            int framerateLimit, CallbackInfo ci) {
         ShowcaseCamera.spaceFrames();
     }
 }

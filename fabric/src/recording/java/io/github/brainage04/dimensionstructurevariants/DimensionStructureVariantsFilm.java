@@ -1691,10 +1691,10 @@ public final class DimensionStructureVariantsFilm {
     /**
      * Prints {@code CAPTURE_DROPS <half> <edge> <count>}: the frames the recorder has dropped so
      * far, which the cut compares between a half's start and end. The recorder counts a drop when
-     * it hands a finished copy on, up to {@link #CAPTURE_SETTLE_TICKS} presents after the frame
-     * was drawn ({@code GameCapture.hand}), so the client runs that many ticks before the count at
-     * a half's end is read. The test thread must not sleep instead: the client waits for it
-     * between steps, which would hold the half's last present back.
+     * it hands a finished copy on, up to {@link #CAPTURE_SETTLE_TICKS} presents after the frame was
+     * drawn ({@code GameCapture.hand}), so the client runs that many ticks before the count at a
+     * half's end is read. A sleep on the test thread here held the half's last present back by 11
+     * capture slots in a full recording, so the wait is in client ticks.
      */
     private static void printCaptureDrops(
             ClientGameTestContext context, String half, String edge, boolean settle) {
