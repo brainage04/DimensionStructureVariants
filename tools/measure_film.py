@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Measures a cut film the way the review does: stills at every cut, pitch per stage, audio at joins.
+"""Measures a cut film the way the review does: stills at every cut and join, pitch per stage.
 
 usage: measure_film.py FILM.mp4 SIDECAR.json [--json OUT.json]
 
-Streams the film through ffmpeg once for the per-frame difference in the world region and once for
-the 20 ms RMS envelope, so nothing holds a film's frames in memory.
+Streams the film through ffmpeg for the per-frame difference in the world region, so nothing holds
+a film's frames in memory. The film has no sound.
 """
 import json
 import re
@@ -44,21 +44,6 @@ def differences():
             current = int(m.group(1))
         elif "YAVG=" in line:
             values[current] = float(line.split("=")[1])
-    return values
-
-
-def rms_envelope():
-    """20 ms RMS in dBFS, one value per 20 ms window."""
-    out = subprocess.run(
-        ["ffmpeg", "-v", "error", "-i", str(film), "-af",
-         "asetnsamples=n=960:p=0,astats=metadata=1:reset=1,"
-         "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-",
-         "-f", "null", "-"], check=True, capture_output=True, text=True).stdout
-    values = []
-    for line in out.splitlines():
-        if "RMS_level=" in line:
-            text = line.split("=", 1)[1]
-            values.append(float(text) if text not in ("-inf", "inf") else -120.0)
     return values
 
 
@@ -195,43 +180,6 @@ for f in range(len(steps)):
     else:
         run = 0
 
-# Audio: the 20 ms RMS at each palette join and at each stage cut, against the stage's own median.
-rms = rms_envelope()
-window = 0.25
-
-
-def dip(at):
-    lo = max(0, int((at - window) / 0.02))
-    hi = min(len(rms), int((at + window) / 0.02) + 1)
-    return min(rms[lo:hi]) if hi > lo else None
-
-
-joins = []
-for shot in shots:
-    at = shot["palette_at_s"]
-    lo = max(0, int((shot["video_start_s"]) / 0.02))
-    hi = min(len(rms), int(shot["video_end_s"] / 0.02))
-    stage_median = statistics.median(rms[lo:hi]) if hi > lo else None
-    joins.append({
-        "join_s": at,
-        "stage_median_db": round(stage_median, 1) if stage_median is not None else None,
-        "join_min_db": round(dip(at), 1) if dip(at) is not None else None,
-        "dip_db": round(stage_median - dip(at), 1) if stage_median is not None and dip(at) is not None else None,
-    })
-
-stage_cuts = []
-for i in range(len(shots) - 1):
-    at = shots[i]["video_end_s"]
-    lo = max(0, int(shots[i]["video_start_s"] / 0.02))
-    hi = min(len(rms), int(shots[i + 1]["video_end_s"] / 0.02))
-    stage_median = statistics.median(rms[lo:hi]) if hi > lo else None
-    stage_cuts.append({
-        "cut_s": at,
-        "stage_median_db": round(stage_median, 1) if stage_median is not None else None,
-        "cut_min_db": round(dip(at), 1) if dip(at) is not None else None,
-        "dip_db": round(stage_median - dip(at), 1) if stage_median is not None and dip(at) is not None else None,
-    })
-
 # The palette join: the camera stops on one pose while the palette goes in, and the cut joins the
 # halves on that pose. A join that shows the pose for more than a frame is a halt the viewer sees,
 # which is what the review measures at each join.
@@ -262,8 +210,6 @@ result = {
     "flat_region": flat_per_stage,
     "repeated_frame_pairs": len(repeats),
     "repeated_frames": repeats,
-    "palette_joins_audio": joins,
-    "stage_cuts_audio": stage_cuts,
     "final_pitch_deg": [shot.get("final_pitch_deg") for shot in shots],
 }
 print(json.dumps(result, indent=2))

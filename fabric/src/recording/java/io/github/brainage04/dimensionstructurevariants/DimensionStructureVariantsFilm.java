@@ -95,7 +95,7 @@ import net.minecraft.world.phys.AABB;
  * spawning), and the server is frozen until the shot. The camera rehearses the shot off screen
  * until a whole pass builds no new section; the filmed pass must then build and lose none.
  *
- * <p>Every shot runs the Overworld clock from noon to midnight with Night Vision on the camera
+ * <p>Every shot holds the Overworld clock at noon with Night Vision on the camera
  * player, and circles the structure twice per shot at a fixed distance, descending from looking 60
  * degrees down at the centre to looking level from the structure's ground level, as one function of
  * the film's frame number ({@link CameraPlan}). The first half shows the vanilla blocks; at frame
@@ -113,10 +113,11 @@ public final class DimensionStructureVariantsFilm {
     private static final int CHECK_INTERVAL = 4;
 
     /**
-     * Ticks past the shot's 80 a shot may run while its camera draws its last frames: the shot is
-     * 121 frames of the client, so a client under 30 frames a second needs more than 80 ticks.
+     * The most client ticks a shot may take. The harness runs about one game tick per drawn frame
+     * (the recorded film's timing lines read 122 ticks for 121 frames), so the shot's 121 frames
+     * take about 122 ticks; the rest is room for a client that draws a frame in more than one tick.
      */
-    private static final int LATE_TICKS = 60;
+    private static final int MAX_SHOT_TICKS = 140;
 
     /** Client ticks after a half's last frame before the recorder's drop count is read. */
     private static final int CAPTURE_SETTLE_TICKS = 4;
@@ -2517,9 +2518,7 @@ public final class DimensionStructureVariantsFilm {
                         + CameraPlan.FRAMES_PER_SECOND
                         + " s of the plan, whatever the client's speed (it presented "
                         + String.format(Locale.ROOT, "%.1f", framesPerSecond)
-                        + " frames a second, the game ticks at "
-                        + ShowcaseCamera.SHOT_TICK_RATE
-                        + ")");
+                        + " frames a second)");
         if (baseline.isEmpty())
             throw new AssertionError("Expected sections to be built for " + stage.id());
 
@@ -2615,19 +2614,14 @@ public final class DimensionStructureVariantsFilm {
                         + " px");
         if (stage.dimension() == Dimension.NETHER) assertNetherFog(context);
 
-        // Noon to midnight over the shot: the clock runs at that rate and the client follows it
-        // between the server's updates. A clock change tells the clients the rate, which is 0
-        // while advance_time is off, so the game rule goes first.
+        // The Overworld clock stands at noon for the whole shot, so the sky is the same in every
+        // frame. The harness ticks about once per drawn frame (take 14's log: 122 ticks for 121
+        // frames), which is 30 ticks a film second against the game's 20, so a clock that ran
+        // would pass 1.5 times the day the film's seconds show.
         server.runOnServer(
                 minecraftServer -> {
-                    run(minecraftServer, "gamerule advance_time true");
+                    run(minecraftServer, "gamerule advance_time false");
                     setDayTime(minecraftServer, NOON);
-                    Holder<WorldClock> clock = overworldClock(minecraftServer);
-                    minecraftServer
-                            .clockManager()
-                            .setRate(clock, (float) (MIDNIGHT - NOON) / ShowcaseCamera.SHOT_TICKS);
-                    // The game's own tick rate and no other: the shot's 80 ticks are the 4 seconds
-                    // the cut plays, and the camera is posed on the frame's clock, not the tick's.
                     minecraftServer.tickRateManager().setTickRate(ShowcaseCamera.SHOT_TICK_RATE);
                     minecraftServer.tickRateManager().setFrozen(false);
                 });
@@ -2651,7 +2645,7 @@ public final class DimensionStructureVariantsFilm {
         // the palette frame, so neither follows a tick: a slow client draws the shot's 121 frames
         // in more ticks, a fast one in fewer, and the picture is the same.
         boolean finished = false;
-        for (int tick = 1; tick <= ShowcaseCamera.SHOT_TICKS + LATE_TICKS; tick++) {
+        for (int tick = 1; tick <= MAX_SHOT_TICKS; tick++) {
             timing.beforeWait();
             context.waitTick();
             ShotTiming.Shown shown = timing.afterWait(context, server, tick);
@@ -2705,7 +2699,7 @@ public final class DimensionStructureVariantsFilm {
             throw new AssertionError(
                     stage.id()
                             + ": the camera did not draw the shot's last frame in "
-                            + (ShowcaseCamera.SHOT_TICKS + LATE_TICKS)
+                            + MAX_SHOT_TICKS
                             + " ticks");
         long endMs = System.currentTimeMillis();
         // The shot ends on this frame: the clock stops here, so the held pose the next stage's
@@ -2718,9 +2712,7 @@ public final class DimensionStructureVariantsFilm {
         String after =
                 server.computeOnServer(
                         minecraftServer -> {
-                            run(minecraftServer, "gamerule advance_time false");
                             Holder<WorldClock> clock = overworldClock(minecraftServer);
-                            minecraftServer.clockManager().setRate(clock, 1.0F);
                             minecraftServer.tickRateManager().setFrozen(true);
                             long total =
                                     minecraftServer.clockManager().getInstance(clock).totalTicks();

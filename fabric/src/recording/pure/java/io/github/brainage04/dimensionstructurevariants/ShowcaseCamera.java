@@ -23,10 +23,7 @@ import java.util.concurrent.locks.LockSupport;
  * the switch changes nothing about the motion.
  */
 public final class ShowcaseCamera {
-    /** Game ticks in a shot's 4 seconds, which the game clock's rate is set for. */
-    public static final int SHOT_TICKS = 80;
-
-    /** Game ticks a second while a shot is filmed: the game's own rate. */
+    /** The game's own tick rate, which the server runs at while a shot is filmed. */
     public static final int SHOT_TICK_RATE = 20;
 
     /**

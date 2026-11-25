@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Cuts a DSV recording into one clip per stage and joins each stage's two halves with a crossfade.
+"""Cuts a DSV recording into one clip per stage, each stage's two halves joined without a halt.
 
 usage: cut_film.py LOG VIDEO META.json OUT.mp4 SIDECAR.json
 
 Each stage prints four markers: `STAGE_START`/`STAGE_END <ms> <id>` around the vanilla half and
 `STAGE_START`/`STAGE_END <ms> <id>/on` around the palette half. Between the halves the camera and
 the game stand still while the server swaps the blocks and the client builds them; the cut drops
-that pause, so the two halves' audio are not contiguous in the capture and a hard join clicks.
+that pause.
 
 Each half is cut to exactly the frames the camera drew. The camera draws every frame of the shot as
 a new pose, frame n at n / 30 s of the plan, the client presents no two frames within one capture
@@ -21,15 +21,13 @@ start and end as CAPTURE_DROPS), a half whose capture holds fewer changing slots
 than the camera drew frames, and a half in which a frame is not within a few slots of the slot it
 was drawn at (a pose missing or a change the camera did not make). The film shows
 frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palette half, with no
-halt at the join. The audio crossfades over JOIN seconds across the join, so the two halves' sound
-overlaps instead of meeting at a fade to silence.
+halt at the join.
 
 A slot repeats the one before it when the pictures differ in no more than STILL_LEVEL (CHANGED).
 
-Consecutive stages crossfade their audio over JOIN seconds as well, each stage's sound running JOIN
-seconds past its picture into the next stage's, so the Nether drone carries through a stage cut
-instead of fading to silence and back. The picture still cuts hard, and the film's audio is exactly
-as long as its picture.
+The film has no sound. The picture shows the world at one game tick per drawn frame, about 1.5
+times the game's own speed, and the recording's sound runs at game speed, so the two cannot be
+made to line up.
 
 The capture is resampled to the film's rate before anything is measured or cut, so the frames the
 still detection counts are the frames the film shows.
@@ -37,7 +35,6 @@ still detection counts are the frames the film shows.
 import json
 import math
 import re
-import statistics
 import subprocess
 import sys
 from pathlib import Path
@@ -64,7 +61,6 @@ CFR = f"fps={RATE:.0f},setpts=PTS-STARTPTS"
 # camera is held still for a few ticks either side, so the search has to reach past them.
 LEAD = 0.10
 TRAIL = 0.25
-JOIN = 0.15
 # The picture's change between two slots is the share of the world region's pixels that differ by more
 # than CHANGED_BY grey levels, times 255. A repeated slot is the same raw frame, which the encoder
 # reproduces to within a grey level or two: its change measured at most 0.07 in take 14's film, and
@@ -253,46 +249,19 @@ for index, (stage, s1, e1, s2, e2) in enumerate(stages):
                    frame_at(at(e2) + TRAIL), slots[palette_frame:], False)
     off_frames = len(off)
     on_frames = len(on)
-    begin_s = off[0] / RATE
-    on_begin = on[0] / RATE
     off_len = off_frames / RATE
     on_len = on_frames / RATE
     length = off_len + on_len
-    # The audio is cut by length from where each half starts, so it is as long as the picture
-    # whatever repeated slots the capture held between the frames.
-    finish_s = on_begin + on_len
-    if on_len < 2.0 * JOIN:
-        raise SystemExit(f"{stage}: the palette half is {on_len:.2f} s, shorter than two {JOIN} s fades")
     graph.append(
         f"[cfr]select='{select(off)}',setpts=N/({RATE:.0f}*TB)[v{index}a];"
         f"[cfr]select='{select(on)}',setpts=N/({RATE:.0f}*TB)[v{index}b];"
         f"[v{index}a][v{index}b]concat=n=2:v=1:a=0[v{index}]")
-    graph.append(
-        f"[0:a]atrim=start={begin_s:.6f}:end={begin_s + off_len + JOIN:.6f},asetpts=PTS-STARTPTS[a{index}a];"
-        f"[0:a]atrim=start={on_begin:.6f}:end={finish_s:.6f},asetpts=PTS-STARTPTS[a{index}b];"
-        f"[a{index}a][a{index}b]acrossfade=d={JOIN}:c1=tri:c2=tri[a{index}]")
-    parts.append((stage, length, off_len, finish_s))
+    parts.append((stage, length, off_len))
     position += length
     print(f"{stage}: {off_frames}+{on_frames} frames, vanilla {off[0]}-{off[-1]}, palette {on[0]}-{on[-1]}"
           f" of the capture ({off[-1] - off[0] + 1 - off_frames} + {on[-1] - on[0] + 1 - on_frames}"
           " repeated slots dropped)", flush=True)
 
-# Stage boundaries: each stage's sound runs JOIN seconds past its picture, into the next stage's,
-# and the two crossfade there. The picture cuts hard; the sound carries the drone through the cut
-# instead of fading it to silence and back. The last stage's sound ends with its picture, so the
-# film's audio is exactly as long as its picture.
-for index, (stage, length, off_len, finish_s) in enumerate(parts):
-    if index == len(parts) - 1:
-        graph.append(f"[a{index}]anull[e{index}]")
-    else:
-        graph.append(
-            f"[0:a]atrim=start={finish_s:.6f}:end={finish_s + JOIN:.6f},asetpts=PTS-STARTPTS"
-            f"[t{index}];[a{index}][t{index}]concat=n=2:v=0:a=1[e{index}]")
-chain = "[e0]"
-for index in range(1, len(parts)):
-    graph.append(f"{chain}[e{index}]acrossfade=d={JOIN}:c1=tri:c2=tri[c{index}]")
-    chain = f"[c{index}]"
-graph.append(f"{chain}afade=t=in:st=0:d={JOIN},afade=t=out:st={position - JOIN:.6f}:d={JOIN}[aout]")
 graph.append("".join(f"[v{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=0[vout]")
 
 print(f"largest spread of a half's frame lags (capture slot minus draw slot): {max(LAGS)[0]:.1f} slots"
@@ -302,44 +271,15 @@ print(f"smallest camera step {min(STEP_LEVELS)[0]:.2f} ({min(STEP_LEVELS)[1:]}),
 print("encoding...", flush=True)
 subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),
-    "-filter_complex", ";".join(graph), "-map", "[vout]", "-map", "[aout]",
+    "-filter_complex", ";".join(graph), "-map", "[vout]", "-an",
     "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p",
     # A constant rate, so the film plays at the rate the sidecar counts in.
-    "-c:a", "aac", "-b:a", "192k", "-r", f"{RATE:.0f}", str(out_path),
+    "-r", f"{RATE:.0f}", str(out_path),
 ], check=True)
-
-
-def loudness(path):
-    out = subprocess.run(
-        ["ffmpeg", "-v", "info", "-nostats", "-i", str(path),
-         "-af", "loudnorm=I=-20:TP=-1.5:print_format=json", "-f", "null", "-"],
-        capture_output=True, text=True, errors="replace").stderr
-    m = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", out, re.S)
-    if not m:
-        raise SystemExit(f"no loudness measurement for {path}")
-    stats = json.loads(m.group(0))
-    return float(stats["input_i"]), float(stats["input_tp"])
-
-
-before_i, before_tp = loudness(out_path)
-print(f"loudness before: {before_i} LUFS, {before_tp} dBTP", flush=True)
-if before_i != float("-inf"):
-    gain = -20.0 - before_i
-    if abs(gain) >= 0.1:
-        flat = out_path.with_name(out_path.stem + "-flat" + out_path.suffix)
-        out_path.rename(flat)
-        subprocess.run(
-            ["ffmpeg", "-v", "error", "-y", "-i", str(flat), "-c:v", "copy",
-             "-af", f"volume={gain:.2f}dB,alimiter=limit={10 ** (-1.5 / 20.0):.6f}:level=false",
-             "-c:a", "aac", "-b:a", "192k", str(out_path)], check=True)
-        flat.unlink()
-        after_i, after_tp = loudness(out_path)
-        print(f"applied {gain:+.2f} dB with a -1.5 dBFS limiter", flush=True)
-        print(f"loudness after:  {after_i} LUFS, {after_tp} dBTP", flush=True)
 
 entries = []
 position = 0.0
-for stage, length, off_len, finish_s in parts:
+for stage, length, off_len in parts:
     fields = summary.get(stage, [])
     shot = {
         "stage": stage,
@@ -363,7 +303,7 @@ for stage, length, off_len, finish_s in parts:
 sidecar_path.write_text(json.dumps({
     "video": str(out_path),
     "source_recording": str(video_path),
-    "join_crossfade_s": JOIN,
+    "audio": "none",
     "shots": entries,
 }, indent=2) + "\n")
 print("wrote", out_path, "and", sidecar_path)
