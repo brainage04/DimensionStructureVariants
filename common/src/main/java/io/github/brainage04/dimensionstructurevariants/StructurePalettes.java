@@ -303,10 +303,10 @@ public final class StructurePalettes {
         }
     }
 
-    private record Rule(List<Matcher> match, String palette) {}
+    record Rule(List<Matcher> match, String palette) {}
 
     /** The palette of the first rule that matches a biome, else the structure's default. */
-    private record Rules(String roles, List<Rule> biomes, String fallback) {
+    record Rules(String roles, List<Rule> biomes, String fallback) {
         String paletteFor(Holder<Biome> biome) {
             String palette = ruleFor(biome);
             return palette == null ? fallback : palette;
@@ -327,7 +327,7 @@ public final class StructurePalettes {
      * the ground it lays with the feature that grows on it, and the accent it gives one role in the
      * pieces it names.
      */
-    private record RawPalette(
+    record RawPalette(
             Map<String, Map<String, Integer>> blocks,
             Map<String, Integer> ground,
             String groundFeature,
@@ -335,7 +335,7 @@ public final class StructurePalettes {
             @Nullable PieceAccent accent) {}
 
     /** The roles' blocks in the named pieces, so a part of the structure reads as its own. */
-    private record PieceAccent(Set<Identifier> pieces, Map<String, Map<String, Integer>> blocks) {}
+    record PieceAccent(Set<Identifier> pieces, Map<String, Map<String, Integer>> blocks) {}
 
     record Data(
             Map<String, Map<String, String>> roleSets,

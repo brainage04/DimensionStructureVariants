@@ -12,10 +12,16 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.Lifecycle;
 import java.lang.reflect.Field;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import net.jqwik.api.Example;
 import net.minecraft.ReportedException;
 import net.minecraft.SharedConstants;
@@ -25,6 +31,7 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.QuartPos;
 import net.minecraft.core.RegistrationInfo;
 import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
@@ -38,6 +45,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeResolver;
 import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.ProtoChunk;
 import net.minecraft.world.level.chunk.status.ChunkPyramid;
@@ -201,6 +210,199 @@ class StructurePalettesTest {
                         """
                                 .formatted(piece))
                 .getAsJsonObject();
+    }
+
+    /**
+     * Blocks a palette may never replace (A-2416: "palettes never replace valuable blocks (gold
+     * blocks, ores)", for example the ocean bastion's gold turning into sea lanterns). Every
+     * vanilla {@code _ore} counts as well.
+     */
+    private static final Set<String> VALUABLE_BLOCKS =
+            Set.of(
+                    "minecraft:gold_block",
+                    "minecraft:gilded_blackstone",
+                    "minecraft:ancient_debris",
+                    "minecraft:netherite_block",
+                    "minecraft:diamond_block",
+                    "minecraft:emerald_block",
+                    "minecraft:lapis_block",
+                    "minecraft:iron_block",
+                    "minecraft:copper_block",
+                    "minecraft:exposed_copper",
+                    "minecraft:weathered_copper",
+                    "minecraft:oxidized_copper",
+                    "minecraft:waxed_copper_block",
+                    "minecraft:waxed_exposed_copper",
+                    "minecraft:waxed_weathered_copper",
+                    "minecraft:waxed_oxidized_copper",
+                    "minecraft:raw_iron_block",
+                    "minecraft:raw_copper_block",
+                    "minecraft:raw_gold_block",
+                    "minecraft:beacon",
+                    "minecraft:chest",
+                    "minecraft:trapped_chest",
+                    "minecraft:ender_chest",
+                    "minecraft:barrel",
+                    "minecraft:spawner",
+                    "minecraft:trial_spawner",
+                    "minecraft:vault");
+
+    /**
+     * Replacements of a valuable or block-entity block that the owner has not yet decided on
+     * (A-2416, open question): a barrel is a container, and the village palettes turn it into
+     * purpur pillar or stripped crimson hyphae, which also drops its block entity. Each entry is
+     * {@code source role -> targets}. The test fails when an entry no longer matches a palette, so
+     * the list shrinks as the owner decides.
+     */
+    private static final Set<String> OPEN_REPLACEMENTS =
+            Set.of(
+                    "minecraft:barrel storage -> [minecraft:purpur_pillar]",
+                    "minecraft:barrel storage -> [minecraft:stripped_crimson_hyphae]");
+
+    private static boolean valuable(String id) {
+        return VALUABLE_BLOCKS.contains(id) || id.endsWith("_ore");
+    }
+
+    private static StructurePalettes.Data shippedTable() throws Exception {
+        try (Reader reader =
+                new InputStreamReader(
+                        StructurePalettes.class.getResourceAsStream(
+                                "/dimensionstructurevariants/palettes.json"),
+                        StandardCharsets.UTF_8)) {
+            return StructurePalettes.parse(JsonParser.parseReader(reader).getAsJsonObject());
+        }
+    }
+
+    /**
+     * Every palette a structure uses, resolved: structure to palette to the replacements each of
+     * its roles makes of a source block that {@code matches}. A role set maps source blocks to
+     * roles and a palette maps roles to blocks, so a role that a palette leaves null, or maps to
+     * the source block itself, replaces nothing.
+     */
+    private static Set<String> replacements(
+            StructurePalettes.Data data, java.util.function.Predicate<Block> matches) {
+        Set<String> found = new TreeSet<>();
+        for (Map.Entry<String, StructurePalettes.Rules> structure : data.structures().entrySet()) {
+            Map<String, String> roles = data.roleSets().get(structure.getValue().roles());
+            Set<String> palettes = new LinkedHashSet<>();
+            palettes.add(structure.getValue().fallback());
+            for (StructurePalettes.Rule rule : structure.getValue().biomes()) {
+                palettes.add(rule.palette());
+            }
+            for (String name : palettes) {
+                StructurePalettes.RawPalette palette = data.palettes().get(name);
+                for (Map.Entry<String, String> role : roles.entrySet()) {
+                    Block source =
+                            BuiltInRegistries.BLOCK.getValue(Identifier.parse(role.getKey()));
+                    if (!matches.test(source)) continue;
+                    note(found, name, role, palette.blocks().get(role.getValue()), "");
+                    if (palette.accent() != null) {
+                        note(
+                                found,
+                                name,
+                                role,
+                                palette.accent().blocks().get(role.getValue()),
+                                " (piece_accent)");
+                    }
+                }
+            }
+        }
+        return found;
+    }
+
+    private static void note(
+            Set<String> found,
+            String palette,
+            Map.Entry<String, String> role,
+            Map<String, Integer> targets,
+            String where) {
+        if (targets == null || targets.keySet().equals(Set.of(role.getKey()))) return;
+        found.add(
+                role.getKey()
+                        + " "
+                        + role.getValue()
+                        + " -> "
+                        + new TreeSet<>(targets.keySet())
+                        + " in palette "
+                        + palette
+                        + where);
+    }
+
+    private static Set<String> withoutOpen(Set<String> replacements) {
+        Set<String> rest = new TreeSet<>();
+        for (String replacement : replacements) {
+            String key = replacement.substring(0, replacement.indexOf(" in palette "));
+            if (!OPEN_REPLACEMENTS.contains(key)) rest.add(replacement);
+        }
+        return rest;
+    }
+
+    /** A named valuable block that the registry does not know is a typo in the list above. */
+    @Example
+    void everyNamedValuableBlockExists() {
+        for (String id : VALUABLE_BLOCKS) {
+            assertTrue(BuiltInRegistries.BLOCK.containsKey(Identifier.parse(id)), id);
+        }
+    }
+
+    /**
+     * A palette keeps gold blocks, gilded blackstone, ores, metal blocks, beacons, containers and
+     * spawners as vanilla places them (A-2416). The bastion palettes turned gold and gilded
+     * blackstone into sea lanterns and purpur.
+     */
+    @Example
+    void noPaletteReplacesAValuableBlock() throws Exception {
+        Set<String> replaced =
+                withoutOpen(
+                        replacements(
+                                shippedTable(),
+                                source ->
+                                        valuable(
+                                                BuiltInRegistries.BLOCK
+                                                        .getKey(source)
+                                                        .toString())));
+        assertTrue(replaced.isEmpty(), "Palettes replace valuable blocks: " + replaced);
+    }
+
+    /**
+     * The open replacements are exactly what the shipped table still does, so a decision that
+     * removes one is not left behind in the list.
+     */
+    @Example
+    void everyOpenReplacementIsStillInTheTable() throws Exception {
+        Set<String> stillThere = new TreeSet<>();
+        for (String replacement :
+                replacements(
+                        shippedTable(),
+                        source ->
+                                valuable(BuiltInRegistries.BLOCK.getKey(source).toString()))) {
+            stillThere.add(replacement.substring(0, replacement.indexOf(" in palette ")));
+        }
+        assertEquals(new TreeSet<>(OPEN_REPLACEMENTS), stillThere);
+    }
+
+    /**
+     * A block with a block entity that a palette turns into one without loses its loot table and
+     * contents: {@code StructureTemplate} sets the replacement block and then loads the template's
+     * NBT into whatever block entity is there ({@code StructureTemplate.java:280-296}), so no block
+     * entity means the NBT, loot table included, is dropped.
+     */
+    @Example
+    void noPaletteTurnsABlockEntityBlockIntoOneWithoutAnEntity() throws Exception {
+        StructurePalettes.Data data = shippedTable();
+        Set<String> lost = new TreeSet<>();
+        for (String replacement :
+                replacements(data, source -> source instanceof EntityBlock)) {
+            String key = replacement.substring(0, replacement.indexOf(" in palette "));
+            String targets = key.substring(key.indexOf("-> [") + 4, key.length() - 1);
+            for (String target : targets.split(", ")) {
+                Block block = BuiltInRegistries.BLOCK.getValue(Identifier.parse(target));
+                if (!(block instanceof EntityBlock)) lost.add(replacement);
+            }
+        }
+        assertTrue(
+                withoutOpen(lost).isEmpty(),
+                "Palettes drop the block entity of: " + withoutOpen(lost));
     }
 
     @Example
