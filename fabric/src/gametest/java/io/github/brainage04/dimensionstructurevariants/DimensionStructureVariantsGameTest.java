@@ -99,6 +99,11 @@ public final class DimensionStructureVariantsGameTest {
         PaletteGameTests.rareBlocksStayAtAboutOnePercent(helper);
     }
 
+    @GameTest(maxTicks = 400)
+    public void fortressChestsKeepTheirLootTable(GameTestHelper helper) {
+        PaletteGameTests.fortressChestsKeepTheirLootTable(helper);
+    }
+
     @GameTest(maxTicks = 200)
     public void endCityInTheNetherLeavesNoPurpur(GameTestHelper helper) {
         EndCityNetherGameTests.endCityInTheNetherLeavesNoPurpur(helper);

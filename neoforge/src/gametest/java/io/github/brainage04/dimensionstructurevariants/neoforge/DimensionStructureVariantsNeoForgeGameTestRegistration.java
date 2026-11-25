@@ -105,6 +105,10 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 () -> PaletteGameTests::rareBlocksStayAtAboutOnePercent);
         event.register(
                 BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("fortress_chests_keep_their_loot_table"),
+                () -> PaletteGameTests::fortressChestsKeepTheirLootTable);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of("end_city_in_the_nether_leaves_no_purpur"),
                 () -> EndCityNetherGameTests::endCityInTheNetherLeavesNoPurpur);
         event.register(

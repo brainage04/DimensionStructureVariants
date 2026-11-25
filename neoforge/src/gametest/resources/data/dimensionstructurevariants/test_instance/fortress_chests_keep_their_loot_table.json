@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 400,
+  "type": "minecraft:function",
+  "function": "dimensionstructurevariants:fortress_chests_keep_their_loot_table"
+}

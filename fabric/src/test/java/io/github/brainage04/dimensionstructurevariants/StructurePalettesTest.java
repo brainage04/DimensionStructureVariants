@@ -11,9 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.Lifecycle;
-import java.lang.reflect.Field;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -374,8 +374,7 @@ class StructurePalettesTest {
         for (String replacement :
                 replacements(
                         shippedTable(),
-                        source ->
-                                valuable(BuiltInRegistries.BLOCK.getKey(source).toString()))) {
+                        source -> valuable(BuiltInRegistries.BLOCK.getKey(source).toString()))) {
             stillThere.add(replacement.substring(0, replacement.indexOf(" in palette ")));
         }
         assertEquals(new TreeSet<>(OPEN_REPLACEMENTS), stillThere);
@@ -391,8 +390,7 @@ class StructurePalettesTest {
     void noPaletteTurnsABlockEntityBlockIntoOneWithoutAnEntity() throws Exception {
         StructurePalettes.Data data = shippedTable();
         Set<String> lost = new TreeSet<>();
-        for (String replacement :
-                replacements(data, source -> source instanceof EntityBlock)) {
+        for (String replacement : replacements(data, source -> source instanceof EntityBlock)) {
             String key = replacement.substring(0, replacement.indexOf(" in palette "));
             String targets = key.substring(key.indexOf("-> [") + 4, key.length() - 1);
             for (String target : targets.split(", ")) {

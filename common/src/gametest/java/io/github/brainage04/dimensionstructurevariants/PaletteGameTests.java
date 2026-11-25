@@ -28,6 +28,7 @@ import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.WallBlock;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.Half;
@@ -42,6 +43,7 @@ import net.minecraft.world.level.levelgen.structure.StructureStart;
 import net.minecraft.world.level.levelgen.structure.pieces.PiecesContainer;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceSerializationContext;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
+import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 
 /** Runs the production palette tables and placement mixins on both loaders. */
 public final class PaletteGameTests {
@@ -786,6 +788,59 @@ public final class PaletteGameTests {
                     accentIn.containsKey(id),
                     "The accent piece " + id + " must wear the accent, found " + accentIn);
         }
+        helper.succeed();
+    }
+
+    /**
+     * Fortress starts tried in a row until one holds a chest; a fortress places one in some
+     * corridor pieces.
+     */
+    private static final int CHEST_SEARCH_STARTS = 8;
+
+    /**
+     * A palette changes block states only, so a chest of a placed fortress keeps the loot table the
+     * piece gave it ({@code StructurePiece.createChest} sets the table on the block entity right
+     * after the block). The test places snowy fortresses until one holds a chest and reads the
+     * block entity from the world.
+     */
+    public static void fortressChestsKeepTheirLootTable(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        int chests = 0;
+        for (int attempt = 0; attempt < CHEST_SEARCH_STARTS && chests == 0; attempt++) {
+            StructureStart start =
+                    fortressStart(helper, level, new ChunkPos(1400 + attempt * 64, 1400));
+            BoundingBox box = start.getBoundingBox();
+            List<ChunkPos> chunks = chunks(box);
+            for (ChunkPos each : chunks) {
+                level.setChunkForced(each.x(), each.z(), true);
+                level.getChunk(each.x(), each.z());
+            }
+            fillBiome(helper, level, box, Biomes.SNOWY_PLAINS);
+            for (ChunkPos each : chunks) place(level, start, each);
+            for (BlockPos pos :
+                    BlockPos.betweenClosed(
+                            box.minX(),
+                            box.minY(),
+                            box.minZ(),
+                            box.maxX(),
+                            box.maxY(),
+                            box.maxZ())) {
+                if (!level.getBlockState(pos).is(Blocks.CHEST)) continue;
+                chests++;
+                helper.assertTrue(
+                        level.getBlockEntity(pos) instanceof ChestBlockEntity chest
+                                && BuiltInLootTables.NETHER_BRIDGE.equals(chest.getLootTable()),
+                        "The chest at "
+                                + pos.toShortString()
+                                + " must keep the nether_bridge loot table");
+            }
+            for (ChunkPos each : chunks) level.setChunkForced(each.x(), each.z(), false);
+        }
+        System.out.println(
+                "[DSV] Snowy fortress chests with the nether_bridge loot table: " + chests);
+        helper.assertTrue(
+                chests > 0,
+                "None of " + CHEST_SEARCH_STARTS + " snowy fortresses held a chest to check");
         helper.succeed();
     }
 
