@@ -462,7 +462,10 @@ public final class DimensionStructureVariantsFilm {
                                 // Mobs are drawn out to 64 blocks times their size by default; the
                                 // shot starts much farther out.
                                 client.options.entityDistanceScaling().set(5.0D);
-                                client.options.framerateLimit().set(RECORDING_FRAME_CAP);
+                                // The option only takes multiples of 10 (Options.java:126), so the
+                                // tracker the option feeds is set directly.
+                                client.getFramerateLimitTracker()
+                                        .setFramerateLimit(RECORDING_FRAME_CAP);
                             });
                     server.runOnServer(
                             minecraftServer -> {
@@ -2624,7 +2627,8 @@ public final class DimensionStructureVariantsFilm {
         ShotTiming timing =
                 new ShotTiming(
                         stage.id(),
-                        context.computeOnClient(client -> client.options.framerateLimit().get()));
+                        context.computeOnClient(
+                                client -> client.getFramerateLimitTracker().getFramerateLimit()));
         int busyTicks = 0;
         int poppedTicks = 0;
         StringBuilder problems = new StringBuilder();
