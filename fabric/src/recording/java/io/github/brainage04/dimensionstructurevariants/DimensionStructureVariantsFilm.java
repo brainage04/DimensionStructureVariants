@@ -2410,10 +2410,10 @@ public final class DimensionStructureVariantsFilm {
         context.runOnClient(
                 client -> {
                     ClientGameTestRecordingHud.clear();
-                    // Under the caption panel, the overlay's own place, StageCaptionPanel lists the
-                    // biomes.
+                    // The overlay would cover the world's bottom-right corner; the recording keeps
+                    // its numbers in the metadata.
                     ClientGameTestRecordingHud.placePerformanceOverlay(
-                            PerformanceOverlayPlacement.BOTTOM_RIGHT);
+                            PerformanceOverlayPlacement.HIDDEN);
                     StageCaptionPanel.clear();
                     ShowcaseCamera.hold(orbit, 0);
                 });

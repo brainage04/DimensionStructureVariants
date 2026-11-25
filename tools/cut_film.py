@@ -9,24 +9,21 @@ the game stand still while the server swaps the blocks and the client builds the
 that pause, so the two halves' audio are not contiguous in the capture and a hard join clicks.
 
 Each half is cut to exactly the frames the camera drew. The camera draws every frame of the shot as
-a new pose, frame n at n / 30 s of the plan, and the recorder gives each presented frame its own
-slot and repeats a slot's picture when none came, so a slot that repeats the one before it is one
-the client did not draw in, and the cut drops it. A half is the first `count` slots that change the
-picture from the camera's first step of the half on (count and draw times from the film's own
-FRAME log lines for the stage: the palette frame for the vanilla half, the rest of the shot for the
-palette half), and the vanilla half also opens on the frame before the first step, which shows the
-held start pose, the shot's frame 0. The cut fails a stage whose capture holds fewer frames than the
-camera drew, whose frames do not come within a few slots after the slots they were drawn at, whose
-lag drifts over the half, or whose repeats and camera steps are too close to tell apart, so the
-film shows frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palette
-half, with no halt at the join. The audio crossfades over
-JOIN seconds across the join, so the two halves' sound overlaps instead of meeting at a fade to
-silence.
+a new pose, frame n at n / 30 s of the plan, the client presents no two frames within one capture
+slot (ShowcaseCamera.spaceFrames), and the recorder repeats a slot's picture when no frame came, so
+a slot that repeats the one before it is one the client did not draw in, and the cut drops it. A
+half is the slots that change the picture from the camera's first step of the half on (count and
+draw times from the film's own FRAME log lines for the stage: the palette frame for the vanilla
+half, the rest of the shot for the palette half), and the vanilla half also opens on the frame
+before the first step, which shows the held start pose, the shot's frame 0. The cut fails a
+recording in which the recorder dropped a frame, a half whose capture holds fewer changing slots
+than the camera drew frames, and a half in which a frame is not within a few slots of the slot it
+was drawn at (a pose missing or a change the camera did not make). The film shows
+frame 0 first, frame 59 last of the vanilla half and frame 60 first of the palette half, with no
+halt at the join. The audio crossfades over JOIN seconds across the join, so the two halves' sound
+overlaps instead of meeting at a fade to silence.
 
-A slot repeats the one before it when the two differ by less than STILL_LEVEL grey levels. That
-holds only if the recorder dropped no frame (`gameCaptureDroppedFrames` is 0 in the recording's
-boundary evidence): a dropped frame is a pose the film cannot show, and the cut refuses such a
-recording.
+A slot repeats the one before it when the two differ by less than STILL_LEVEL grey levels.
 
 Consecutive stages crossfade their audio over JOIN seconds as well, each stage's sound running JOIN
 seconds past its picture into the next stage's, so the Nether drone carries through a stage cut
@@ -65,23 +62,17 @@ CFR = f"fps={RATE:.0f},setpts=PTS-STARTPTS"
 # How far outside a stage's markers the trim looks for the stage's first and last moving frame: the
 # camera is held still for a few ticks either side, so the search has to reach past them.
 LEAD = 0.10
-TRAIL = 0.12
+TRAIL = 0.25
 JOIN = 0.15
 # A slot repeats the one before it when the two pictures differ by less than this, in mean grey
 # levels of the world region. A repeated slot is the same picture through the encoder: measured at
 # 0.001-0.27 (take 14's plains stage), while the smallest camera step measured is 0.78. A camera step
-# under the level would be taken for a repeat, which the check of each frame against the slot it was
-# drawn at catches.
+# under the level would be taken for a repeat, which the half's frame count catches.
 STILL_LEVEL = 0.4
-# The most slots a frame may be captured after the slot it was drawn at (the recorder reads it back
-# a few presents later), how far the lag of the half's last frames may drift from its first, and how
-# far apart a camera step and a repeated slot must be.
-MAX_LATENCY_SLOTS = 10
-DEBUG = bool(__import__('os').environ.get('DSV_CUT_DEBUG'))
-LAG_WINDOW = 10
-MAX_LAG_DRIFT = 3.0
-SEPARATION = 1.5
-SEPARATIONS = []
+# How many slots after (or before) its draw slot a frame may be captured: measured 0 to 3 slots.
+MIN_LATENCY_SLOTS = -1.0
+MAX_LATENCY_SLOTS = 4.0
+LAGS = []
 PALETTE_HALF = "/on"
 # The shot's frame counts come from the film's own path check, which logs `[DSV] <stage> path: N
 # frames ... palette on from frame M` for each stage, not from a copy of CameraPlan here.
@@ -185,65 +176,40 @@ def take_half(stage, label, start_frame, stop_frame, draws, with_start_pose):
     """The frames of one half of a stage, as the camera's own frame counter drew them.
 
     `draws` are the capture slots the camera drew the half's frames at, from the film's own FRAME
-    log. The camera draws every frame of the shot as a new pose, and the recorder gives each
-    presented frame its own slot and repeats a slot's picture when none came, so a half is the
-    first `len(draws)` slots that change the picture from the first step on, and a slot that
-    repeats the one before it is dropped. The search starts where the camera's own first step of
-    the half is drawn, so a change the world makes while the camera still holds (mobs, the clock
-    starting) is not taken for a frame. The first half also opens on the frame before that step,
-    which shows the held start pose, the shot's frame 0.
+    log. The camera draws every frame of the shot as a new pose, and the client presents no two
+    frames within one slot (ShowcaseCamera.spaceFrames), so each presented frame has its own slot
+    and the recorder repeats a slot's picture when none came. A half is therefore the slots that
+    change the picture from the camera's first step of the half on, and a slot that repeats the
+    one before it is dropped. The search starts where the camera's own first step of the half is
+    drawn, so a change the world makes while the camera still holds (mobs, the clock starting) is
+    not taken for a frame. The first half also opens on the frame before that step, which shows
+    the held start pose, the shot's frame 0.
 
-    The half is checked against the log: each frame must come within MAX_LATENCY_SLOTS after the
-    slot it was drawn at, and the lag at the end of the half must match the lag at its start. (The
-    world keeps changing for a few slots after the last frame, until the game freezes: the sun and the
-    clock still move, so the slots after the last frame say nothing about the camera.)
+    The half must hold at least `len(draws)` changing slots, and its first `len(draws)` are the
+    frames. The sun and the clock still move for a slot or two after the camera's last frame, until
+    the game freezes, so slots beyond the count are ignored. Each frame must come within
+    MAX_LATENCY_SLOTS after the slot it was drawn at (the recorder reads a frame back a present or
+    two later): a pose missing from the capture, or a change the camera did not make taken for a
+    frame, shifts the frames after it by a draw and fails that.
     """
     count = len(draws)
     from_slot = draws[1] if with_start_pose else draws[0]
     search = max(start_frame, int(math.floor(from_slot - 0.5)))
-    first = next((f for f in range(search, stop_frame) if moving(f, STILL_LEVEL)), None)
-    if first is None:
-        raise SystemExit(f"{stage} {label}: no moving frame between its markers")
-    kept = [first - 1] if with_start_pose else []
-    frame = first
-    while len(kept) < count:
-        if frame >= stop_frame:
+    moves = [f for f in range(search, stop_frame) if moving(f, STILL_LEVEL)]
+    needed = count - 1 if with_start_pose else count
+    if len(moves) < needed:
+        raise SystemExit(
+            f"{stage} {label}: only {len(moves)} of the {needed} frames the camera drew after its"
+            f" first step are in the capture (slots {search}-{stop_frame})")
+    kept = ([moves[0] - 1] if with_start_pose else []) + moves[:needed]
+    for i in range(1 if with_start_pose else 0, count):
+        lag = kept[i] - draws[i]
+        LAGS.append((lag, stage, label, i))
+        if not MIN_LATENCY_SLOTS <= lag <= MAX_LATENCY_SLOTS:
             raise SystemExit(
-                f"{stage} {label}: only {len(kept)} of the {count} frames the camera drew are in"
-                f" the capture (slots {search}-{stop_frame})")
-        if moving(frame, STILL_LEVEL):
-            kept.append(frame)
-        frame += 1
-    if DEBUG:
-        print(f"{stage} {label}: kept - drawn slots "
-              + " ".join(f"{kept[i] - draws[i]:.1f}" for i in range(count)), file=sys.stderr)
-    late = [(i, kept[i] - draws[i]) for i in range(1 if with_start_pose else 0, count)
-            if not -1.0 <= kept[i] - draws[i] <= MAX_LATENCY_SLOTS]
-    if late:
-        raise SystemExit(
-            f"{stage} {label}: frames drawn and frames captured do not line up, e.g. frame {late[0][0]}"
-            f" drawn at slot {draws[late[0][0]]:.1f} is at slot {kept[late[0][0]]}")
-    # The lag of the first and the last ten frames must agree: a change the camera did not make that
-    # was taken for a frame (or a frame taken for a repeat) shifts every later frame by a draw.
-    lags = [kept[i] - draws[i] for i in range(1 if with_start_pose else 0, count)]
-    drift = abs(statistics.median(lags[-LAG_WINDOW:]) - statistics.median(lags[:LAG_WINDOW]))
-    if drift > MAX_LAG_DRIFT:
-        raise SystemExit(
-            f"{stage} {label}: the lag between a frame's draw and its slot drifts by {drift:.1f}"
-            f" slots over the half (limit {MAX_LAG_DRIFT}), so a change the camera did not make was"
-            " taken for a frame or a frame for a repeat")
-    # The camera steps and the repeats must be far enough apart to tell by the level.
-    inside = set(kept)
-    repeats = [STEPS.get(f - 1, 0.0) for f in range(kept[1 if with_start_pose else 0], kept[-1])
-               if f not in inside]
-    smallest = min(STEPS[f - 1] for f in kept[1 if with_start_pose else 0:])
-    largest_repeat = max(repeats, default=0.0)
-    if largest_repeat * SEPARATION > smallest:
-        raise SystemExit(
-            f"{stage} {label}: a repeated slot differs by {largest_repeat:.3f} and the smallest camera"
-            f" step by {smallest:.3f}: they are less than {SEPARATION}x apart, so the level cannot"
-            " tell them apart")
-    SEPARATIONS.append((stage, label, smallest, largest_repeat))
+                f"{stage} {label}: frame {i} of {count} was drawn at slot {draws[i]:.1f} and is at"
+                f" slot {kept[i]} of the capture: a pose is missing or a change the camera did not"
+                " make was taken for a frame")
     return kept
 
 
@@ -306,10 +272,8 @@ for index in range(1, len(parts)):
 graph.append(f"{chain}afade=t=in:st=0:d={JOIN},afade=t=out:st={position - JOIN:.6f}:d={JOIN}[aout]")
 graph.append("".join(f"[v{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=0[vout]")
 
-smallest_step = min(SEPARATIONS, key=lambda e: e[2])
-largest_repeat = max(SEPARATIONS, key=lambda e: e[3])
-print(f"smallest camera step {smallest_step[2]:.3f} ({smallest_step[0]} {smallest_step[1]}), largest"
-      f" repeated slot {largest_repeat[3]:.3f} ({largest_repeat[0]} {largest_repeat[1]})", flush=True)
+print(f"frame lag (capture slot minus draw slot): smallest {min(LAGS)[0]:.1f} ({min(LAGS)[1:]}),"
+      f" largest {max(LAGS)[0]:.1f} ({max(LAGS)[1:]})", flush=True)
 print("encoding...", flush=True)
 subprocess.run([
     "ffmpeg", "-v", "error", "-y", "-i", str(video_path),
