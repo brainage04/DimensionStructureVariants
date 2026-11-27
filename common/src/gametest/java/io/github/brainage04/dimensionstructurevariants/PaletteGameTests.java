@@ -45,6 +45,12 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
 
 /** Runs the production palette tables and placement mixins on both loaders. */
 public final class PaletteGameTests {
+    /** Snow blocks per 100 wall blocks in the snowy fortress (weights in palettes.json). */
+    private static final int SNOWY_SNOW_PERCENT = 2;
+
+    /** Dark prismarine blocks per 100 in the ocean fortress (weights in palettes.json). */
+    private static final int OCEAN_DARK_PERCENT = 3;
+
     private PaletteGameTests() {}
 
     public static void fenceConnectionsSurviveWallConversion(GameTestHelper helper) {
@@ -592,39 +598,44 @@ public final class PaletteGameTests {
     }
 
     /**
-     * Each role that carries a rare block gives it to about 1 block in 100: a seeded sample over
-     * 16384 positions stays inside 0.3 to 2 per cent. The snowy fortress puts snow in its walls,
-     * fill and bridge pieces; the ocean fortress puts dark prismarine in its blocks, stairs, slabs
-     * and fill.
+     * Each role that carries a rare block gives it its share: a seeded sample over 16384 positions
+     * stays within one percentage point of {@link #SNOWY_SNOW_PERCENT} for the snowy fortress's
+     * snow (walls, fill and bridge pieces) and of {@link #OCEAN_DARK_PERCENT} for the ocean
+     * fortress's dark prismarine (blocks, stairs, slabs and fill).
      */
-    public static void rareBlocksStayAtAboutOnePercent(GameTestHelper helper) {
+    public static void rareBlocksKeepTheirShare(GameTestHelper helper) {
         StructurePalettes.Palette snowy =
                 palette(helper, "fortress_overworld", Biomes.SNOWY_PLAINS);
         StructurePalettes.Palette ocean = palette(helper, "fortress_overworld", Biomes.OCEAN);
         BlockState brick = Blocks.NETHER_BRICKS.defaultBlockState();
         BlockState fill = Blocks.NETHERRACK.defaultBlockState();
-        assertRareShare(helper, "snowy walls", snowy, brick, Blocks.SNOW_BLOCK);
-        assertRareShare(helper, "snowy fill", snowy, fill, Blocks.SNOW_BLOCK);
+        assertRareShare(helper, "snowy walls", snowy, brick, Blocks.SNOW_BLOCK, SNOWY_SNOW_PERCENT);
+        assertRareShare(helper, "snowy fill", snowy, fill, Blocks.SNOW_BLOCK, SNOWY_SNOW_PERCENT);
         Identifier previous = StructurePalettes.pushPiece(Identifier.withDefaultNamespace("nebs"));
         try {
-            assertRareShare(helper, "snowy bridges", snowy, brick, Blocks.SNOW_BLOCK);
+            assertRareShare(
+                    helper, "snowy bridges", snowy, brick, Blocks.SNOW_BLOCK, SNOWY_SNOW_PERCENT);
         } finally {
             StructurePalettes.restorePiece(previous);
         }
-        assertRareShare(helper, "ocean walls", ocean, brick, Blocks.DARK_PRISMARINE);
+        assertRareShare(
+                helper, "ocean walls", ocean, brick, Blocks.DARK_PRISMARINE, OCEAN_DARK_PERCENT);
         assertRareShare(
                 helper,
                 "ocean stairs",
                 ocean,
                 Blocks.NETHER_BRICK_STAIRS.defaultBlockState(),
-                Blocks.DARK_PRISMARINE_STAIRS);
+                Blocks.DARK_PRISMARINE_STAIRS,
+                OCEAN_DARK_PERCENT);
         assertRareShare(
                 helper,
                 "ocean slabs",
                 ocean,
                 Blocks.NETHER_BRICK_SLAB.defaultBlockState(),
-                Blocks.DARK_PRISMARINE_SLAB);
-        assertRareShare(helper, "ocean fill", ocean, fill, Blocks.DARK_PRISMARINE);
+                Blocks.DARK_PRISMARINE_SLAB,
+                OCEAN_DARK_PERCENT);
+        assertRareShare(
+                helper, "ocean fill", ocean, fill, Blocks.DARK_PRISMARINE, OCEAN_DARK_PERCENT);
         helper.succeed();
     }
 
@@ -633,7 +644,8 @@ public final class PaletteGameTests {
             String what,
             StructurePalettes.Palette palette,
             BlockState source,
-            Block rare) {
+            Block rare,
+            int percent) {
         int hits = 0;
         int sampled = 0;
         for (BlockPos pos : BlockPos.betweenClosed(0, 64, 0, 63, 67, 63)) {
@@ -641,19 +653,21 @@ public final class PaletteGameTests {
             if (palette.remap(source, pos).is(rare)) hits++;
         }
         helper.assertTrue(
-                hits * 1000 >= sampled * 3 && hits * 100 <= sampled * 2,
+                hits * 100 >= sampled * (percent - 1) && hits * 100 <= sampled * (percent + 1),
                 what
                         + " must hold "
                         + rare
-                        + " in about 1 block in 100, got "
+                        + " in about "
+                        + percent
+                        + " blocks in 100, got "
                         + hits
                         + " of "
                         + sampled);
     }
 
     /**
-     * The snowy fortress builds its walls of packed ice, its bridges of blue ice, and puts about 1
-     * block in 100 of snow among them; its windows are ice, the one of the four that the game draws
+     * The snowy fortress builds its walls of packed ice, its bridges of blue ice, and puts about
+     * {@link #SNOWY_SNOW_PERCENT} blocks in 100 of snow among them; its windows are ice, the one of the four that the game draws
      * translucent (its texture has an alpha of 190, the others 255; {@code SpriteContents.java:82},
      * {@code BakedQuad.java:76}). The counts come from a fortress placed in a snowy plains, not
      * from the palette alone.
@@ -714,8 +728,11 @@ public final class PaletteGameTests {
                 packed > 0 && blue > 0,
                 "The snowy fortress must hold packed ice and blue ice, got " + counts);
         helper.assertTrue(
-                snow * 1000 >= walls * 3 && snow * 100 <= walls * 3,
-                "Snow must stay at about 1 block in 100 of the snowy fortress, got "
+                snow * 100 >= walls * (SNOWY_SNOW_PERCENT - 1)
+                        && snow * 100 <= walls * (SNOWY_SNOW_PERCENT + 1),
+                "Snow must stay at about "
+                        + SNOWY_SNOW_PERCENT
+                        + " blocks in 100 of the snowy fortress, got "
                         + snow
                         + " of "
                         + walls

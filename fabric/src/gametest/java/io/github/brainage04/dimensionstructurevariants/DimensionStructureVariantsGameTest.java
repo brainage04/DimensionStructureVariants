@@ -95,8 +95,8 @@ public final class DimensionStructureVariantsGameTest {
     }
 
     @GameTest
-    public void rareBlocksStayAtAboutOnePercent(GameTestHelper helper) {
-        PaletteGameTests.rareBlocksStayAtAboutOnePercent(helper);
+    public void rareBlocksKeepTheirShare(GameTestHelper helper) {
+        PaletteGameTests.rareBlocksKeepTheirShare(helper);
     }
 
     @GameTest(maxTicks = 200)

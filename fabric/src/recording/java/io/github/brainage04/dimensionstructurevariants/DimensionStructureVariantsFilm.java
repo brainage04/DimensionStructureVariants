@@ -1345,8 +1345,7 @@ public final class DimensionStructureVariantsFilm {
     /**
      * Places the structure, moves a floating fortress onto the ground, registers the start in its
      * chunks as natural generation does and measures it. {@code /place structure} builds the blocks
-     * only, so without the registration the game would not know the structure is there: the
-     * fortress's own monster spawns (its {@code spawn_overrides}, by piece) need it.
+     * only, so without the registration the game would not know the structure is there.
      */
     private static void place(Build build, Stage stage, double halfFov) {
         ServerLevel level = build.level;

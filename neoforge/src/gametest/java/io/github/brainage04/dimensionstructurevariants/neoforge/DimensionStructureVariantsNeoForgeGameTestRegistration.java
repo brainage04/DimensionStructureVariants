@@ -101,8 +101,8 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 () -> PaletteGameTests::snowyFortressWeightsBlocksByStrength);
         event.register(
                 BuiltInRegistries.TEST_FUNCTION.key(),
-                DimensionStructureVariants.of("rare_blocks_stay_at_about_one_percent"),
-                () -> PaletteGameTests::rareBlocksStayAtAboutOnePercent);
+                DimensionStructureVariants.of("rare_blocks_keep_their_share"),
+                () -> PaletteGameTests::rareBlocksKeepTheirShare);
         event.register(
                 BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of("end_city_in_the_nether_leaves_no_purpur"),
