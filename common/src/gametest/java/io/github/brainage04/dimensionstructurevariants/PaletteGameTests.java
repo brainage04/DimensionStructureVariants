@@ -45,10 +45,7 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
 
 /** Runs the production palette tables and placement mixins on both loaders. */
 public final class PaletteGameTests {
-    /** Snow blocks per 100 wall blocks in the snowy fortress (weights in palettes.json). */
     private static final int SNOWY_SNOW_PERCENT = 2;
-
-    /** Dark prismarine blocks per 100 in the ocean fortress (weights in palettes.json). */
     private static final int OCEAN_DARK_PERCENT = 3;
 
     private PaletteGameTests() {}
