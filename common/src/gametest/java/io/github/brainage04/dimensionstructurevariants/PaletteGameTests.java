@@ -667,10 +667,10 @@ public final class PaletteGameTests {
 
     /**
      * The snowy fortress builds its walls of packed ice, its bridges of blue ice, and puts about
-     * {@link #SNOWY_SNOW_PERCENT} blocks in 100 of snow among them; its windows are ice, the one of the four that the game draws
-     * translucent (its texture has an alpha of 190, the others 255; {@code SpriteContents.java:82},
-     * {@code BakedQuad.java:76}). The counts come from a fortress placed in a snowy plains, not
-     * from the palette alone.
+     * {@link #SNOWY_SNOW_PERCENT} blocks in 100 of snow among them; its windows are ice, the one of
+     * the four that the game draws translucent (its texture has an alpha of 190, the others 255;
+     * {@code SpriteContents.java:82}, {@code BakedQuad.java:76}). The counts come from a fortress
+     * placed in a snowy plains, not from the palette alone.
      */
     public static void snowyFortressWeightsBlocksByStrength(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
