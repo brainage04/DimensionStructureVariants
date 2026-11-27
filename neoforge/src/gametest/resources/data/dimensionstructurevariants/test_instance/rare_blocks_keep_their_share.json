@@ -3,5 +3,5 @@
   "structure": "minecraftmodconventions:empty",
   "max_ticks": 20,
   "type": "minecraft:function",
-  "function": "dimensionstructurevariants:rare_blocks_stay_at_about_one_percent"
+  "function": "dimensionstructurevariants:rare_blocks_keep_their_share"
 }
