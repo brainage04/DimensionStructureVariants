@@ -38,6 +38,7 @@ import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.WallSide;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.structure.Structure;
+import net.minecraft.world.level.storage.loot.LootTable;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -109,7 +110,8 @@ public final class StructurePalettes {
         if (rules == null) return null;
         String palette = rules.paletteFor(biome);
         return COMPILED.computeIfAbsent(
-                id.getPath() + "|" + palette, key -> compile(rules.roles(), palette));
+                id.getPath() + "|" + palette,
+                key -> compile(rules.roles(), palette, rules.biomeMonsters()));
     }
 
     /**
@@ -135,6 +137,24 @@ public final class StructurePalettes {
         } else {
             ACTIVE.set(palette);
         }
+    }
+
+    /** The palette of the variant being placed, or null outside a variant's placement. */
+    public static @Nullable Palette active() {
+        return ACTIVE.get();
+    }
+
+    /**
+     * The loot table a chest written during a variant's placement carries in place of {@code
+     * table}: the active palette's own, or {@code table} where the palette names none or the chest
+     * has no table.
+     */
+    public static @Nullable ResourceKey<LootTable> lootTable(
+            @Nullable ResourceKey<LootTable> table) {
+        Palette palette = ACTIVE.get();
+        return palette == null || palette.lootTable == null || table == null
+                ? table
+                : palette.lootTable;
     }
 
     /**
@@ -175,18 +195,27 @@ public final class StructurePalettes {
         private final @Nullable ResourceKey<Feature> groundFeature;
         private final float groundFeatureChance;
         private final @Nullable Accent accent;
+        private final @Nullable ResourceKey<LootTable> lootTable;
+        private final float vines;
+        private final boolean biomeMonsters;
 
         private Palette(
                 Map<BlockState, Choice> states,
                 @Nullable Choice ground,
                 @Nullable ResourceKey<Feature> groundFeature,
                 float groundFeatureChance,
-                @Nullable Accent accent) {
+                @Nullable Accent accent,
+                @Nullable ResourceKey<LootTable> lootTable,
+                float vines,
+                boolean biomeMonsters) {
             this.states = states;
             this.ground = ground;
             this.groundFeature = groundFeature;
             this.groundFeatureChance = groundFeatureChance;
             this.accent = accent;
+            this.lootTable = lootTable;
+            this.vines = vines;
+            this.biomeMonsters = biomeMonsters;
         }
 
         public BlockState remap(BlockState state, BlockPos pos) {
@@ -235,6 +264,24 @@ public final class StructurePalettes {
         /** The chance that a column of ground clear of the pieces grows the feature. */
         public float groundFeatureChance() {
             return groundFeatureChance;
+        }
+
+        /** The loot table this variant's chests carry, or null where they keep their own. */
+        public @Nullable ResourceKey<LootTable> lootTable() {
+            return lootTable;
+        }
+
+        /** The chance that a wall block of the structure grows a vine, or 0 for none. */
+        public float vines() {
+            return vines;
+        }
+
+        /**
+         * Whether the mobs the structure's pieces place come from the monster list of the biome
+         * they stand in, instead of the list the structure was written for.
+         */
+        public boolean biomeMonsters() {
+            return biomeMonsters;
         }
     }
 
@@ -306,7 +353,7 @@ public final class StructurePalettes {
     private record Rule(List<Matcher> match, String palette) {}
 
     /** The palette of the first rule that matches a biome, else the structure's default. */
-    private record Rules(String roles, List<Rule> biomes, String fallback) {
+    private record Rules(String roles, List<Rule> biomes, String fallback, boolean biomeMonsters) {
         String paletteFor(Holder<Biome> biome) {
             String palette = ruleFor(biome);
             return palette == null ? fallback : palette;
@@ -332,7 +379,9 @@ public final class StructurePalettes {
             Map<String, Integer> ground,
             String groundFeature,
             float groundFeatureChance,
-            @Nullable PieceAccent accent) {}
+            @Nullable PieceAccent accent,
+            @Nullable String lootTable,
+            float vines) {}
 
     /** The roles' blocks in the named pieces, so a part of the structure reads as its own. */
     private record PieceAccent(Set<Identifier> pieces, Map<String, Map<String, Integer>> blocks) {}
@@ -407,7 +456,11 @@ public final class StructurePalettes {
             }
             String fallback = object.get("default").getAsString();
             checkPalette(entry.getKey(), roleSets.get(roles), fallback, palettes);
-            structures.put(entry.getKey(), new Rules(roles, List.copyOf(biomes), fallback));
+            boolean biomeMonsters =
+                    object.has("monsters_from_biome")
+                            && object.get("monsters_from_biome").getAsBoolean();
+            structures.put(
+                    entry.getKey(), new Rules(roles, List.copyOf(biomes), fallback, biomeMonsters));
         }
         return new Data(roleSets, palettes, structures);
     }
@@ -437,6 +490,8 @@ public final class StructurePalettes {
         String feature = null;
         float chance = 0.0F;
         PieceAccent accent = null;
+        String lootTable = null;
+        float vines = 0.0F;
         if (object.has("extends")) {
             RawPalette parent = resolvePalette(object.get("extends").getAsString(), raw, path);
             blocks.putAll(parent.blocks());
@@ -444,6 +499,8 @@ public final class StructurePalettes {
             feature = parent.groundFeature();
             chance = parent.groundFeatureChance();
             accent = parent.accent();
+            lootTable = parent.lootTable();
+            vines = parent.vines();
         }
         if (object.has("blocks")) {
             for (Map.Entry<String, JsonElement> entry :
@@ -495,8 +552,26 @@ public final class StructurePalettes {
                             Collections.unmodifiableSet(pieces),
                             Collections.unmodifiableMap(accentBlocks));
         }
+        if (object.has("loot")) {
+            lootTable = object.get("loot").getAsString();
+            Identifier.parse(lootTable);
+        }
+        if (object.has("vines")) {
+            vines = object.get("vines").getAsFloat();
+            if (vines <= 0.0F || vines > 1.0F) {
+                throw new IllegalStateException(
+                        "Palette " + name + " gives its vines the chance " + vines);
+            }
+        }
         path.remove(path.size() - 1);
-        return new RawPalette(Collections.unmodifiableMap(blocks), ground, feature, chance, accent);
+        return new RawPalette(
+                Collections.unmodifiableMap(blocks),
+                ground,
+                feature,
+                chance,
+                accent,
+                lootTable,
+                vines);
     }
 
     /**
@@ -571,7 +646,7 @@ public final class StructurePalettes {
         }
     }
 
-    private static Palette compile(String rolesName, String paletteName) {
+    private static Palette compile(String rolesName, String paletteName, boolean biomeMonsters) {
         Data loaded = data();
         Map<String, String> roles = loaded.roleSets.get(rolesName);
         RawPalette palette = loaded.palettes.get(paletteName);
@@ -620,7 +695,13 @@ public final class StructurePalettes {
                 ground,
                 feature,
                 palette.groundFeatureChance(),
-                accent);
+                accent,
+                palette.lootTable() == null
+                        ? null
+                        : ResourceKey.create(
+                                Registries.LOOT_TABLE, Identifier.parse(palette.lootTable())),
+                palette.vines(),
+                biomeMonsters);
     }
 
     private static Choice withoutWater(Choice choice) {

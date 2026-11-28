@@ -4,6 +4,7 @@ import io.github.brainage04.dimensionstructurevariants.BiomeRestrictionGameTests
 import io.github.brainage04.dimensionstructurevariants.DimensionStructureVariants;
 import io.github.brainage04.dimensionstructurevariants.EndCityNetherGameTests;
 import io.github.brainage04.dimensionstructurevariants.EndVillageGameTests;
+import io.github.brainage04.dimensionstructurevariants.LootAndMobGameTests;
 import io.github.brainage04.dimensionstructurevariants.NaturalGenerationGameTests;
 import io.github.brainage04.dimensionstructurevariants.NetherVillageGameTests;
 import io.github.brainage04.dimensionstructurevariants.PaletteGameTests;
@@ -112,5 +113,38 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 DimensionStructureVariants.of(
                         "nether_village_farms_use_soul_sand_and_keep_composters"),
                 () -> NetherVillageGameTests::netherVillageFarmsUseSoulSandAndKeepComposters);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("badlands_fortress_uses_no_terracotta"),
+                () -> PaletteGameTests::badlandsFortressUsesNoTerracotta);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("village_ground_holds_no_bone_or_gilded_blocks"),
+                () -> PaletteGameTests::villageGroundHoldsNoBoneOrGildedBlocks);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("jungle_fortresses_grow_vines"),
+                () -> PaletteGameTests::jungleFortressesGrowVines);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("every_moved_structure_names_its_own_loot_table"),
+                () -> LootAndMobGameTests::everyMovedStructureNamesItsOwnLootTable);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("moved_structures_place_their_own_loot"),
+                () -> LootAndMobGameTests::movedStructuresPlaceTheirOwnLoot);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of(
+                        "fortress_throne_spawner_takes_a_monster_of_its_biome"),
+                () -> LootAndMobGameTests::fortressThroneSpawnerTakesAMonsterOfItsBiome);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("bastion_mobs_are_the_biomes_monsters"),
+                () -> LootAndMobGameTests::bastionMobsAreTheBiomesMonsters);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of("placed_bastions_hold_no_nether_mob"),
+                () -> LootAndMobGameTests::placedBastionsHoldNoNetherMob);
     }
 }

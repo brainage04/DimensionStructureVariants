@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import io.github.brainage04.dimensionstructurevariants.StructureGround;
 import io.github.brainage04.dimensionstructurevariants.StructurePalettes;
+import io.github.brainage04.dimensionstructurevariants.StructureVines;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -49,6 +50,7 @@ abstract class StructureStartMixin {
         try {
             if (palette != null) StructureGround.lay(level, generator, palette, getPieces(), chunk);
             original.call(level, structures, generator, random, bounds, chunk);
+            if (palette != null) StructureVines.grow(level, palette, getPieces(), chunk);
         } finally {
             StructurePalettes.restore(previous);
         }

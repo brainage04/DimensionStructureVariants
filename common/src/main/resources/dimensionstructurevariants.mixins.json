@@ -5,7 +5,10 @@
   "mixins": [
     "StructureStartMixin",
     "JigsawStructureMixin",
-    "StructureBlockMixin"
+    "StructureBlockMixin",
+    "RandomizableContainerBlockEntityMixin",
+    "StructureTemplateMixin",
+    "MonsterThroneMixin"
   ],
   "injectors": {
     "defaultRequire": 1
