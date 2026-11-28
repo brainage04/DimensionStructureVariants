@@ -58,7 +58,7 @@ abstract class StructureMixin {
                         heightAccessor,
                         validBiome);
         if (start.isValid()
-                && selected.is(SolidGround.REQUIRED_BY)
+                && selected.is(SolidGround.REQUIRES_ISLAND_UNDER_FOOTPRINT)
                 && !SolidGround.isLevelUnder(start, chunkGenerator, heightAccessor, randomState)) {
             return StructureStart.INVALID_START;
         }

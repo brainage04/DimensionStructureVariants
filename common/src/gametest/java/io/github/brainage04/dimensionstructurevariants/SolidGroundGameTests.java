@@ -25,10 +25,10 @@ public final class SolidGroundGameTests {
                     ResourceKey.create(
                             Registries.STRUCTURE, DimensionStructureVariants.of("bastion_end")));
 
-    private static final List<ResourceKey<Structure>> LEVEL_GROUND_VARIANTS =
+    private static final List<ResourceKey<Structure>> ISLAND_UNDER_FOOTPRINT_VARIANTS =
             List.of(
-                    END_ISLAND_VARIANTS.get(0),
-                    END_ISLAND_VARIANTS.get(1),
+                    ResourceKey.create(
+                            Registries.STRUCTURE, DimensionStructureVariants.of("bastion_end")),
                     ResourceKey.create(
                             Registries.STRUCTURE, DimensionStructureVariants.of("fortress_end")));
 
@@ -120,7 +120,7 @@ public final class SolidGroundGameTests {
         var registries = end.registryAccess();
         var structures = registries.lookupOrThrow(Registries.STRUCTURE);
         RandomState randomState = end.getChunkSource().randomState();
-        for (ResourceKey<Structure> key : LEVEL_GROUND_VARIANTS) {
+        for (ResourceKey<Structure> key : ISLAND_UNDER_FOOTPRINT_VARIANTS) {
             Holder<Structure> structure = structures.getOrThrow(key);
             int reaching = 0;
             int perched = 0;

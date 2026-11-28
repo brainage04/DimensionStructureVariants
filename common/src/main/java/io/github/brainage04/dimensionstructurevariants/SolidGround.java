@@ -24,6 +24,12 @@ public final class SolidGround {
             TagKey.create(
                     Registries.STRUCTURE, DimensionStructureVariants.of("requires_solid_ground"));
 
+    /** Structures refused unless the island under a generated start holds their footprint. */
+    public static final TagKey<Structure> REQUIRES_ISLAND_UNDER_FOOTPRINT =
+            TagKey.create(
+                    Registries.STRUCTURE,
+                    DimensionStructureVariants.of("requires_island_under_footprint"));
+
     /**
      * Half-width of the sampled square around the jigsaw start (the start chunk's minimum corner).
      */
