@@ -92,6 +92,9 @@ public final class LootAndMobGameTests {
     /** Blocks around a test position that are loaded and given the test's biome. */
     private static final int PREPARED_RADIUS = 48;
 
+    /** Rows of the bastion mob test keep apart so no row's biome fill reaches another's slots. */
+    private static final int MOB_ROW_SPACING = 2 * PREPARED_RADIUS + 16;
+
     /** Natural starts to try for one variant before a start without a chest fails the test. */
     private static final int START_ATTEMPTS = 10;
 
@@ -382,7 +385,7 @@ public final class LootAndMobGameTests {
     }
 
     private static BlockPos mobOrigin(int row) {
-        return new BlockPos(4000 + row * 64, 70, 4000);
+        return new BlockPos(4000 + row * MOB_ROW_SPACING, 70, 4000);
     }
 
     private static void checkBastionMobs(
@@ -414,6 +417,13 @@ public final class LootAndMobGameTests {
                                     .get(Identifier.withDefaultNamespace("bastion/" + name))
                                     .orElseThrow();
                     BlockPos at = origin.offset(slot++ * TEMPLATE_SPACING, 0, 0);
+                    helper.assertTrue(
+                            level.getBiome(at).is(each.biome()),
+                            where
+                                    + ": the slot at "
+                                    + at
+                                    + " lies in "
+                                    + level.getBiome(at).unwrapKey());
                     template.placeInWorld(
                             level,
                             at,

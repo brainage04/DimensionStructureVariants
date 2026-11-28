@@ -1,6 +1,10 @@
 {
   "type": "minecraft:fortress",
-  "biomes": "#minecraft:is_end",
+  "biomes": [
+    "minecraft:end_highlands",
+    "minecraft:end_midlands",
+    "minecraft:end_barrens"
+  ],
   "spawn_overrides": {},
   "step": "underground_decoration"
 }
