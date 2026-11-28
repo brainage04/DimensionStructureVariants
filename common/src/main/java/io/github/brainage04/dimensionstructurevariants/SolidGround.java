@@ -94,14 +94,18 @@ public final class SolidGround {
 
     /**
      * The share of sampled footprint columns whose surface lies more than {@link #MAX_DROP} under
-     * the start.
+     * the lowest piece. The start's own bounding box is no base: the structure inflates it by the
+     * terrain adaptation's kernel ({@code StructureStart.java:72}).
      */
     static double lowShare(
             StructureStart start,
             ChunkGenerator generator,
             LevelHeightAccessor heightAccessor,
             RandomState randomState) {
-        int base = start.getBoundingBox().minY();
+        int base = Integer.MAX_VALUE;
+        for (StructurePiece piece : start.getPieces()) {
+            base = Math.min(base, piece.getBoundingBox().minY());
+        }
         int sampled = 0;
         int low = 0;
         for (StructurePiece piece : start.getPieces()) {
