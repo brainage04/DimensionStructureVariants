@@ -94,6 +94,7 @@
   },
   "palettes": {
     "fortress_grass": {
+      "loot": "dimensionstructurevariants:chests/fortress_grass",
       "blocks": {
         "brick": {
           "minecraft:stone_bricks": 10,
@@ -125,6 +126,7 @@
       }
     },
     "fortress_desert": {
+      "loot": "dimensionstructurevariants:chests/fortress_desert",
       "blocks": {
         "brick": {
           "minecraft:sandstone": 5,
@@ -156,15 +158,13 @@
       }
     },
     "fortress_badlands": {
+      "loot": "dimensionstructurevariants:chests/fortress_badlands",
       "blocks": {
         "brick": {
           "minecraft:red_sandstone": 5,
-          "minecraft:smooth_red_sandstone": 3,
-          "minecraft:cut_red_sandstone": 2,
-          "minecraft:chiseled_red_sandstone": 1,
-          "minecraft:terracotta": 2,
-          "minecraft:orange_terracotta": 1,
-          "minecraft:red_terracotta": 1
+          "minecraft:smooth_red_sandstone": 4,
+          "minecraft:cut_red_sandstone": 3,
+          "minecraft:chiseled_red_sandstone": 1
         },
         "brick_stairs": {
           "minecraft:red_sandstone_stairs": 3,
@@ -177,17 +177,18 @@
         },
         "brick_wall": "minecraft:dark_oak_fence",
         "fill": {
-          "minecraft:terracotta": 3,
-          "minecraft:orange_terracotta": 1,
-          "minecraft:red_sand": 1
+          "minecraft:red_sand": 3,
+          "minecraft:red_sandstone": 2
         },
         "floor": "minecraft:red_sand",
         "plant": "minecraft:dead_bush",
         "liquid": "minecraft:water",
-        "accent": "minecraft:orange_terracotta"
+        "accent": "minecraft:chiseled_red_sandstone"
       }
     },
     "fortress_jungle": {
+      "loot": "dimensionstructurevariants:chests/fortress_jungle",
+      "vines": 0.03,
       "blocks": {
         "brick": {
           "minecraft:mossy_stone_bricks": 4,
@@ -224,6 +225,7 @@
       }
     },
     "fortress_swamp": {
+      "loot": "dimensionstructurevariants:chests/fortress_swamp",
       "blocks": {
         "brick": {
           "minecraft:mud_bricks": 6,
@@ -250,17 +252,18 @@
       }
     },
     "fortress_snowy": {
+      "loot": "dimensionstructurevariants:chests/fortress_snowy",
       "blocks": {
         "brick": {
-          "minecraft:packed_ice": 99,
-          "minecraft:snow_block": 1
+          "minecraft:packed_ice": 98,
+          "minecraft:snow_block": 2
         },
         "brick_stairs": "minecraft:diorite_stairs",
         "brick_slab": "minecraft:diorite_slab",
         "brick_wall": "minecraft:ice",
         "fill": {
-          "minecraft:packed_ice": 99,
-          "minecraft:snow_block": 1
+          "minecraft:packed_ice": 98,
+          "minecraft:snow_block": 2
         },
         "floor": "minecraft:snow_block",
         "plant": "minecraft:snow",
@@ -270,8 +273,8 @@
       "piece_accent": {
         "blocks": {
           "brick": {
-            "minecraft:blue_ice": 99,
-            "minecraft:snow_block": 1
+            "minecraft:blue_ice": 98,
+            "minecraft:snow_block": 2
           },
           "brick_wall": "minecraft:packed_ice"
         },
@@ -283,6 +286,7 @@
       }
     },
     "fortress_mushroom": {
+      "loot": "dimensionstructurevariants:chests/fortress_mushroom",
       "blocks": {
         "brick": "minecraft:red_mushroom_block",
         "brick_stairs": "minecraft:red_nether_brick_stairs",
@@ -307,26 +311,27 @@
       }
     },
     "fortress_ocean": {
+      "loot": "dimensionstructurevariants:chests/fortress_ocean",
       "blocks": {
         "brick": {
           "minecraft:prismarine_bricks": 50,
-          "minecraft:prismarine": 49,
-          "minecraft:dark_prismarine": 1
+          "minecraft:prismarine": 47,
+          "minecraft:dark_prismarine": 3
         },
         "brick_stairs": {
           "minecraft:prismarine_brick_stairs": 50,
-          "minecraft:prismarine_stairs": 49,
-          "minecraft:dark_prismarine_stairs": 1
+          "minecraft:prismarine_stairs": 47,
+          "minecraft:dark_prismarine_stairs": 3
         },
         "brick_slab": {
           "minecraft:prismarine_brick_slab": 50,
-          "minecraft:prismarine_slab": 49,
-          "minecraft:dark_prismarine_slab": 1
+          "minecraft:prismarine_slab": 47,
+          "minecraft:dark_prismarine_slab": 3
         },
         "brick_wall": "minecraft:iron_bars",
         "fill": {
-          "minecraft:prismarine": 99,
-          "minecraft:dark_prismarine": 1
+          "minecraft:prismarine": 97,
+          "minecraft:dark_prismarine": 3
         },
         "floor": "minecraft:sand",
         "plant": "minecraft:sea_pickle",
@@ -335,6 +340,7 @@
       }
     },
     "fortress_frozen_ocean": {
+      "loot": "dimensionstructurevariants:chests/fortress_frozen_ocean",
       "blocks": {
         "brick": {
           "minecraft:prismarine_bricks": 4,
@@ -353,6 +359,7 @@
       }
     },
     "fortress_end": {
+      "loot": "dimensionstructurevariants:chests/fortress_end",
       "blocks": {
         "brick": "minecraft:end_stone_bricks",
         "brick_stairs": "minecraft:end_stone_brick_stairs",
@@ -366,6 +373,7 @@
       }
     },
     "bastion_ocean": {
+      "loot": "dimensionstructurevariants:chests/bastion_ocean",
       "blocks": {
         "brick": "minecraft:prismarine",
         "polished": "minecraft:dark_prismarine",
@@ -394,6 +402,7 @@
       }
     },
     "bastion_warm_ocean": {
+      "loot": "dimensionstructurevariants:chests/bastion_warm_ocean",
       "blocks": {
         "brick": "minecraft:sandstone",
         "polished": "minecraft:smooth_sandstone",
@@ -422,6 +431,7 @@
       }
     },
     "bastion_frozen_ocean": {
+      "loot": "dimensionstructurevariants:chests/bastion_frozen_ocean",
       "blocks": {
         "brick": "minecraft:stone_bricks",
         "polished": "minecraft:packed_ice",
@@ -450,6 +460,7 @@
       }
     },
     "bastion_end": {
+      "loot": "dimensionstructurevariants:chests/bastion_end",
       "blocks": {
         "brick": "minecraft:end_stone",
         "polished": "minecraft:purpur_block",
@@ -478,6 +489,7 @@
       }
     },
     "end_city_frozen_ocean": {
+      "loot": "dimensionstructurevariants:chests/end_city_frozen_ocean",
       "blocks": {
         "bricks": "minecraft:packed_ice",
         "end_stone": "minecraft:packed_ice",
@@ -490,6 +502,7 @@
       }
     },
     "end_city_ocean": {
+      "loot": "dimensionstructurevariants:chests/end_city_ocean",
       "blocks": {
         "bricks": {
           "minecraft:prismarine_bricks": 3,
@@ -508,6 +521,7 @@
       }
     },
     "end_city_nether_wastes": {
+      "loot": "dimensionstructurevariants:chests/end_city_nether_wastes",
       "blocks": {
         "bricks": "minecraft:nether_bricks",
         "end_stone": "minecraft:netherrack",
@@ -520,6 +534,7 @@
       }
     },
     "end_city_nether_crimson": {
+      "loot": "dimensionstructurevariants:chests/end_city_nether_crimson",
       "blocks": {
         "bricks": "minecraft:polished_blackstone_bricks",
         "end_stone": "minecraft:netherrack",
@@ -532,6 +547,7 @@
       }
     },
     "end_city_nether_warped": {
+      "loot": "dimensionstructurevariants:chests/end_city_nether_warped",
       "blocks": {
         "bricks": "minecraft:polished_blackstone_bricks",
         "end_stone": "minecraft:netherrack",
@@ -544,6 +560,7 @@
       }
     },
     "end_city_nether_soul": {
+      "loot": "dimensionstructurevariants:chests/end_city_nether_soul",
       "blocks": {
         "bricks": "minecraft:polished_basalt",
         "end_stone": "minecraft:soul_sand",
@@ -556,6 +573,7 @@
       }
     },
     "end_city_nether_basalt": {
+      "loot": "dimensionstructurevariants:chests/end_city_nether_basalt",
       "blocks": {
         "bricks": "minecraft:polished_blackstone",
         "end_stone": "minecraft:basalt",
@@ -568,6 +586,7 @@
       }
     },
     "village_end": {
+      "loot": "dimensionstructurevariants:chests/village_end",
       "blocks": {
         "brick": "minecraft:end_stone_bricks",
         "brick_mossy": "minecraft:end_stone",
@@ -611,6 +630,7 @@
       }
     },
     "village_nether": {
+      "loot": "dimensionstructurevariants:chests/village_nether",
       "blocks": {
         "brick": "minecraft:nether_bricks",
         "brick_mossy": "minecraft:blackstone",
@@ -655,6 +675,7 @@
       "ground": "minecraft:netherrack"
     },
     "village_nether_crimson": {
+      "loot": "dimensionstructurevariants:chests/village_nether_crimson",
       "extends": "village_nether",
       "blocks": {
         "log": "minecraft:crimson_stem",
@@ -683,6 +704,7 @@
       }
     },
     "village_nether_warped": {
+      "loot": "dimensionstructurevariants:chests/village_nether_warped",
       "extends": "village_nether",
       "blocks": {
         "log": "minecraft:warped_stem",
@@ -711,6 +733,7 @@
       }
     },
     "village_nether_soul": {
+      "loot": "dimensionstructurevariants:chests/village_nether_soul",
       "extends": "village_nether",
       "blocks": {
         "brick": "minecraft:blackstone",
@@ -737,11 +760,11 @@
       },
       "ground": {
         "minecraft:soul_soil": 6,
-        "minecraft:soul_sand": 3,
-        "minecraft:bone_block": 1
+        "minecraft:soul_sand": 3
       }
     },
     "village_nether_basalt": {
+      "loot": "dimensionstructurevariants:chests/village_nether_basalt",
       "extends": "village_nether",
       "blocks": {
         "brick": "minecraft:polished_blackstone",
@@ -770,14 +793,14 @@
       },
       "ground": {
         "minecraft:blackstone": 8,
-        "minecraft:basalt": 3,
-        "minecraft:gilded_blackstone": 1
+        "minecraft:basalt": 3
       }
     }
   },
   "structures": {
     "fortress_overworld": {
       "roles": "fortress",
+      "monsters_from_biome": true,
       "default": "fortress_grass",
       "biomes": [
         {
@@ -885,6 +908,7 @@
     },
     "fortress_end": {
       "roles": "fortress",
+      "monsters_from_biome": true,
       "default": "fortress_end",
       "biomes": [
         {
@@ -897,6 +921,7 @@
     },
     "bastion_overworld": {
       "roles": "bastion",
+      "monsters_from_biome": true,
       "default": "bastion_ocean",
       "biomes": [
         {
@@ -927,6 +952,7 @@
     },
     "bastion_end": {
       "roles": "bastion",
+      "monsters_from_biome": true,
       "default": "bastion_end",
       "biomes": [
         {

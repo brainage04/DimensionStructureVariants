@@ -95,8 +95,8 @@ public final class DimensionStructureVariantsGameTest {
     }
 
     @GameTest
-    public void rareBlocksStayAtAboutOnePercent(GameTestHelper helper) {
-        PaletteGameTests.rareBlocksStayAtAboutOnePercent(helper);
+    public void rareBlocksKeepTheirShare(GameTestHelper helper) {
+        PaletteGameTests.rareBlocksKeepTheirShare(helper);
     }
 
     @GameTest(maxTicks = 200)
@@ -107,5 +107,50 @@ public final class DimensionStructureVariantsGameTest {
     @GameTest(maxTicks = 200)
     public void netherVillageFarmsUseSoulSandAndKeepComposters(GameTestHelper helper) {
         NetherVillageGameTests.netherVillageFarmsUseSoulSandAndKeepComposters(helper);
+    }
+
+    @GameTest
+    public void badlandsFortressUsesNoTerracotta(GameTestHelper helper) {
+        PaletteGameTests.badlandsFortressUsesNoTerracotta(helper);
+    }
+
+    @GameTest
+    public void villageGroundHoldsNoBoneOrGildedBlocks(GameTestHelper helper) {
+        PaletteGameTests.villageGroundHoldsNoBoneOrGildedBlocks(helper);
+    }
+
+    @GameTest(maxTicks = 200)
+    public void jungleFortressesGrowVines(GameTestHelper helper) {
+        PaletteGameTests.jungleFortressesGrowVines(helper);
+    }
+
+    @GameTest
+    public void everyMovedStructureNamesItsOwnLootTable(GameTestHelper helper) {
+        LootAndMobGameTests.everyMovedStructureNamesItsOwnLootTable(helper);
+    }
+
+    @GameTest(maxTicks = 200)
+    public void movedStructuresPlaceTheirOwnLoot(GameTestHelper helper) {
+        LootAndMobGameTests.movedStructuresPlaceTheirOwnLoot(helper);
+    }
+
+    @GameTest(maxTicks = 200)
+    public void fortressThroneSpawnerTakesAMonsterOfItsBiome(GameTestHelper helper) {
+        LootAndMobGameTests.fortressThroneSpawnerTakesAMonsterOfItsBiome(helper);
+    }
+
+    @GameTest(maxTicks = 200)
+    public void bastionMobsAreTheBiomesMonsters(GameTestHelper helper) {
+        LootAndMobGameTests.bastionMobsAreTheBiomesMonsters(helper);
+    }
+
+    @GameTest(maxTicks = 200)
+    public void placedBastionsHoldNoNetherMob(GameTestHelper helper) {
+        LootAndMobGameTests.placedBastionsHoldNoNetherMob(helper);
+    }
+
+    @GameTest(maxTicks = 400)
+    public void endIslandStartsSitOnAnIslandThatReachesThem(GameTestHelper helper) {
+        SolidGroundGameTests.endIslandStartsSitOnAnIslandThatReachesThem(helper);
     }
 }

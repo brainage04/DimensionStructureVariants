@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 400,
+  "type": "minecraft:function",
+  "function": "dimensionstructurevariants:end_island_starts_sit_on_an_island_that_reaches_them"
+}

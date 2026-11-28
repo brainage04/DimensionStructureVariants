@@ -19,6 +19,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.commands.FillBiomeCommand;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.StructureManager;
@@ -45,6 +46,12 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
 
 /** Runs the production palette tables and placement mixins on both loaders. */
 public final class PaletteGameTests {
+    private static final int SNOWY_SNOW_PERCENT = 2;
+    private static final int OCEAN_DARK_PERCENT = 3;
+
+    /** Fewer vines than this on a whole jungle fortress would not be "here and there". */
+    private static final int MIN_JUNGLE_VINES = 20;
+
     private PaletteGameTests() {}
 
     public static void fenceConnectionsSurviveWallConversion(GameTestHelper helper) {
@@ -592,39 +599,44 @@ public final class PaletteGameTests {
     }
 
     /**
-     * Each role that carries a rare block gives it to about 1 block in 100: a seeded sample over
-     * 16384 positions stays inside 0.3 to 2 per cent. The snowy fortress puts snow in its walls,
-     * fill and bridge pieces; the ocean fortress puts dark prismarine in its blocks, stairs, slabs
-     * and fill.
+     * Each role that carries a rare block gives it its share: a seeded sample over 16384 positions
+     * stays within one percentage point of {@link #SNOWY_SNOW_PERCENT} for the snowy fortress's
+     * snow (walls, fill and bridge pieces) and of {@link #OCEAN_DARK_PERCENT} for the ocean
+     * fortress's dark prismarine (blocks, stairs, slabs and fill).
      */
-    public static void rareBlocksStayAtAboutOnePercent(GameTestHelper helper) {
+    public static void rareBlocksKeepTheirShare(GameTestHelper helper) {
         StructurePalettes.Palette snowy =
                 palette(helper, "fortress_overworld", Biomes.SNOWY_PLAINS);
         StructurePalettes.Palette ocean = palette(helper, "fortress_overworld", Biomes.OCEAN);
         BlockState brick = Blocks.NETHER_BRICKS.defaultBlockState();
         BlockState fill = Blocks.NETHERRACK.defaultBlockState();
-        assertRareShare(helper, "snowy walls", snowy, brick, Blocks.SNOW_BLOCK);
-        assertRareShare(helper, "snowy fill", snowy, fill, Blocks.SNOW_BLOCK);
+        assertRareShare(helper, "snowy walls", snowy, brick, Blocks.SNOW_BLOCK, SNOWY_SNOW_PERCENT);
+        assertRareShare(helper, "snowy fill", snowy, fill, Blocks.SNOW_BLOCK, SNOWY_SNOW_PERCENT);
         Identifier previous = StructurePalettes.pushPiece(Identifier.withDefaultNamespace("nebs"));
         try {
-            assertRareShare(helper, "snowy bridges", snowy, brick, Blocks.SNOW_BLOCK);
+            assertRareShare(
+                    helper, "snowy bridges", snowy, brick, Blocks.SNOW_BLOCK, SNOWY_SNOW_PERCENT);
         } finally {
             StructurePalettes.restorePiece(previous);
         }
-        assertRareShare(helper, "ocean walls", ocean, brick, Blocks.DARK_PRISMARINE);
+        assertRareShare(
+                helper, "ocean walls", ocean, brick, Blocks.DARK_PRISMARINE, OCEAN_DARK_PERCENT);
         assertRareShare(
                 helper,
                 "ocean stairs",
                 ocean,
                 Blocks.NETHER_BRICK_STAIRS.defaultBlockState(),
-                Blocks.DARK_PRISMARINE_STAIRS);
+                Blocks.DARK_PRISMARINE_STAIRS,
+                OCEAN_DARK_PERCENT);
         assertRareShare(
                 helper,
                 "ocean slabs",
                 ocean,
                 Blocks.NETHER_BRICK_SLAB.defaultBlockState(),
-                Blocks.DARK_PRISMARINE_SLAB);
-        assertRareShare(helper, "ocean fill", ocean, fill, Blocks.DARK_PRISMARINE);
+                Blocks.DARK_PRISMARINE_SLAB,
+                OCEAN_DARK_PERCENT);
+        assertRareShare(
+                helper, "ocean fill", ocean, fill, Blocks.DARK_PRISMARINE, OCEAN_DARK_PERCENT);
         helper.succeed();
     }
 
@@ -633,7 +645,8 @@ public final class PaletteGameTests {
             String what,
             StructurePalettes.Palette palette,
             BlockState source,
-            Block rare) {
+            Block rare,
+            int percent) {
         int hits = 0;
         int sampled = 0;
         for (BlockPos pos : BlockPos.betweenClosed(0, 64, 0, 63, 67, 63)) {
@@ -641,27 +654,29 @@ public final class PaletteGameTests {
             if (palette.remap(source, pos).is(rare)) hits++;
         }
         helper.assertTrue(
-                hits * 1000 >= sampled * 3 && hits * 100 <= sampled * 2,
+                hits * 100 >= sampled * (percent - 1) && hits * 100 <= sampled * (percent + 1),
                 what
                         + " must hold "
                         + rare
-                        + " in about 1 block in 100, got "
+                        + " in about "
+                        + percent
+                        + " blocks in 100, got "
                         + hits
                         + " of "
                         + sampled);
     }
 
     /**
-     * The snowy fortress builds its walls of packed ice, its bridges of blue ice, and puts about 1
-     * block in 100 of snow among them; its windows are ice, the one of the four that the game draws
-     * translucent (its texture has an alpha of 190, the others 255; {@code SpriteContents.java:82},
-     * {@code BakedQuad.java:76}). The counts come from a fortress placed in a snowy plains, not
-     * from the palette alone.
+     * The snowy fortress builds its walls of packed ice, its bridges of blue ice, and puts about
+     * {@link #SNOWY_SNOW_PERCENT} blocks in 100 of snow among them; its windows are ice, the one of
+     * the four that the game draws translucent (its texture has an alpha of 190, the others 255;
+     * {@code SpriteContents.java:82}, {@code BakedQuad.java:76}). The counts come from a fortress
+     * placed in a snowy plains, not from the palette alone.
      */
     public static void snowyFortressWeightsBlocksByStrength(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ChunkPos chunk = new ChunkPos(1200, 1200);
-        StructureStart start = fortressStart(helper, level, chunk);
+        StructureStart start = start(helper, level, "fortress_overworld", chunk);
         BoundingBox box = start.getBoundingBox();
         List<ChunkPos> chunks = chunks(box);
         for (ChunkPos each : chunks) {
@@ -714,8 +729,11 @@ public final class PaletteGameTests {
                 packed > 0 && blue > 0,
                 "The snowy fortress must hold packed ice and blue ice, got " + counts);
         helper.assertTrue(
-                snow * 1000 >= walls * 3 && snow * 100 <= walls * 3,
-                "Snow must stay at about 1 block in 100 of the snowy fortress, got "
+                snow * 100 >= walls * (SNOWY_SNOW_PERCENT - 1)
+                        && snow * 100 <= walls * (SNOWY_SNOW_PERCENT + 1),
+                "Snow must stay at about "
+                        + SNOWY_SNOW_PERCENT
+                        + " blocks in 100 of the snowy fortress, got "
                         + snow
                         + " of "
                         + walls
@@ -736,7 +754,7 @@ public final class PaletteGameTests {
     public static void placedFortressWearsTheAccentInItsPieces(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         ChunkPos chunk = new ChunkPos(1300, 1300);
-        StructureStart start = fortressStart(helper, level, chunk);
+        StructureStart start = start(helper, level, "fortress_overworld", chunk);
         BoundingBox box = start.getBoundingBox();
         List<ChunkPos> chunks = chunks(box);
         for (ChunkPos each : chunks) {
@@ -789,37 +807,166 @@ public final class PaletteGameTests {
         helper.succeed();
     }
 
-    /** A fortress_overworld start in {@code chunk}, generated as natural generation does. */
-    private static StructureStart fortressStart(
-            GameTestHelper helper, ServerLevel level, ChunkPos chunk) {
-        Holder<Structure> structure =
+    /**
+     * The badlands fortress builds of the red sandstone family alone, as the desert fortress builds
+     * of sandstone: terracotta of any colour would add a second colour to the walls (owner, 28 Nov
+     * 2026).
+     */
+    public static void badlandsFortressUsesNoTerracotta(GameTestHelper helper) {
+        StructurePalettes.Palette palette = palette(helper, "fortress_overworld", Biomes.BADLANDS);
+        for (BlockState target : palette.targets()) {
+            helper.assertTrue(
+                    !target.is(BlockTags.TERRACOTTA),
+                    "The badlands fortress must place no terracotta, found " + target);
+        }
+        StructurePalettes.Choice walls =
+                palette.choiceFor(Blocks.NETHER_BRICKS.defaultBlockState());
+        for (BlockState wall : walls.states()) {
+            helper.assertTrue(
+                    BuiltInRegistries.BLOCK.getKey(wall.getBlock()).getPath().contains("sandstone"),
+                    "The badlands fortress must build its walls of sandstone, found " + wall);
+        }
+        helper.succeed();
+    }
+
+    /**
+     * The soul sand valley village lays soul soil and soul sand and no bone block, and the basalt
+     * deltas village lays no gilded blackstone, among the blocks its ground still mixes (owner, 28
+     * Nov 2026).
+     */
+    public static void villageGroundHoldsNoBoneOrGildedBlocks(GameTestHelper helper) {
+        assertGroundBlocks(
+                helper,
+                Biomes.SOUL_SAND_VALLEY,
+                List.of(Blocks.SOUL_SOIL, Blocks.SOUL_SAND),
+                List.of(Blocks.BONE_BLOCK));
+        assertGroundBlocks(
+                helper,
+                Biomes.BASALT_DELTAS,
+                List.of(Blocks.BLACKSTONE, Blocks.BASALT),
+                List.of(Blocks.GILDED_BLACKSTONE));
+        helper.succeed();
+    }
+
+    private static void assertGroundBlocks(
+            GameTestHelper helper,
+            ResourceKey<Biome> biome,
+            List<Block> expected,
+            List<Block> forbidden) {
+        StructurePalettes.Palette palette = palette(helper, "village_nether", biome);
+        Set<BlockState> placed = new HashSet<>(palette.targets());
+        placed.addAll(palette.ground().states());
+        for (Block block : expected) {
+            helper.assertTrue(
+                    palette.ground().states().contains(block.defaultBlockState()),
+                    "The village in " + biome.identifier() + " must lay " + block);
+        }
+        for (Block block : forbidden) {
+            helper.assertTrue(
+                    placed.stream().noneMatch(state -> state.is(block)),
+                    "The village in " + biome.identifier() + " must place no " + block);
+        }
+    }
+
+    /**
+     * A fortress placed in a jungle grows vines on its walls, each one supported where the game's
+     * own vine rule keeps it; the swamp and plains fortresses grow none (owner, 28 Nov 2026: "just
+     * for the jungle ones").
+     */
+    public static void jungleFortressesGrowVines(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        int x = 1500;
+        for (ResourceKey<Biome> biome :
+                List.<ResourceKey<Biome>>of(
+                        Biomes.JUNGLE, Biomes.SWAMP, Biomes.PLAINS, Biomes.BADLANDS)) {
+            ChunkPos chunk = new ChunkPos(x, 1500);
+            x += 40;
+            StructureStart start = start(helper, level, "fortress_overworld", chunk);
+            BoundingBox box = start.getBoundingBox().inflatedBy(1);
+            List<ChunkPos> chunks = chunks(box);
+            for (ChunkPos each : chunks) {
+                level.setChunkForced(each.x(), each.z(), true);
+                level.getChunk(each.x(), each.z());
+            }
+            fillBiome(helper, level, box, biome);
+            for (ChunkPos each : chunks) place(level, start, each);
+            int vines = 0;
+            for (BlockPos pos :
+                    BlockPos.betweenClosed(
+                            box.minX(),
+                            box.minY(),
+                            box.minZ(),
+                            box.maxX(),
+                            box.maxY(),
+                            box.maxZ())) {
+                BlockState state = level.getBlockState(pos);
+                if (!state.is(Blocks.VINE)) continue;
+                vines++;
+                helper.assertTrue(
+                        state.canSurvive(level, pos), "The vine at " + pos + " must stay attached");
+            }
+            for (ChunkPos each : chunks) level.setChunkForced(each.x(), each.z(), false);
+            System.out.println("[DSV] Fortress vines in " + biome.identifier() + ": " + vines);
+            if (biome == Biomes.JUNGLE) {
+                helper.assertTrue(
+                        vines >= MIN_JUNGLE_VINES,
+                        "The jungle fortress must grow at least "
+                                + MIN_JUNGLE_VINES
+                                + " vines, got "
+                                + vines);
+            } else {
+                helper.assertTrue(
+                        vines == 0,
+                        "The fortress in "
+                                + biome.identifier()
+                                + " must grow no vines, got "
+                                + vines);
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A start of variant {@code id} in {@code chunk}, assembled as {@code Structure.generate} does
+     * ({@code Structure.java:99-107}) without the island check of {@link SolidGround}, which a flat
+     * test world cannot satisfy.
+     */
+    static StructureStart start(
+            GameTestHelper helper, ServerLevel level, String id, ChunkPos chunk) {
+        Structure structure =
                 level.registryAccess()
                         .lookupOrThrow(Registries.STRUCTURE)
                         .getOrThrow(
                                 ResourceKey.create(
-                                        Registries.STRUCTURE,
-                                        DimensionStructureVariants.of("fortress_overworld")));
+                                        Registries.STRUCTURE, DimensionStructureVariants.of(id)))
+                        .value();
         ChunkGenerator generator = level.getChunkSource().getGenerator();
         var randomState = level.getChunkSource().randomState();
+        Structure.GenerationContext context =
+                new Structure.GenerationContext(
+                        level.registryAccess(),
+                        generator,
+                        generator.getBiomeSource(),
+                        randomState.createClimateSampler(
+                                SamplerContext.builder().enableCaches().build()),
+                        randomState,
+                        level.getStructureTemplateManager(),
+                        level.getSeed(),
+                        chunk,
+                        level,
+                        biome -> true);
         StructureStart start =
                 structure
-                        .value()
-                        .generate(
-                                structure,
-                                level.dimension(),
-                                level.registryAccess(),
-                                generator,
-                                generator.getBiomeSource(),
-                                randomState.createClimateSampler(
-                                        SamplerContext.builder().enableCaches().build()),
-                                randomState,
-                                level.getStructureTemplateManager(),
-                                level.getSeed(),
-                                chunk,
-                                0,
-                                level,
-                                biome -> true);
-        helper.assertTrue(start.isValid(), "fortress_overworld generated no pieces");
+                        .findValidGenerationPoint(context)
+                        .map(
+                                stub ->
+                                        new StructureStart(
+                                                structure,
+                                                chunk,
+                                                0,
+                                                stub.getPiecesBuilder().build()))
+                        .orElse(StructureStart.INVALID_START);
+        helper.assertTrue(start.isValid(), id + " generated no pieces");
         return start;
     }
 
@@ -829,7 +976,7 @@ public final class PaletteGameTests {
      * FillBiomeCommand.java:127-130}) and rounds each corner down to a quart boundary ({@code
      * :83-89}), so the box goes in cubes small enough to stay under the limit once rounded.
      */
-    private static void fillBiome(
+    static void fillBiome(
             GameTestHelper helper, ServerLevel level, BoundingBox box, ResourceKey<Biome> biome) {
         Holder<Biome> holder =
                 level.registryAccess().lookupOrThrow(Registries.BIOME).getOrThrow(biome);
@@ -861,7 +1008,7 @@ public final class PaletteGameTests {
         }
     }
 
-    private static List<ChunkPos> chunks(BoundingBox box) {
+    static List<ChunkPos> chunks(BoundingBox box) {
         List<ChunkPos> chunks = new ArrayList<>();
         ChunkPos.rangeClosed(
                         ChunkPos.containing(new BlockPos(box.minX(), 0, box.minZ())),
@@ -870,7 +1017,7 @@ public final class PaletteGameTests {
         return chunks;
     }
 
-    private static void place(ServerLevel level, StructureStart start, ChunkPos chunk) {
+    static void place(ServerLevel level, StructureStart start, ChunkPos chunk) {
         start.placeInChunk(
                 level,
                 level.structureManager(),

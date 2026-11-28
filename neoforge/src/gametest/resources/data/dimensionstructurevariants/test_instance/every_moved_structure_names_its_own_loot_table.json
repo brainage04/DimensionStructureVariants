@@ -1,0 +1,7 @@
+{
+  "environment": "minecraft:default",
+  "structure": "minecraftmodconventions:empty",
+  "max_ticks": 20,
+  "type": "minecraft:function",
+  "function": "dimensionstructurevariants:every_moved_structure_names_its_own_loot_table"
+}
