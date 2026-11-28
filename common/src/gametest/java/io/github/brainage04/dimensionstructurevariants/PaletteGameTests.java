@@ -926,35 +926,46 @@ public final class PaletteGameTests {
         helper.succeed();
     }
 
-    /** A start of variant {@code id} in {@code chunk}, generated as natural generation does. */
+    /**
+     * A start of variant {@code id} in {@code chunk}, assembled as {@code Structure.generate} does
+     * ({@code Structure.java:99-107}) without the island check of {@link SolidGround}, which a flat
+     * test world cannot satisfy.
+     */
     static StructureStart start(
             GameTestHelper helper, ServerLevel level, String id, ChunkPos chunk) {
-        Holder<Structure> structure =
+        Structure structure =
                 level.registryAccess()
                         .lookupOrThrow(Registries.STRUCTURE)
                         .getOrThrow(
                                 ResourceKey.create(
-                                        Registries.STRUCTURE, DimensionStructureVariants.of(id)));
+                                        Registries.STRUCTURE, DimensionStructureVariants.of(id)))
+                        .value();
         ChunkGenerator generator = level.getChunkSource().getGenerator();
         var randomState = level.getChunkSource().randomState();
+        Structure.GenerationContext context =
+                new Structure.GenerationContext(
+                        level.registryAccess(),
+                        generator,
+                        generator.getBiomeSource(),
+                        randomState.createClimateSampler(
+                                SamplerContext.builder().enableCaches().build()),
+                        randomState,
+                        level.getStructureTemplateManager(),
+                        level.getSeed(),
+                        chunk,
+                        level,
+                        biome -> true);
         StructureStart start =
                 structure
-                        .value()
-                        .generate(
-                                structure,
-                                level.dimension(),
-                                level.registryAccess(),
-                                generator,
-                                generator.getBiomeSource(),
-                                randomState.createClimateSampler(
-                                        SamplerContext.builder().enableCaches().build()),
-                                randomState,
-                                level.getStructureTemplateManager(),
-                                level.getSeed(),
-                                chunk,
-                                0,
-                                level,
-                                biome -> true);
+                        .findValidGenerationPoint(context)
+                        .map(
+                                stub ->
+                                        new StructureStart(
+                                                structure,
+                                                chunk,
+                                                0,
+                                                stub.getPiecesBuilder().build()))
+                        .orElse(StructureStart.INVALID_START);
         helper.assertTrue(start.isValid(), id + " generated no pieces");
         return start;
     }

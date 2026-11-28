@@ -261,6 +261,14 @@ public final class LootAndMobGameTests {
             level.getChunk(c.x(), c.z());
         }
         PaletteGameTests.fillBiome(helper, level, box, biome);
+        discardMobs(level, box);
+    }
+
+    /** Generating a chunk spawns its animals; the tests count only the mobs a structure places. */
+    private static void discardMobs(ServerLevel level, BoundingBox box) {
+        for (Mob mob : level.getEntitiesOfClass(Mob.class, AABB.of(box).inflate(1.0D))) {
+            mob.discard();
+        }
     }
 
     private static String spawnerEntity(ServerLevel level, SpawnerBlockEntity spawner) {
@@ -494,6 +502,7 @@ public final class LootAndMobGameTests {
                     level.getChunk(c.x(), c.z());
                 }
                 PaletteGameTests.fillBiome(helper, level, box, each.biome());
+                discardMobs(level, box);
                 for (ChunkPos c : chunks) PaletteGameTests.place(level, start, c);
                 for (Mob mob : level.getEntitiesOfClass(Mob.class, AABB.of(box))) {
                     found++;

@@ -148,4 +148,9 @@ public final class DimensionStructureVariantsGameTest {
     public void placedBastionsHoldNoNetherMob(GameTestHelper helper) {
         LootAndMobGameTests.placedBastionsHoldNoNetherMob(helper);
     }
+
+    @GameTest(maxTicks = 400)
+    public void endIslandStartsSitOnAnIslandThatReachesThem(GameTestHelper helper) {
+        SolidGroundGameTests.endIslandStartsSitOnAnIslandThatReachesThem(helper);
+    }
 }

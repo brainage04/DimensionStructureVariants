@@ -146,5 +146,10 @@ public final class DimensionStructureVariantsNeoForgeGameTestRegistration {
                 BuiltInRegistries.TEST_FUNCTION.key(),
                 DimensionStructureVariants.of("placed_bastions_hold_no_nether_mob"),
                 () -> LootAndMobGameTests::placedBastionsHoldNoNetherMob);
+        event.register(
+                BuiltInRegistries.TEST_FUNCTION.key(),
+                DimensionStructureVariants.of(
+                        "end_island_starts_sit_on_an_island_that_reaches_them"),
+                () -> SolidGroundGameTests::endIslandStartsSitOnAnIslandThatReachesThem);
     }
 }

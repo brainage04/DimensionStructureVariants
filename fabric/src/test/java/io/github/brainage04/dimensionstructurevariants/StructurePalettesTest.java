@@ -212,6 +212,51 @@ class StructurePalettesTest {
         assertEquals("fortress_test names no default palette", failure.getMessage());
     }
 
+    /** A vine chance of 0 or less, or above 1, is no chance. */
+    @Example
+    void aVinesChanceOutsideZeroToOneFailsTheTable() {
+        for (String chance : List.of("0", "-0.5", "1.5")) {
+            assertThrows(
+                    IllegalStateException.class,
+                    () -> StructurePalettes.parse(paletteWith("\"vines\": " + chance)));
+        }
+        assertNotNull(StructurePalettes.parse(paletteWith("\"vines\": 0.03")));
+    }
+
+    @Example
+    void aMalformedLootTableIdFailsTheTable() {
+        assertThrows(
+                RuntimeException.class,
+                () -> StructurePalettes.parse(paletteWith("\"loot\": \"Not An Id\"")));
+        assertNotNull(StructurePalettes.parse(paletteWith("\"loot\": \"dsvtest:chests/stone\"")));
+    }
+
+    /** A biome that takes the default palette takes its loot table with it. */
+    @Example
+    void aDatapackNetherBiomeGetsTheDefaultPalettesLootTable() {
+        assertEquals(
+                DimensionStructureVariants.of("chests/village_nether"),
+                palette("village_nether", DATAPACK_NETHER_BIOME).lootTable().identifier());
+        assertEquals(
+                DimensionStructureVariants.of("chests/village_nether_crimson"),
+                palette("village_nether", Biomes.CRIMSON_FOREST).lootTable().identifier());
+    }
+
+    private static JsonObject paletteWith(String member) {
+        return JsonParser.parseString(
+                        """
+                        {
+                          "role_sets": {"fortress": {"minecraft:nether_bricks": "wall"}},
+                          "palettes": {"stone": {%s, "blocks": {"wall": "minecraft:stone_bricks"}}},
+                          "structures": {
+                            "fortress_test": {"roles": "fortress", "default": "stone", "biomes": []}
+                          }
+                        }
+                        """
+                                .formatted(member))
+                .getAsJsonObject();
+    }
+
     private static StructurePalettes.Palette palette(String variant, ResourceKey<Biome> biome) {
         return StructurePalettes.palette(DimensionStructureVariants.of(variant), BIOMES.get(biome));
     }
@@ -246,6 +291,7 @@ class StructurePalettesTest {
                         Biomes.OCEAN,
                         Biomes.WARM_OCEAN,
                         Biomes.NETHER_WASTES,
+                        Biomes.CRIMSON_FOREST,
                         DATAPACK_NETHER_BIOME)) {
             holders.put(
                     key, registry.register(key, allocate(Biome.class), RegistrationInfo.BUILT_IN));
