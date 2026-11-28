@@ -419,7 +419,11 @@ public final class LootAndMobGameTests {
                     BlockPos at = origin.offset(slot++ * TEMPLATE_SPACING, 0, 0);
                     helper.assertTrue(
                             level.getBiome(at).is(each.biome()),
-                            where + ": the slot at " + at + " lies in " + level.getBiome(at).unwrapKey());
+                            where
+                                    + ": the slot at "
+                                    + at
+                                    + " lies in "
+                                    + level.getBiome(at).unwrapKey());
                     template.placeInWorld(
                             level,
                             at,
