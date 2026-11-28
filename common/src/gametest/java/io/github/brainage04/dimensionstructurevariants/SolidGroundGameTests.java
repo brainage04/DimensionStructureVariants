@@ -108,10 +108,10 @@ public final class SolidGroundGameTests {
     }
 
     /**
-     * A generated End island start keeps the island under its footprint and under the reach of
-     * its terrain adaptation, so adaptation has no island to stretch (owner, 28 Nov 2026: the End bastion "had to extend the island for all of
-     * it to fit"). The sampled chunks hold starts at an island's edge that the footprint check
-     * rejects: the start point alone accepts them.
+     * A generated End island start keeps the island under its footprint and under the reach of its
+     * terrain adaptation, so adaptation has no island to stretch (owner, 28 Nov 2026: the End
+     * bastion "had to extend the island for all of it to fit"). The sampled chunks hold starts at
+     * an island's edge that the footprint check rejects: the start point alone accepts them.
      */
     public static void endIslandStartsSitOnAnIslandThatReachesThem(GameTestHelper helper) {
         ServerLevel end = helper.getLevel().getServer().getLevel(Level.END);
@@ -172,11 +172,11 @@ public final class SolidGroundGameTests {
             helper.assertTrue(
                     reaching > 0, key.identifier() + " must still start on some sampled island");
             helper.assertTrue(
-                        perched > 0,
-                        key.identifier()
-                                + " must have a sampled start on an island that does not reach it,"
-                                + " reaching "
-                                + reaching);
+                    perched > 0,
+                    key.identifier()
+                            + " must have a sampled start on an island that does not reach it,"
+                            + " reaching "
+                            + reaching);
         }
         helper.succeed();
     }
