@@ -95,6 +95,12 @@ public final class LootAndMobGameTests {
     /** Natural starts to try for one variant before a start without a chest fails the test. */
     private static final int START_ATTEMPTS = 10;
 
+    /**
+     * Ticks a freshly loaded chunk needs to become accessible to entity queries; an entity added
+     * before that is not found.
+     */
+    private static final int CHUNK_PROMOTION_TICKS = 10;
+
     private static final List<EntityType<?>> NETHER_MOBS =
             List.of(
                     EntityTypes.PIGLIN,
@@ -261,7 +267,6 @@ public final class LootAndMobGameTests {
             level.getChunk(c.x(), c.z());
         }
         PaletteGameTests.fillBiome(helper, level, box, biome);
-        discardMobs(level, box);
     }
 
     /** Generating a chunk spawns its animals; the tests count only the mobs a structure places. */
@@ -364,17 +369,29 @@ public final class LootAndMobGameTests {
      */
     public static void bastionMobsAreTheBiomesMonsters(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        int row = 0;
         List<Case> cases =
                 List.of(
                         new Case("bastion_overworld", Biomes.OCEAN, ""),
                         new Case("bastion_overworld", Biomes.FROZEN_OCEAN, ""),
                         new Case("bastion_end", Biomes.END_HIGHLANDS, ""),
                         new Case("bastion_overworld", Biomes.MUSHROOM_FIELDS, ""));
+        for (int row = 0; row < cases.size(); row++) {
+            prepare(helper, level, mobOrigin(row), cases.get(row).biome());
+        }
+        helper.runAfterDelay(CHUNK_PROMOTION_TICKS, () -> checkBastionMobs(helper, level, cases));
+    }
+
+    private static BlockPos mobOrigin(int row) {
+        return new BlockPos(4000 + row * 64, 70, 4000);
+    }
+
+    private static void checkBastionMobs(
+            GameTestHelper helper, ServerLevel level, List<Case> cases) {
+        int row = 0;
         for (Case each : cases) {
-            BlockPos origin = new BlockPos(4000 + row * 64, 70, 4000);
+            BlockPos origin = mobOrigin(row);
             row++;
-            prepare(helper, level, origin, each.biome());
+            discardMobs(level, new BoundingBox(origin).inflatedBy(PREPARED_RADIUS));
             List<EntityType<?>> monsters = monsters(level, origin);
             String where = each.variant() + " in " + each.biome().identifier();
             StructurePalettes.Palette previous =
@@ -486,24 +503,45 @@ public final class LootAndMobGameTests {
      */
     public static void placedBastionsHoldNoNetherMob(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        int row = 0;
-        for (Case each :
+        List<Case> cases =
                 List.of(
                         new Case("bastion_overworld", Biomes.OCEAN, ""),
-                        new Case("bastion_end", Biomes.END_HIGHLANDS, ""))) {
-            int found = 0;
-            for (int attempt = 0; attempt < START_ATTEMPTS && found == 0; attempt++) {
+                        new Case("bastion_end", Biomes.END_HIGHLANDS, ""));
+        List<List<StructureStart>> attempts = new ArrayList<>();
+        for (int row = 0; row < cases.size(); row++) {
+            List<StructureStart> starts = new ArrayList<>();
+            for (int attempt = 0; attempt < START_ATTEMPTS; attempt++) {
                 ChunkPos chunk = new ChunkPos(5000 + row * CHUNK_SPACING, 5000 + attempt * 40);
-                StructureStart start = PaletteGameTests.start(helper, level, each.variant(), chunk);
-                BoundingBox box = start.getBoundingBox();
-                List<ChunkPos> chunks = PaletteGameTests.chunks(box);
-                for (ChunkPos c : chunks) {
+                StructureStart start =
+                        PaletteGameTests.start(helper, level, cases.get(row).variant(), chunk);
+                for (ChunkPos c : PaletteGameTests.chunks(start.getBoundingBox())) {
                     level.setChunkForced(c.x(), c.z(), true);
                     level.getChunk(c.x(), c.z());
                 }
-                PaletteGameTests.fillBiome(helper, level, box, each.biome());
+                PaletteGameTests.fillBiome(
+                        helper, level, start.getBoundingBox(), cases.get(row).biome());
+                starts.add(start);
+            }
+            attempts.add(starts);
+        }
+        helper.runAfterDelay(
+                CHUNK_PROMOTION_TICKS, () -> checkPlacedBastions(helper, level, cases, attempts));
+    }
+
+    private static void checkPlacedBastions(
+            GameTestHelper helper,
+            ServerLevel level,
+            List<Case> cases,
+            List<List<StructureStart>> attempts) {
+        for (int row = 0; row < cases.size(); row++) {
+            Case each = cases.get(row);
+            int found = 0;
+            for (StructureStart start : attempts.get(row)) {
+                BoundingBox box = start.getBoundingBox();
                 discardMobs(level, box);
-                for (ChunkPos c : chunks) PaletteGameTests.place(level, start, c);
+                for (ChunkPos c : PaletteGameTests.chunks(box)) {
+                    PaletteGameTests.place(level, start, c);
+                }
                 for (Mob mob : level.getEntitiesOfClass(Mob.class, AABB.of(box))) {
                     found++;
                     helper.assertTrue(
@@ -517,12 +555,16 @@ public final class LootAndMobGameTests {
                                     + ", not a monster of its biome");
                     mob.discard();
                 }
-                for (ChunkPos c : chunks) level.setChunkForced(c.x(), c.z(), false);
+                if (found > 0) break;
             }
             helper.assertTrue(
                     found > 0,
                     each.variant() + " placed no mob in " + START_ATTEMPTS + " natural starts");
-            row++;
+            for (StructureStart start : attempts.get(row)) {
+                for (ChunkPos c : PaletteGameTests.chunks(start.getBoundingBox())) {
+                    level.setChunkForced(c.x(), c.z(), false);
+                }
+            }
         }
         helper.succeed();
     }
