@@ -108,10 +108,9 @@ public final class SolidGroundGameTests {
     }
 
     /**
-     * A generated End island start keeps the island's surface within reach of the structure over
-     * all but {@code SolidGround.MAX_LOW_SHARE} of its footprint, so terrain adaptation has no
-     * island to stretch (owner, 28 Nov 2026: the End bastion "had to extend the island for all of
-     * it to fit"). The sampled chunks hold fortress starts over the void that the footprint check
+     * A generated End island start keeps the island under its footprint and under the reach of
+     * its terrain adaptation, so adaptation has no island to stretch (owner, 28 Nov 2026: the End bastion "had to extend the island for all of
+     * it to fit"). The sampled chunks hold starts at an island's edge that the footprint check
      * rejects: the start point alone accepts them.
      */
     public static void endIslandStartsSitOnAnIslandThatReachesThem(GameTestHelper helper) {
@@ -125,7 +124,6 @@ public final class SolidGroundGameTests {
             Holder<Structure> structure = structures.getOrThrow(key);
             int reaching = 0;
             int perched = 0;
-            double maxShare = 0.0D;
             for (ChunkPos chunk : sampleChunks()) {
                 Optional<Structure.GenerationStub> stub =
                         structure.value().findValidGenerationPoint(context(end, chunk));
@@ -165,10 +163,6 @@ public final class SolidGroundGameTests {
                                 + (reaches
                                         ? " has an island that reaches it but was refused"
                                         : " has an island that does not reach it but was accepted"));
-                maxShare =
-                        Math.max(
-                                maxShare,
-                                SolidGround.lowShare(assembled, generator, end, randomState));
                 if (reaches) {
                     reaching++;
                 } else {
@@ -177,16 +171,12 @@ public final class SolidGroundGameTests {
             }
             helper.assertTrue(
                     reaching > 0, key.identifier() + " must still start on some sampled island");
-            if (key.identifier().getPath().equals("fortress_end")) {
-                helper.assertTrue(
+            helper.assertTrue(
                         perched > 0,
                         key.identifier()
                                 + " must have a sampled start on an island that does not reach it,"
                                 + " reaching "
-                                + reaching
-                                + ", largest low share "
-                                + maxShare);
-            }
+                                + reaching);
         }
         helper.succeed();
     }

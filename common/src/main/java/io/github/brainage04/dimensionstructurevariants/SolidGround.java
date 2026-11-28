@@ -11,6 +11,7 @@ import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
+import net.minecraft.world.level.levelgen.structure.TerrainAdjustment;
 
 /**
  * Keeps floating-island variants off the void. Jigsaw structures project their start onto the
@@ -33,18 +34,15 @@ public final class SolidGround {
     /** One column in this many blocks is sampled across each piece's footprint. */
     private static final int PIECE_SAMPLE_STEP = 8;
 
-    /**
-     * How far below the structure's lowest block the island's surface may lie in a column before
-     * the column counts as low. Terrain adaptation fills a low column up to the structure, which is
-     * what stretches a small island to hold a large structure. Measured on 14 End bastions
-     * generated with the mod's earlier rule (28 Nov 2026): 12 blocks separates the 7 that sat on
-     * their island (0 to 6 percent of the footprint lower) from the 7 that perched on it (54 to 84
-     * percent lower); every End village and the larger fortresses fall under the share below.
-     */
-    static final int MAX_DROP = 12;
+    /** How far terrain adaptation reaches out from a piece ({@code Structure.java:81}). */
+    private static final int ADAPTATION_REACH = 12;
 
-    /** The share of sampled footprint columns that may be low. */
-    static final double MAX_LOW_SHARE = 0.35D;
+    /**
+     * The share of a structure's footprint that may lie over the void when terrain adaptation does
+     * not fill it. Measured on 8 End fortresses (28 Nov 2026): 4 had 29 to 37 percent of their
+     * footprint over the void, the other 4 had 44 to 71 percent.
+     */
+    static final double MAX_OVERHANG_WITHOUT_ADAPTATION = 0.4D;
 
     private SolidGround() {}
 
@@ -81,35 +79,24 @@ public final class SolidGround {
     }
 
     /**
-     * Whether the island under a generated start reaches up to the structure over all but {@link
-     * #MAX_LOW_SHARE} of its footprint, so terrain adaptation has no island to stretch.
+     * Whether the island under a generated start holds its footprint. Terrain adaptation grows
+     * terrain within 12 blocks of every piece ({@code Structure.java:80-82}), which stretches an
+     * island that ends under the structure, so a start whose adaptation would reach into the void
+     * is refused. A structure without adaptation may overhang by {@link
+     * #MAX_OVERHANG_WITHOUT_ADAPTATION} of its footprint.
      */
     public static boolean isLevelUnder(
             StructureStart start,
             ChunkGenerator generator,
             LevelHeightAccessor heightAccessor,
             RandomState randomState) {
-        return lowShare(start, generator, heightAccessor, randomState) <= MAX_LOW_SHARE;
-    }
-
-    /**
-     * The share of sampled footprint columns whose surface lies more than {@link #MAX_DROP} under
-     * the lowest piece. The start's own bounding box is no base: the structure inflates it by the
-     * terrain adaptation's kernel ({@code StructureStart.java:72}).
-     */
-    static double lowShare(
-            StructureStart start,
-            ChunkGenerator generator,
-            LevelHeightAccessor heightAccessor,
-            RandomState randomState) {
-        int base = Integer.MAX_VALUE;
-        for (StructurePiece piece : start.getPieces()) {
-            base = Math.min(base, piece.getBoundingBox().minY());
-        }
+        boolean adapted = start.getStructure().terrainAdaptation() != TerrainAdjustment.NONE;
+        int reach = adapted ? ADAPTATION_REACH : 0;
+        int floor = heightAccessor.getMinY();
         int sampled = 0;
-        int low = 0;
+        int overVoid = 0;
         for (StructurePiece piece : start.getPieces()) {
-            BoundingBox box = piece.getBoundingBox();
+            BoundingBox box = piece.getBoundingBox().inflatedBy(reach, 0, reach);
             for (int x = box.minX(); x <= box.maxX(); x += PIECE_SAMPLE_STEP) {
                 for (int z = box.minZ(); z <= box.maxZ(); z += PIECE_SAMPLE_STEP) {
                     sampled++;
@@ -120,10 +107,10 @@ public final class SolidGround {
                                     Heightmap.Types.WORLD_SURFACE_WG,
                                     heightAccessor,
                                     randomState);
-                    if (surface < base - MAX_DROP) low++;
+                    if (surface <= floor) overVoid++;
                 }
             }
         }
-        return sampled == 0 ? 0.0D : (double) low / sampled;
+        return overVoid <= sampled * (adapted ? 0.0D : MAX_OVERHANG_WITHOUT_ADAPTATION);
     }
 }
